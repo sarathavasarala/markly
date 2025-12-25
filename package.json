@@ -1,0 +1,17 @@
+{
+  "name": "markly",
+  "version": "1.0.0",
+  "description": "Smart Bookmark Library - LLM-enriched bookmark manager",
+  "scripts": {
+    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && FLASK_APP=app:create_app ../.venv/bin/flask run --port 5050",
+    "frontend": "cd frontend && npm run dev",
+    "setup": "npm run setup:backend && npm run setup:frontend",
+    "setup:backend": "python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt",
+    "setup:frontend": "cd frontend && npm install",
+    "stop": "lsof -ti:5050 | xargs kill -9 2>/dev/null; lsof -ti:5173 | xargs kill -9 2>/dev/null"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
