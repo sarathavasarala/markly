@@ -87,7 +87,6 @@ export const bookmarksApi = {
     domain?: string
     content_type?: string
     tag?: string
-    collection_id?: string
     status?: string
     sort?: string
     order?: 'asc' | 'desc'
@@ -123,53 +122,6 @@ export const searchApi = {
       '/search/history',
       { params: { limit } }
     ),
-}
-
-// Collections API
-export interface Collection {
-  id: string
-  name: string
-  description: string | null
-  icon: string
-  color: string
-  created_at: string
-  updated_at: string
-  bookmark_count: number
-  bookmarks?: Bookmark[]
-}
-
-export interface CollectionProposal {
-  name: string
-  description: string
-  suggested_icon: string
-  bookmark_ids: string[]
-  bookmark_count: number
-  rationale: string
-}
-
-export const collectionsApi = {
-  list: () => api.get<{ collections: Collection[] }>('/collections'),
-  
-  get: (id: string) => api.get<Collection>(`/collections/${id}`),
-  
-  create: (data: { name: string; description?: string; icon?: string; color?: string }) =>
-    api.post<Collection>('/collections', data),
-  
-  update: (id: string, data: { name?: string; description?: string; icon?: string; color?: string }) =>
-    api.put<Collection>(`/collections/${id}`, data),
-  
-  delete: (id: string) => api.delete(`/collections/${id}`),
-  
-  removeBookmark: (collectionId: string, bookmarkId: string) =>
-    api.delete(`/collections/${collectionId}/bookmarks/${bookmarkId}`),
-  
-  generateProposals: () =>
-    api.post<{ proposals: CollectionProposal[] }>('/collections/generate'),
-  
-  acceptProposals: (proposals: CollectionProposal[]) =>
-    api.post<{ message: string; collections: Collection[] }>('/collections/accept', {
-      proposals,
-    }),
 }
 
 // Stats API

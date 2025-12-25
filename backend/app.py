@@ -30,13 +30,11 @@ def create_app():
     # Register blueprints
     from routes.auth import auth_bp
     from routes.bookmarks import bookmarks_bp
-    from routes.collections import collections_bp
     from routes.search import search_bp
     from routes.stats import stats_bp
     
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(bookmarks_bp, url_prefix="/api/bookmarks")
-    app.register_blueprint(collections_bp, url_prefix="/api/collections")
     app.register_blueprint(search_bp, url_prefix="/api/search")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
     

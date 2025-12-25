@@ -87,21 +87,21 @@ class AzureOpenAIService:
         
         prompt = f"""Analyze this bookmarked article and provide structured metadata.
 
-URL: {url}
-Title: {title or 'Unknown'}
-Content: {content or 'No content extracted'}
-User Notes: {user_notes or 'None provided'}
+    URL: {url}
+    Title: {title or 'Unknown'}
+    Content: {content or 'No content extracted'}
+    User Notes: {user_notes or 'None provided'}
 
-Return a JSON object with exactly these fields:
-- clean_title: A clean, concise title (max 60 characters). If the original title is good, keep it.
-- ai_summary: A 2-sentence summary of the content. Be concise and informative.
-- auto_tags: An array of 3-5 relevant tags (lowercase, no spaces, use hyphens). Include technology names, concepts, and topics.
-- intent_type: One of: "reference", "tutorial", "inspiration", "deep-dive", "tool"
-- technical_level: One of: "beginner", "intermediate", "advanced", "general"
-- content_type: One of: "article", "documentation", "video", "tool", "paper", "other"
-- key_quotes: An array of 0-3 notable quotes from the content (short, impactful quotes only)
+    Return a JSON object with exactly these fields:
+    - clean_title: A clean, concise title (max 60 characters). If the original title is good, keep it.
+    - ai_summary: A single, information-dense summary no longer than 220 characters. Avoid filler and clichés. Use the most important facts only.
+    - auto_tags: An array of 3-5 relevant tags (lowercase, no spaces, use hyphens). Include technology names, concepts, and topics.
+    - intent_type: One of: "reference", "tutorial", "inspiration", "deep-dive", "tool"
+    - technical_level: One of: "beginner", "intermediate", "advanced", "general"
+    - content_type: One of: "article", "documentation", "video", "tool", "paper", "other"
+    - key_quotes: An array of 0-3 notable quotes from the content (short, impactful quotes only)
 
-Return ONLY valid JSON, no markdown formatting or explanation."""
+    Return ONLY valid JSON, no markdown formatting or explanation."""
 
         response = client.chat.completions.create(
             model=Config.AZURE_OPENAI_DEPLOYMENT_NAME,
@@ -135,7 +135,7 @@ Return ONLY valid JSON, no markdown formatting or explanation."""
         # Validate and sanitize the result
         validated = {
             "clean_title": str(result.get("clean_title", title or "Untitled"))[:60],
-            "ai_summary": str(result.get("ai_summary", ""))[:500],
+            "ai_summary": str(result.get("ai_summary", ""))[:220],
             "auto_tags": [str(tag).lower().replace(" ", "-") for tag in result.get("auto_tags", [])][:5],
             "intent_type": cls._validate_enum(
                 result.get("intent_type"),
@@ -156,71 +156,6 @@ Return ONLY valid JSON, no markdown formatting or explanation."""
         }
         
         return validated
-    
-    @classmethod
-    def generate_collection_proposals(cls, bookmarks: list[dict]) -> list[dict]:
-        """
-        Analyze bookmarks and propose collections.
-        
-        Returns list of collection proposals with bookmark IDs.
-        """
-        client = cls.get_chat_client()
-        
-        # Prepare bookmark summaries for the prompt
-        bookmark_summaries = []
-        for b in bookmarks[:100]:  # Limit to 100 bookmarks for prompt size
-            summary = {
-                "id": b["id"],
-                "title": b.get("clean_title") or b.get("original_title", "Untitled"),
-                "domain": b.get("domain", ""),
-                "tags": b.get("auto_tags", []),
-                "content_type": b.get("content_type", ""),
-                "summary": b.get("ai_summary", "")[:100],
-            }
-            bookmark_summaries.append(summary)
-        
-        prompt = f"""Analyze these bookmarks and propose logical collections to organize them.
-
-Bookmarks:
-{json.dumps(bookmark_summaries, indent=2)}
-
-Return a JSON object with a "collections" array. Each collection should have:
-- name: A descriptive collection name (2-4 words)
-- description: Why these bookmarks belong together (1 sentence)
-- suggested_icon: A single emoji that represents the collection
-- bookmark_ids: Array of bookmark IDs that belong in this collection
-- rationale: Brief explanation of the grouping logic
-
-Guidelines:
-- Aim for 5-10 collections
-- Each bookmark can appear in multiple collections
-- Group by topic, technology, purpose, or content type
-- Make collections useful for navigation and discovery
-
-Return ONLY valid JSON, no markdown formatting."""
-
-        response = client.chat.completions.create(
-            model=Config.AZURE_OPENAI_DEPLOYMENT_NAME,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant that organizes bookmarks into meaningful collections. Always respond with valid JSON only."
-                },
-                {"role": "user", "content": prompt}
-            ],
-            max_completion_tokens=2000,
-            response_format={"type": "json_object"},
-        )
-        
-        result_text = response.choices[0].message.content
-        
-        try:
-            result = json.loads(result_text)
-            collections = result.get("collections", [])
-        except json.JSONDecodeError:
-            collections = []
-        
-        return collections
     
     @classmethod
     def generate_resurface_suggestions(

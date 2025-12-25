@@ -5,8 +5,7 @@ import {
   AlertCircle,
   RefreshCw,
   MoreVertical,
-  Trash2,
-  FolderPlus
+  Trash2
 } from 'lucide-react'
 import { useState } from 'react'
 import { Bookmark } from '../lib/api'
@@ -14,13 +13,11 @@ import { useBookmarksStore } from '../stores/bookmarksStore'
 
 interface BookmarkCardProps {
   bookmark: Bookmark
-  onAddToCollection?: (bookmark: Bookmark) => void
   onDeleted?: (id: string) => void
 }
 
 export default function BookmarkCard({ 
   bookmark, 
-  onAddToCollection,
   onDeleted,
 }: BookmarkCardProps) {
   const [showMenu, setShowMenu] = useState(false)
@@ -146,18 +143,6 @@ export default function BookmarkCard({
                   onClick={() => setShowMenu(false)} 
                 />
                 <div className="absolute right-0 top-8 z-20 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 py-1">
-                  {onAddToCollection && (
-                    <button
-                      onClick={() => {
-                        onAddToCollection(bookmark)
-                        setShowMenu(false)
-                      }}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
-                    >
-                      <FolderPlus className="w-4 h-4" />
-                      Add to Collection
-                    </button>
-                  )}
                   {isFailed && (
                     <button
                       onClick={handleRetry}
@@ -206,7 +191,7 @@ export default function BookmarkCard({
         
         {/* Summary */}
         {bookmark.ai_summary && (
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 line-clamp-3 leading-relaxed">
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
             {bookmark.ai_summary}
           </p>
         )}
