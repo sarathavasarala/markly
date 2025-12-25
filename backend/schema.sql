@@ -36,25 +36,6 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     enrichment_error TEXT
 );
 
--- Collections table
-CREATE TABLE IF NOT EXISTS collections (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    description TEXT,
-    icon TEXT DEFAULT '📁',
-    color TEXT DEFAULT '#6366f1',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Bookmark-Collections junction table
-CREATE TABLE IF NOT EXISTS bookmark_collections (
-    bookmark_id UUID REFERENCES bookmarks(id) ON DELETE CASCADE,
-    collection_id UUID REFERENCES collections(id) ON DELETE CASCADE,
-    added_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (bookmark_id, collection_id)
-);
-
 -- Search history table
 CREATE TABLE IF NOT EXISTS search_history (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -115,12 +96,6 @@ CREATE TRIGGER update_bookmarks_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
-DROP TRIGGER IF EXISTS update_collections_updated_at ON collections;
-CREATE TRIGGER update_collections_updated_at
-    BEFORE UPDATE ON collections
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
 -- Function for semantic search using cosine similarity
 CREATE OR REPLACE FUNCTION match_bookmarks(
     query_embedding vector(3072),
@@ -168,23 +143,12 @@ $$;
 -- Enable these if you add multi-user support later
 
 -- ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE bookmark_collections ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE search_history ENABLE ROW LEVEL SECURITY;
 -- ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- PERFORMANCE OPTIMIZATIONS
 -- ============================================
-
--- View for efficient collection listing (Fixes N+1 query in collections.py)
-CREATE OR REPLACE VIEW collection_details AS
-SELECT 
-    c.id, c.name, c.description, c.icon, c.color, c.created_at, c.updated_at,
-    COUNT(bc.bookmark_id) as bookmark_count
-FROM collections c
-LEFT JOIN bookmark_collections bc ON c.id = bc.collection_id
-GROUP BY c.id;
 
 -- RPC for single-query dashboard stats (Fixes 7 separate queries in stats.py)
 CREATE OR REPLACE FUNCTION get_dashboard_stats()
@@ -194,8 +158,7 @@ RETURNS TABLE (
     this_month BIGINT,
     completed BIGINT,
     pending BIGINT,
-    failed BIGINT,
-    collections_count BIGINT
+    failed BIGINT
 ) LANGUAGE plpgsql AS $$
 BEGIN
     RETURN QUERY SELECT
@@ -204,8 +167,7 @@ BEGIN
         (SELECT count(*) FROM bookmarks WHERE created_at >= NOW() - INTERVAL '30 days') as this_month,
         (SELECT count(*) FROM bookmarks WHERE enrichment_status = 'completed') as completed,
         (SELECT count(*) FROM bookmarks WHERE enrichment_status IN ('pending', 'processing')) as pending,
-        (SELECT count(*) FROM bookmarks WHERE enrichment_status = 'failed') as failed,
-        (SELECT count(*) FROM collections) as collections_count;
+        (SELECT count(*) FROM bookmarks WHERE enrichment_status = 'failed') as failed;
 END;
 $$;
 

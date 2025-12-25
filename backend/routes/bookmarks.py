@@ -109,7 +109,6 @@ def list_bookmarks():
     content_type = request.args.get("content_type")
     intent_type = request.args.get("intent_type")
     tag = request.args.get("tag")
-    collection_id = request.args.get("collection_id")
     status = request.args.get("status")  # enrichment status
     
     # Sort
@@ -139,26 +138,6 @@ def list_bookmarks():
             query = query.contains("auto_tags", [tag])
         if status:
             query = query.eq("enrichment_status", status)
-        
-        # Handle collection filter
-        if collection_id:
-            # Get bookmark IDs in collection
-            bc_result = supabase.table("bookmark_collections").select(
-                "bookmark_id"
-            ).eq("collection_id", collection_id).execute()
-            
-            if bc_result.data:
-                bookmark_ids = [bc["bookmark_id"] for bc in bc_result.data]
-                query = query.in_("id", bookmark_ids)
-            else:
-                # No bookmarks in collection
-                return jsonify({
-                    "bookmarks": [],
-                    "total": 0,
-                    "page": page,
-                    "per_page": per_page,
-                    "pages": 0,
-                })
         
         # Apply sorting
         if sort_order == "asc":

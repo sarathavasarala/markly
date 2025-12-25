@@ -15,7 +15,6 @@ interface BookmarksState {
     domain?: string
     content_type?: string
     tag?: string
-    collection_id?: string
     status?: string
     sort: string
     order: 'asc' | 'desc'

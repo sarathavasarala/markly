@@ -5,8 +5,6 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Search from './pages/Search'
 import Bookmarks from './pages/Bookmarks'
-import Collections from './pages/Collections'
-import CollectionDetail from './pages/CollectionDetail'
 import { useEffect } from 'react'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -49,8 +47,6 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="search" element={<Search />} />
         <Route path="bookmarks" element={<Bookmarks />} />
-        <Route path="collections" element={<Collections />} />
-        <Route path="collections/:id" element={<CollectionDetail />} />
       </Route>
     </Routes>
   )
