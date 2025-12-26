@@ -22,3 +22,6 @@ frontend/.vite
 
 # OS
 .DS_Store
+
+# Private Documentation
+PRIVATE_DEPLOYMENT.md
