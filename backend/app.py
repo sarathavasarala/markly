@@ -1,6 +1,7 @@
 """Flask application factory."""
 import logging
-from flask import Flask
+import os
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_compress import Compress
 
@@ -9,7 +10,9 @@ from config import Config
 
 def create_app():
     """Create and configure the Flask application."""
-    app = Flask(__name__)
+    # Create app, pointing to the 'static' folder for static assets (JS/CSS)
+    # The Dockerfile copies frontend/dist to ./static in the container
+    app = Flask(__name__, static_folder='static', static_url_path='/')
     app.config.from_object(Config)
     
     # Silence noisy loggers
@@ -44,6 +47,15 @@ def create_app():
     @app.route("/api/health")
     def health():
         return {"status": "healthy", "service": "markly-api"}
+
+    # Serve React Frontend in Production
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve(path):
+        if path != "" and os.path.exists(app.static_folder + '/' + path):
+            return send_from_directory(app.static_folder, path)
+        else:
+            return send_from_directory(app.static_folder, 'index.html')
     
     return app
 

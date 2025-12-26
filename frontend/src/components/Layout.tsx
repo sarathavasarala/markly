@@ -4,9 +4,9 @@ import {
   Search,
   LogOut,
   Plus,
-  Upload,
   Sun,
   Moon,
+  X,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../stores/authStore'
@@ -16,6 +16,7 @@ import EditBookmarkModal from './EditBookmarkModal'
 
 export default function Layout() {
   const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const { logout, user } = useAuthStore((state) => ({ logout: state.logout, user: state.user }))
   const { theme, toggleTheme, editingBookmark, setEditingBookmark, isAddModalOpen, setIsAddModalOpen } = useUIStore()
   const navigate = useNavigate()
@@ -49,8 +50,39 @@ export default function Layout() {
               </span>
             </Link>
 
-            {/* Global Search Bar */}
-            <form onSubmit={handleSearch} className="flex-1 max-w-2xl">
+            {/* Mobile Search Toggle */}
+            <div className="sm:hidden flex-1 flex justify-end">
+              {isSearchOpen ? (
+                <form onSubmit={handleSearch} className="absolute inset-x-0 top-0 h-16 bg-white dark:bg-gray-800 flex items-center px-4 z-50">
+                  <Search className="w-5 h-5 text-gray-400 mr-2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search bookmarks..."
+                    autoFocus
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsSearchOpen(false)}
+                    className="p-2 ml-2 text-gray-500"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setIsSearchOpen(true)}
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Desktop Search Bar */}
+            <form onSubmit={handleSearch} className="hidden sm:block flex-1 max-w-2xl px-4 lg:px-8">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
@@ -65,13 +97,15 @@ export default function Layout() {
 
             {/* Actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              {/* 
               <button
                 onClick={() => navigate('/import')}
                 className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
               >
                 <Upload className="w-5 h-5" />
                 <span className="hidden md:inline">Import</span>
-              </button>
+              </button> 
+              */}
 
               <button
                 onClick={() => setIsAddModalOpen(true)}
