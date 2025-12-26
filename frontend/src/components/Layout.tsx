@@ -19,8 +19,16 @@ export default function Layout() {
   const [showAddModal, setShowAddModal] = useState(false)
   const navigate = useNavigate()
 
-  const logout = useAuthStore((state) => state.logout)
+  const { logout, user } = useAuthStore((state) => ({ logout: state.logout, user: state.user }))
   const { theme, toggleTheme, editingBookmark, setEditingBookmark } = useUIStore()
+
+  // Get user display info
+  const userEmail = user?.email || ''
+  const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
+  const userAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || ''
+  const userInitials = userName
+    ? userName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : userEmail.slice(0, 2).toUpperCase()
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,6 +82,30 @@ export default function Layout() {
                 <Plus className="w-5 h-5" />
                 <span className="hidden sm:inline">Add</span>
               </button>
+
+              {/* User Avatar/Initials */}
+              <div className="relative group">
+                {userAvatar ? (
+                  <img
+                    src={userAvatar}
+                    alt={userName || userEmail}
+                    className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600 cursor-pointer"
+                    title={userEmail}
+                  />
+                ) : (
+                  <div
+                    className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-medium cursor-pointer"
+                    title={userEmail}
+                  >
+                    {userInitials}
+                  </div>
+                )}
+                {/* Tooltip */}
+                <div className="absolute right-0 top-full mt-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50">
+                  {userEmail}
+                  <div className="absolute -top-1 right-3 w-2 h-2 bg-gray-900 dark:bg-gray-700 rotate-45"></div>
+                </div>
+              </div>
 
               <button
                 onClick={toggleTheme}

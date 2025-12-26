@@ -1,62 +1,28 @@
-"""Authentication middleware with caching."""
+"""Authentication middleware using Supabase Auth."""
 import os
-import time
 import logging
 from functools import wraps
-from threading import Lock
-from flask import request, jsonify
-from datetime import datetime, timezone
+from flask import request, jsonify, g
 
-from database import get_supabase
+from database import get_supabase, get_auth_client
 
 logger = logging.getLogger(__name__)
 
 # Auth bypass off by default; enable via env only if intentionally set
 DEV_BYPASS_AUTH = os.getenv("DEV_BYPASS_AUTH", "false").lower() == "true"
 
-# Token cache with TTL (reduces DB load)
-_token_cache = {}  # token -> (expires_at, cached_time)
-_cache_lock = Lock()
-CACHE_TTL_SECONDS = 300  # 5 minutes
-
-
-def _get_cached_session(token: str):
-    """Get session from cache if valid."""
-    with _cache_lock:
-        if token in _token_cache:
-            expires_at, cached_time = _token_cache[token]
-            # Check if cache entry is still fresh
-            if time.time() - cached_time < CACHE_TTL_SECONDS:
-                return expires_at
-            # Cache expired, remove it
-            del _token_cache[token]
-    return None
-
-
-def _cache_session(token: str, expires_at: datetime):
-    """Cache a valid session."""
-    with _cache_lock:
-        _token_cache[token] = (expires_at, time.time())
-        # Prune cache if too large (simple LRU-like behavior)
-        if len(_token_cache) > 1000:
-            # Remove oldest entries
-            sorted_items = sorted(_token_cache.items(), key=lambda x: x[1][1])
-            for key, _ in sorted_items[:200]:
-                del _token_cache[key]
-
-
-def invalidate_session_cache(token: str):
-    """Invalidate a cached session (call on logout)."""
-    with _cache_lock:
-        _token_cache.pop(token, None)
-
 
 def require_auth(f):
-    """Decorator to require authentication for a route."""
+    """Decorator to require authentication for a route via Supabase JWT."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Bypass auth in dev mode
+        # Bypass auth in dev mode (ONLY if explicitly enabled)
         if DEV_BYPASS_AUTH:
+            # Mock a superuser client if bypassing
+            # Note: RLS might block this unless we use service role, 
+            # so strict RLS testing requires disabling bypass
+            g.user = {"id": "dev-user", "email": "dev@local"}
+            g.supabase = get_supabase() # Service role
             return f(*args, **kwargs)
         
         # Get token from Authorization header
@@ -70,41 +36,27 @@ def require_auth(f):
         if not token:
             return jsonify({"error": "Missing authentication token"}), 401
         
-        # Check cache first
-        cached_expires = _get_cached_session(token)
-        if cached_expires:
-            if cached_expires > datetime.now(timezone.utc):
-                return f(*args, **kwargs)
-            else:
-                invalidate_session_cache(token)
-                return jsonify({"error": "Session expired"}), 401
-        
-        # Validate token against database
         try:
-            supabase = get_supabase()
-            result = supabase.table("sessions").select("*").eq(
-                "session_token", token
-            ).single().execute()
+            # Use the service role client to verify the user's JWT
+            # The get_user(jwt) method validates the token and returns user info
+            admin_client = get_supabase()
+            user_response = admin_client.auth.get_user(token)
             
-            if not result.data:
-                return jsonify({"error": "Invalid session token"}), 401
+            if not user_response or not user_response.user:
+                return jsonify({"error": "Invalid or expired token"}), 401
             
-            session = result.data
-            expires_at = datetime.fromisoformat(session["expires_at"].replace("Z", "+00:00"))
+            # Create a client scoped to this user for subsequent DB operations
+            # This client will include the user's JWT in requests for RLS
+            client = get_auth_client(token)
+                 
+            # Store in context
+            g.user = user_response.user
+            g.supabase = client  # Use this client for all DB calls in the route!
             
-            if expires_at < datetime.now(timezone.utc):
-                # Clean up expired session
-                supabase.table("sessions").delete().eq("session_token", token).execute()
-                return jsonify({"error": "Session expired"}), 401
-            
-            # Cache the valid session
-            _cache_session(token, expires_at)
-            
-            # Token is valid, continue to route
             return f(*args, **kwargs)
             
         except Exception as e:
             logger.error(f"Authentication error: {e}")
-            return jsonify({"error": f"Authentication error: {str(e)}"}), 401
+            return jsonify({"error": "Invalid authentication credentials"}), 401
     
     return decorated_function

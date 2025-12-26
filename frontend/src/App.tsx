@@ -10,21 +10,12 @@ import { useEffect } from 'react'
 import { useUIStore } from './stores/uiStore'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, token, checkAuth, isLoading } = useAuthStore((state) => ({
-    isAuthenticated: state.isAuthenticated,
-    token: state.token,
-    checkAuth: state.checkAuth,
-    isLoading: state.isLoading,
-  }))
+  const { isAuthenticated, isLoading } = useAuthStore()
 
-  useEffect(() => {
-    if (token) {
-      checkAuth()
-    }
-  }, [token, checkAuth])
-
-  if (isLoading && token) {
-    return null
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+    </div>
   }
 
   if (!isAuthenticated) {
@@ -36,10 +27,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   const applyTheme = useUIStore((state) => state.applyTheme)
+  const initializeAuth = useAuthStore((state) => state.initialize)
 
   useEffect(() => {
     applyTheme()
-  }, [applyTheme])
+    initializeAuth()
+  }, [applyTheme, initializeAuth])
 
   return (
     <Routes>

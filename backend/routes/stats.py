@@ -1,8 +1,7 @@
 """Stats routes for dashboard."""
 from datetime import datetime, timedelta, timezone
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 
-from database import get_supabase
 from middleware.auth import require_auth
 from services.openai_service import AzureOpenAIService
 
@@ -17,7 +16,7 @@ def get_top_tags():
     limit = min(limit, 100)
     
     try:
-        supabase = get_supabase()
+        supabase = g.supabase
         
         # Get all tags
         result = supabase.table("bookmarks").select("auto_tags").execute()
@@ -52,7 +51,7 @@ def get_top_tags():
 def get_resurface_suggestions():
     """Get AI-powered suggestions for old bookmarks to revisit."""
     try:
-        supabase = get_supabase()
+        supabase = g.supabase
         
         # Get recent bookmarks (last 2 weeks)
         two_weeks_ago = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()

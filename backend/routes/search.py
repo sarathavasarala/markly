@@ -1,7 +1,6 @@
 """Search routes."""
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 
-from database import get_supabase
 from middleware.auth import require_auth
 from services.openai_service import AzureOpenAIService
 
@@ -38,7 +37,7 @@ def search_bookmarks():
         return jsonify({"error": "Search query is required"}), 400
     
     try:
-        supabase = get_supabase()
+        supabase = g.supabase
         
         if mode == "semantic":
             results = _semantic_search(supabase, query, limit, domain, content_type, tag)
@@ -105,6 +104,8 @@ def _semantic_search(supabase, query: str, limit: int,
     query_embedding = AzureOpenAIService.generate_embedding(query)
     
     # Use the match_bookmarks RPC function
+    # Note: RPC functions in Supabase are usually SECURITY INVOKER by default,
+    # so they will respect the RLS of the user represented by the auth token.
     result = supabase.rpc("match_bookmarks", {
         "query_embedding": query_embedding,
         "match_threshold": 0.3,  # Lower threshold for more results
@@ -154,7 +155,7 @@ def get_search_history():
     limit = min(limit, 50)
     
     try:
-        supabase = get_supabase()
+        supabase = g.supabase
         
         result = supabase.table("search_history").select(
             "query, results_count, created_at"
