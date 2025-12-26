@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { BookMarked, AlertCircle, Sparkles, Search, Layers, Zap, ChevronRight } from 'lucide-react'
+import { BookMarked, AlertCircle, Sparkles, Search, Layers, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { useEffect, useState } from 'react'
 
