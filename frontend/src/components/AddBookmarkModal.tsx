@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { X, Loader2, Sparkles, CheckCircle2, AlertCircle, Plus } from 'lucide-react'
-import { Bookmark, bookmarksApi } from '../lib/api'
+import { bookmarksApi } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 
 interface AddBookmarkModalProps {
@@ -77,6 +77,13 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
     setIsSubmitting(true)
     setError('')
 
+    // Auto-flush current tag input if not empty
+    let finalTags = [...editTags]
+    const tag = newTag.trim().toLowerCase().replace(/\s+/g, '-')
+    if (tag && !finalTags.includes(tag)) {
+      finalTags.push(tag)
+    }
+
     try {
       // Create the bookmark with ALL the curated data
       await createBookmark(
@@ -87,7 +94,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           ...previewData,
           clean_title: editTitle,
           ai_summary: editSummary,
-          auto_tags: editTags,
+          auto_tags: finalTags,
         }
       )
       handleClose()

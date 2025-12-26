@@ -331,7 +331,8 @@ def update_bookmark(bookmark_id: str):
     # Allowed fields for update
     allowed_fields = [
         "clean_title", "ai_summary", "auto_tags", "raw_notes", 
-        "user_description", "content_type", "intent_type", "technical_level"
+        "user_description", "content_type", "intent_type", "technical_level",
+        "thumbnail_url"
     ]
     
     update_data = {

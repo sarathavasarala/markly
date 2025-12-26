@@ -5,11 +5,13 @@ import {
   AlertCircle,
   RefreshCw,
   MoreVertical,
-  Trash2
+  Trash2,
+  Edit2
 } from 'lucide-react'
 import { useState } from 'react'
 import { Bookmark } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
+import { useUIStore } from '../stores/uiStore'
 
 interface BookmarkCardProps {
   bookmark: Bookmark
@@ -27,6 +29,7 @@ export default function BookmarkCard({
   const [isDeleting, setIsDeleting] = useState(false)
 
   const { trackAccess, retryEnrichment, deleteBookmark } = useBookmarksStore()
+  const setEditingBookmark = useUIStore((state) => state.setEditingBookmark)
 
   const title = bookmark.clean_title || bookmark.original_title || bookmark.url
   const isEnriching = bookmark.enrichment_status === 'pending' || bookmark.enrichment_status === 'processing'
@@ -63,17 +66,22 @@ export default function BookmarkCard({
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '—'
-    const date = new Date(dateStr)
-    if (Number.isNaN(date.getTime())) return '—'
+    const d = new Date(dateStr)
+    if (Number.isNaN(d.getTime())) return '—'
     const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    // Normalize dates to midnight to compare calendar days
+    const d1 = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    const diffMs = d2.getTime() - d1.getTime()
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
 
     if (diffDays === 0) return 'Today'
     if (diffDays === 1) return 'Yesterday'
     if (diffDays < 7) return `${diffDays} days ago`
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-    return date.toLocaleDateString()
+    return d.toLocaleDateString()
   }
 
   return (
@@ -155,6 +163,16 @@ export default function BookmarkCard({
                     </button>
                   )}
                   <button
+                    onClick={() => {
+                      setEditingBookmark(bookmark)
+                      setShowMenu(false)
+                    }}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
                     onClick={handleDelete}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600"
                   >
@@ -200,7 +218,7 @@ export default function BookmarkCard({
 
         {/* Tags */}
         {bookmark.auto_tags && bookmark.auto_tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap gap-1.5 items-center">
             {bookmark.auto_tags.slice(0, 5).map((tag) => (
               <button
                 key={tag}
@@ -214,6 +232,11 @@ export default function BookmarkCard({
                 {tag}
               </button>
             ))}
+            {bookmark.auto_tags.length > 5 && (
+              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider ml-0.5">
+                +{bookmark.auto_tags.length - 5} more
+              </span>
+            )}
           </div>
         )}
 
