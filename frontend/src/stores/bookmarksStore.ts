@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { bookmarksApi, Bookmark, BookmarkListResponse } from '../lib/api'
+import { bookmarksApi, Bookmark, ImportJob, ImportJobItem, ImportJobResponse } from '../lib/api'
 
 interface BookmarksState {
   bookmarks: Bookmark[]
@@ -9,27 +9,29 @@ interface BookmarksState {
   pages: number
   isLoading: boolean
   error: string | null
-  
-  // Filters
-  filters: {
-    domain?: string
-    content_type?: string
-    tag?: string
-    status?: string
-    sort: string
-    order: 'asc' | 'desc'
-  }
-  
-  // Actions
-  fetchBookmarks: (page?: number) => Promise<void>
-  createBookmark: (url: string, notes?: string, description?: string) => Promise<Bookmark | null>
+  importJobId: string | null
+  importJob: ImportJob | null
+  importError: string | null
+  importItems: ImportJobItem[]
+  importItemsTotal: number
+  importCurrentItem: ImportJobItem | null
+
+  createBookmark: (url: string, notes?: string, description?: string, extraData?: any) => Promise<Bookmark | null>
   deleteBookmark: (id: string) => Promise<void>
-  setFilters: (filters: Partial<BookmarksState['filters']>) => void
-  clearFilters: () => void
   trackAccess: (id: string) => Promise<void>
   retryEnrichment: (id: string) => Promise<void>
   refreshBookmark: (id: string) => Promise<void>
   upsertBookmark: (bookmark: Bookmark) => void
+  updateBookmark: (id: string, data: Partial<Bookmark>) => Promise<void>
+  startImport: (
+    bookmarks: { url: string; title?: string; tags?: string[]; enrich?: boolean }[],
+    useNanoModel?: boolean
+  ) => Promise<string | null>
+  fetchImportJob: (jobId: string) => Promise<ImportJob | null>
+  clearImportJob: () => void
+  stopImportJob: (jobId: string) => Promise<void>
+  deleteImportJob: (jobId: string, removeBookmarks?: boolean) => Promise<void>
+  skipImportItem: (jobId: string, itemId: string) => Promise<void>
 }
 
 export const useBookmarksStore = create<BookmarksState>((set, get) => ({
@@ -40,54 +42,27 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
   pages: 0,
   isLoading: false,
   error: null,
-  
-  filters: {
-    sort: 'created_at',
-    order: 'desc',
-  },
-  
-  fetchBookmarks: async (page = 1) => {
-    set({ isLoading: true, error: null })
-    
+  importJobId: localStorage.getItem('markly_import_job') || null,
+  importJob: null,
+  importError: null,
+  importItems: [],
+  importItemsTotal: 0,
+  importCurrentItem: null,
+
+  createBookmark: async (url: string, notes?: string, description?: string, extraData?: any) => {
     try {
-      const { filters, perPage } = get()
-      const response = await bookmarksApi.list({
-        page,
-        per_page: perPage,
-        ...filters,
-      })
-      
-      const data: BookmarkListResponse = response.data
-      
-      set({
-        bookmarks: data.bookmarks,
-        total: data.total,
-        page: data.page,
-        pages: data.pages,
-        isLoading: false,
-      })
-    } catch (error: unknown) {
-      set({
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch bookmarks',
-      })
-    }
-  },
-  
-  createBookmark: async (url: string, notes?: string, description?: string) => {
-    try {
-      const response = await bookmarksApi.create(url, notes, description)
+      const response = await bookmarksApi.create(url, notes, description, extraData)
       const payload = response.data as any
       const newBookmark = payload.bookmark || payload
       const alreadyExists = payload.already_exists === true
-      
+
       set((state) => ({
         bookmarks: state.bookmarks.some((b) => b.id === newBookmark.id)
           ? state.bookmarks.map((b) => (b.id === newBookmark.id ? newBookmark : b))
           : [newBookmark, ...state.bookmarks],
         total: alreadyExists ? state.total : state.total + 1,
       }))
-      
+
       return newBookmark
     } catch (error: unknown) {
       set({
@@ -96,11 +71,11 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
       return null
     }
   },
-  
+
   deleteBookmark: async (id: string) => {
     try {
       await bookmarksApi.delete(id)
-      
+
       set((state) => ({
         bookmarks: state.bookmarks.filter((b) => b.id !== id),
         total: state.total - 1,
@@ -111,26 +86,13 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
       })
     }
   },
-  
-  setFilters: (newFilters) => {
-    set((state) => ({
-      filters: { ...state.filters, ...newFilters },
-    }))
-  },
-  
-  clearFilters: () => {
-    set({
-      filters: {
-        sort: 'created_at',
-        order: 'desc',
-      },
-    })
-  },
-  
+
+
+
   trackAccess: async (id: string) => {
     try {
       await bookmarksApi.trackAccess(id)
-      
+
       set((state) => ({
         bookmarks: state.bookmarks.map((b) =>
           b.id === id ? { ...b, access_count: (b.access_count || 0) + 1 } : b
@@ -140,11 +102,11 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
       // Silently fail
     }
   },
-  
+
   retryEnrichment: async (id: string) => {
     try {
       await bookmarksApi.retry(id)
-      
+
       set((state) => ({
         bookmarks: state.bookmarks.map((b) =>
           b.id === id ? { ...b, enrichment_status: 'pending' as const } : b
@@ -179,5 +141,78 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
         ? state.bookmarks.map((b) => (b.id === bookmark.id ? bookmark : b))
         : [bookmark, ...state.bookmarks],
     }))
+  },
+
+  updateBookmark: async (id, data) => {
+    try {
+      const response = await bookmarksApi.update(id, data)
+      const updated = response.data
+      set((state) => ({
+        bookmarks: state.bookmarks.map((b) => (b.id === id ? updated : b)),
+      }))
+    } catch (error: unknown) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to update bookmark',
+      })
+    }
+  },
+
+  startImport: async (items, useNanoModel = true) => {
+    try {
+      const response = await bookmarksApi.importBatch({ bookmarks: items, use_nano_model: useNanoModel })
+      const jobId = response.data.job_id
+      localStorage.setItem('markly_import_job', jobId)
+      set({ importJobId: jobId, importError: null })
+      return jobId
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to start import'
+      set({ importError: message })
+      return null
+    }
+  },
+
+  fetchImportJob: async (jobId: string) => {
+    try {
+      const response = await bookmarksApi.getImportJob(jobId, { with_items: true, per_page: 50 })
+      const payload: ImportJobResponse = response.data
+      const job = payload.job
+      set({
+        importJob: job,
+        importJobId: job.id,
+        importError: null,
+        importItems: payload.items,
+        importItemsTotal: payload.items_total,
+        importCurrentItem: payload.current_item,
+      })
+      if (job.status === 'completed' || job.status === 'failed' || job.status === 'canceled') {
+        localStorage.removeItem('markly_import_job')
+      }
+      return job
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch import job'
+      set({ importError: message })
+      return null
+    }
+  },
+
+  clearImportJob: () => {
+    localStorage.removeItem('markly_import_job')
+    set({ importJobId: null, importJob: null, importItems: [], importItemsTotal: 0 })
+    set({ importCurrentItem: null })
+  },
+
+  stopImportJob: async (jobId: string) => {
+    await bookmarksApi.stopImportJob(jobId)
+    await get().fetchImportJob(jobId)
+  },
+
+  deleteImportJob: async (jobId: string, removeBookmarks = false) => {
+    await bookmarksApi.deleteImportJob(jobId, removeBookmarks)
+    get().clearImportJob()
+  },
+
+  skipImportItem: async (jobId: string, itemId: string) => {
+    await bookmarksApi.skipImportItem(jobId, itemId)
+    await get().fetchImportJob(jobId)
   },
 }))

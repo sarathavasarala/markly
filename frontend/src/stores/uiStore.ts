@@ -1,0 +1,49 @@
+import { create } from 'zustand'
+
+export type BookmarkViewMode = 'cards' | 'list'
+export type Theme = 'light' | 'dark'
+
+const VIEW_STORAGE_KEY = 'markly_bookmarks_view_mode'
+const THEME_STORAGE_KEY = 'markly_theme'
+
+const readInitialViewMode = (): BookmarkViewMode => {
+  const raw = localStorage.getItem(VIEW_STORAGE_KEY)
+  return raw === 'list' || raw === 'cards' ? raw : 'cards'
+}
+
+const readInitialTheme = (): Theme => {
+  const raw = localStorage.getItem(THEME_STORAGE_KEY)
+  if (raw === 'light' || raw === 'dark') return raw
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+interface UIState {
+  bookmarksViewMode: BookmarkViewMode
+  setBookmarksViewMode: (mode: BookmarkViewMode) => void
+  theme: Theme
+  toggleTheme: () => void
+  applyTheme: (themeOverride?: Theme) => void
+}
+
+export const useUIStore = create<UIState>((set, get) => ({
+  bookmarksViewMode: readInitialViewMode(),
+  setBookmarksViewMode: (mode) => {
+    localStorage.setItem(VIEW_STORAGE_KEY, mode)
+    set({ bookmarksViewMode: mode })
+  },
+  theme: readInitialTheme(),
+  toggleTheme: () => {
+    const newTheme = get().theme === 'light' ? 'dark' : 'light'
+    localStorage.setItem(THEME_STORAGE_KEY, newTheme)
+    set({ theme: newTheme })
+    get().applyTheme(newTheme)
+  },
+  applyTheme: (themeOverride?: Theme) => {
+    const theme = themeOverride || get().theme
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }
+}))

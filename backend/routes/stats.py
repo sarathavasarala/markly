@@ -9,44 +9,6 @@ from services.openai_service import AzureOpenAIService
 stats_bp = Blueprint("stats", __name__)
 
 
-@stats_bp.route("/domains", methods=["GET"])
-@require_auth
-def get_top_domains():
-    """Get top bookmarked domains."""
-    limit = request.args.get("limit", 10, type=int)
-    limit = min(limit, 50)
-    
-    try:
-        supabase = get_supabase()
-        
-        # Get all domains
-        result = supabase.table("bookmarks").select("domain").execute()
-        
-        # Count domains
-        domain_counts = {}
-        for bookmark in result.data:
-            domain = bookmark.get("domain")
-            if domain:
-                domain_counts[domain] = domain_counts.get(domain, 0) + 1
-        
-        # Sort by count
-        sorted_domains = sorted(
-            domain_counts.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:limit]
-        
-        domains = [
-            {"domain": domain, "count": count}
-            for domain, count in sorted_domains
-        ]
-        
-        return jsonify({"domains": domains})
-        
-    except Exception as e:
-        return jsonify({"error": f"Failed to get domains: {str(e)}"}), 500
-
-
 @stats_bp.route("/tags", methods=["GET"])
 @require_auth
 def get_top_tags():
@@ -83,28 +45,6 @@ def get_top_tags():
         
     except Exception as e:
         return jsonify({"error": f"Failed to get tags: {str(e)}"}), 500
-
-
-@stats_bp.route("/recent", methods=["GET"])
-@require_auth
-def get_recent_bookmarks():
-    """Get recently added bookmarks."""
-    limit = request.args.get("limit", 20, type=int)
-    limit = min(limit, 50)
-    
-    try:
-        supabase = get_supabase()
-        
-        result = supabase.table("bookmarks").select(
-            "id, url, domain, clean_title, original_title, ai_summary, "
-            "auto_tags, favicon_url, thumbnail_url, content_type, intent_type, "
-            "created_at, access_count, enrichment_status"
-        ).order("created_at", desc=True).limit(limit).execute()
-        
-        return jsonify({"bookmarks": result.data})
-        
-    except Exception as e:
-        return jsonify({"error": f"Failed to get recent bookmarks: {str(e)}"}), 500
 
 
 @stats_bp.route("/resurface", methods=["GET"])

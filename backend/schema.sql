@@ -9,6 +9,38 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 -- TABLES
 -- ============================================
 
+-- Import jobs table (tracks bulk imports and enrichment progress)
+CREATE TABLE IF NOT EXISTS import_jobs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'canceled')),
+    total INTEGER NOT NULL DEFAULT 0,
+    imported_count INTEGER NOT NULL DEFAULT 0,
+    skipped_count INTEGER NOT NULL DEFAULT 0,
+    enqueue_enrich_count INTEGER NOT NULL DEFAULT 0,
+    enrich_completed INTEGER NOT NULL DEFAULT 0,
+    enrich_failed INTEGER NOT NULL DEFAULT 0,
+    use_nano_model BOOLEAN NOT NULL DEFAULT FALSE,
+    current_item_id UUID,
+    last_error TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Import job items table for per-item tracking
+CREATE TABLE IF NOT EXISTS import_job_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_id UUID REFERENCES import_jobs(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    title TEXT,
+    tags TEXT[],
+    bookmark_id UUID,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'skipped', 'canceled')),
+    error TEXT,
+    started_at TIMESTAMPTZ,
+    finished_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Bookmarks table
 CREATE TABLE IF NOT EXISTS bookmarks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -24,6 +56,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     content_extract TEXT,
     key_quotes TEXT[],
     auto_tags TEXT[],
+    import_job_id UUID REFERENCES import_jobs(id),
     intent_type TEXT CHECK (intent_type IN ('reference', 'tutorial', 'inspiration', 'deep-dive', 'tool')),
     technical_level TEXT CHECK (technical_level IN ('beginner', 'intermediate', 'advanced', 'general')),
     content_type TEXT CHECK (content_type IN ('article', 'documentation', 'video', 'tool', 'paper', 'other')),
@@ -63,6 +96,9 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_enrichment_status ON bookmarks(enrichme
 CREATE INDEX IF NOT EXISTS idx_bookmarks_auto_tags ON bookmarks USING GIN(auto_tags);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_content_type ON bookmarks(content_type);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_intent_type ON bookmarks(intent_type);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_import_job ON bookmarks(import_job_id);
+CREATE INDEX IF NOT EXISTS idx_import_job_items_job ON import_job_items(job_id);
+CREATE INDEX IF NOT EXISTS idx_import_job_items_status ON import_job_items(status);
 
 -- Vector similarity search index (IVFFlat for approximate nearest neighbors)
 -- Note: Create this after you have some data for better index quality
@@ -75,6 +111,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
 -- Search history index
 CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_created ON import_jobs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_job_items_created ON import_job_items(created_at DESC);
 
 -- ============================================
 -- FUNCTIONS
@@ -93,6 +131,18 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS update_bookmarks_updated_at ON bookmarks;
 CREATE TRIGGER update_bookmarks_updated_at
     BEFORE UPDATE ON bookmarks
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_import_jobs_updated_at ON import_jobs;
+CREATE TRIGGER update_import_jobs_updated_at
+    BEFORE UPDATE ON import_jobs
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_import_job_items_updated_at ON import_job_items;
+CREATE TRIGGER update_import_job_items_updated_at
+    BEFORE UPDATE ON import_job_items
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 

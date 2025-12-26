@@ -66,7 +66,14 @@ class AzureOpenAIService:
         return cleaned
     
     @classmethod
-    def enrich_bookmark(cls, url: str, title: str, content: str, user_notes: str = None) -> dict:
+    def enrich_bookmark(
+        cls,
+        url: str,
+        title: str,
+        content: str,
+        user_notes: str | None = None,
+        use_nano_model: bool = False,
+    ) -> dict:
         """
         Enrich bookmark with LLM analysis.
         
@@ -103,8 +110,14 @@ class AzureOpenAIService:
 
     Return ONLY valid JSON, no markdown formatting or explanation."""
 
+        deployment_name = (
+            Config.AZURE_OPENAI_NANO_DEPLOYMENT_NAME
+            if use_nano_model and Config.AZURE_OPENAI_NANO_DEPLOYMENT_NAME
+            else Config.AZURE_OPENAI_DEPLOYMENT_NAME
+        )
+
         response = client.chat.completions.create(
-            model=Config.AZURE_OPENAI_DEPLOYMENT_NAME,
+            model=deployment_name,
             messages=[
                 {
                     "role": "system",

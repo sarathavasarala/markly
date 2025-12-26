@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { X, Loader2, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { X, Loader2, Sparkles, CheckCircle2, AlertCircle, Plus } from 'lucide-react'
 import { Bookmark, bookmarksApi } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
-import BookmarkCard from './BookmarkCard'
 
 interface AddBookmarkModalProps {
   isOpen: boolean
@@ -14,264 +13,310 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   const [description, setDescription] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [step, setStep] = useState<'idle' | 'saving' | 'enriching' | 'preview' | 'failed'>('idle')
-  const [preview, setPreview] = useState<Bookmark | null>(null)
-  const pollRef = useRef<NodeJS.Timeout | null>(null)
-  
-  const createBookmark = useBookmarksStore((state) => state.createBookmark)
-  const refreshBookmark = useBookmarksStore((state) => state.refreshBookmark)
-  const upsertBookmark = useBookmarksStore((state) => state.upsertBookmark)
+  const [step, setStep] = useState<'idle' | 'analyzing' | 'curating' | 'failed'>('idle')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Curator state
+  const [editTitle, setEditTitle] = useState('')
+  const [editSummary, setEditSummary] = useState('')
+  const [editTags, setEditTags] = useState<string[]>([])
+  const [newTag, setNewTag] = useState('')
+  const [previewData, setPreviewData] = useState<any>(null)
+  const [enrichmentWarning, setEnrichmentWarning] = useState<string | null>(null)
+
+  const createBookmark = useBookmarksStore((state) => state.createBookmark)
+
+  const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (step === 'preview' && preview) {
-      handleFinish()
-      return
-    }
     setError('')
-    
+    setEnrichmentWarning(null)
+
     if (!url.trim()) {
-      setError('URL is required')
+      setError('Please paste a link first')
       return
     }
-    
-    // Basic URL validation - add https if missing
+
     let finalUrl = url.trim()
     if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
       finalUrl = 'https://' + finalUrl
     }
-    
+
     try {
       new URL(finalUrl)
     } catch {
       setError('Please enter a valid URL')
       return
     }
-    
+
     setIsSubmitting(true)
-    setStep('saving')
-    
+    setStep('analyzing')
+
     try {
-      // Pass description to skip scraping if provided (for Twitter, etc.)
-      const bookmark = await createBookmark(finalUrl, undefined, description.trim() || undefined)
-      
-      if (bookmark) {
-        setStep('enriching')
-        startPolling(bookmark.id)
-      } else {
-        setError('Failed to create bookmark')
-        setStep('failed')
+      const resp = await bookmarksApi.analyze(finalUrl, description.trim() || undefined)
+      const data = resp.data
+
+      setPreviewData(data)
+      setEditTitle(data.clean_title || data.original_title || '')
+      setEditSummary(data.ai_summary || '')
+      setEditTags(data.auto_tags || [])
+
+      if (!data.scrape_success) {
+        setEnrichmentWarning('Scraping failed: content could not be extracted. Please review AI guessed metadata.')
       }
-    } catch {
-      setError('Failed to create bookmark')
-      setStep('failed')
+
+      setStep('curating')
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Analysis failed. Please try again.')
+      setStep('idle')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const startPolling = (id: string) => {
-    if (pollRef.current) clearInterval(pollRef.current)
-    pollRef.current = setInterval(async () => {
-      try {
-        await refreshBookmark(id)
-      } catch {
-        // ignore poll errors
-      }
-      try {
-        const res = await fetchPreview(id)
-        if (res) {
-          clearPoll()
-          setPreview(res)
-          upsertBookmark(res)
-          setStep(res.enrichment_status === 'completed' ? 'preview' : 'failed')
-        }
-      } catch {
-        // ignore and continue polling
-      }
-    }, 1500)
-  }
+  const handleFinish = async () => {
+    if (!previewData) return
+    setIsSubmitting(true)
+    setError('')
 
-  const clearPoll = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current)
-      pollRef.current = null
-    }
-  }
-
-  const fetchPreview = async (id: string) => {
     try {
-      const res = await bookmarksApi.get(id)
-      const data: Bookmark = res.data
-      if (data.enrichment_status === 'completed' || data.enrichment_status === 'failed') {
-        return data
-      }
-    } catch {
-      return null
+      // Create the bookmark with ALL the curated data
+      await createBookmark(
+        url,
+        description.trim() || undefined,
+        undefined, // user_description is already in description.trim()
+        {
+          ...previewData,
+          clean_title: editTitle,
+          ai_summary: editSummary,
+          auto_tags: editTags,
+        }
+      )
+      handleClose()
+      setTimeout(() => window.location.reload(), 100)
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to save to collection')
+      setIsSubmitting(false)
     }
-    return null
   }
 
   const handleClose = () => {
-    clearPoll()
     setUrl('')
     setDescription('')
     setError('')
-    setPreview(null)
+    setPreviewData(null)
+    setEditTitle('')
+    setEditSummary('')
+    setEditTags([])
+    setEnrichmentWarning(null)
     setStep('idle')
+    setIsSubmitting(false)
     onClose()
   }
 
-  const handleFinish = () => {
-    if (preview) {
-      upsertBookmark(preview)
+  const addTag = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const tag = newTag.trim().toLowerCase().replace(/\s+/g, '-')
+    if (tag && !editTags.includes(tag)) {
+      setEditTags([...editTags, tag])
+      setNewTag('')
     }
-    handleClose()
-    // Ensure the new bookmark is visible in lists
-    setTimeout(() => {
-      window.location.reload()
-    }, 100)
   }
 
-  useEffect(() => {
-    return () => clearPoll()
-  }, [])
+  const removeTag = (tagToRemove: string) => {
+    setEditTags(editTags.filter(t => t !== tagToRemove))
+  }
 
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/50 transition-opacity"
-        onClick={onClose}
-      />
-      
-      {/* Modal */}
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={handleClose} />
+
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-xl shadow-xl">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Add Bookmark
-            </h2>
-            <button
-              onClick={handleClose}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-4 space-y-4">
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg">
-                {error}
+        <div className="relative w-full max-w-5xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+
+          {/* Left Pane - Input */}
+          <div className="w-full md:w-5/12 p-8 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Capture</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Paste a link and add optional context for the AI.</p>
+            </div>
+
+            <form onSubmit={handleAnalyze} className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Direct Link</label>
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://example.com/article"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all shadow-sm"
+                  disabled={step !== 'idle'}
+                  autoFocus
+                />
               </div>
-            )}
-            
-            <div>
-              <label 
-                htmlFor="url" 
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                URL
-              </label>
-              <input
-                type="text"
-                id="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="Paste any link..."
-                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                autoFocus
-              />
-            </div>
-            
-            <div>
-              <label 
-                htmlFor="description" 
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-              >
-                Description{' '}
-                <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Paste tweet text, add context, or describe what this is about. Great for pages we can't scrape (Twitter, Instagram, etc.)"
-                rows={4}
-                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-              />
-            </div>
-            
-            {/* AI info */}
-            <div className="flex items-start gap-2 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-              <Sparkles className="w-4 h-4 text-primary-500 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-primary-700 dark:text-primary-300">
-                We'll extract the page, summarize it, and add tags. Keep this open to see progress and the preview before closing.
-                {description && ' Your description will be used instead of scraping the page.'}
-              </p>
-            </div>
 
-            {/* Progress / Preview */}
-            {(step !== 'idle' || preview) && (
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                  {step === 'preview' ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  ) : step === 'failed' ? (
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                  ) : (
-                    <Loader2 className="w-4 h-4 animate-spin text-primary-600" />
-                  )}
-                  {step === 'saving' && 'Saving bookmark...'}
-                  {step === 'enriching' && 'Running AI enrichment...'}
-                  {step === 'preview' && 'Enrichment complete. Preview below.'}
-                  {step === 'failed' && 'Enrichment failed. The bookmark was saved; you can retry later.'}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Context / Notes (Optional)</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What is this about? Paste related text or your own thoughts..."
+                  rows={6}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none shadow-sm"
+                  disabled={step !== 'idle'}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={step !== 'idle' || !url.trim()}
+                className="w-full flex items-center justify-center gap-2 py-4 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-primary-500/20 active:scale-[0.98]"
+              >
+                {step === 'analyzing' ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    Analyze Link
+                  </>
+                )}
+              </button>
+
+              {error && (
+                <div className="flex items-start gap-2 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-xl border border-red-100 dark:border-red-900/30">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  {error}
                 </div>
+              )}
+            </form>
+          </div>
 
-                {preview && (
-                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <BookmarkCard bookmark={preview} />
+          {/* Right Pane - Curator */}
+          <div className="w-full md:w-7/12 p-8 flex flex-col bg-white dark:bg-gray-900">
+            {step === 'idle' || step === 'analyzing' ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                <div className="w-20 h-20 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-6 border border-gray-100 dark:border-gray-700">
+                  <Sparkles className={`w-10 h-10 ${step === 'analyzing' ? 'text-primary-500 animate-pulse' : 'text-gray-300'}`} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Curator Mode</h3>
+                <p className="text-gray-500 dark:text-gray-400 max-w-sm">
+                  {step === 'analyzing'
+                    ? "Our AI is extracting content and generating metadata for you to review."
+                    : "Once you analyze a link, your editable AI preview will appear here."}
+                </p>
+                {step === 'analyzing' && (
+                  <div className="mt-8 flex items-center gap-3 px-4 py-2 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-full text-sm font-medium">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Reading current page...
                   </div>
                 )}
               </div>
-            )}
-            
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={isSubmitting}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type={step === 'preview' ? 'button' : 'submit'}
-                onClick={step === 'preview' ? handleFinish : undefined}
-                disabled={isSubmitting || (!url.trim() && step !== 'preview')}
-                className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-              >
-                {step === 'preview' ? (
-                  'Save'
-                ) : isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {step === 'enriching' ? 'Enriching...' : 'Saving...'}
-                  </>
-                ) : (
-                  'Save'
+            ) : (
+              <div className="flex-1 flex flex-col">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Curate</h2>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-sm font-bold border border-green-100 dark:border-green-900/30">
+                    <CheckCircle2 className="w-4 h-4" /> Ready
+                  </div>
+                </div>
+
+                {enrichmentWarning && (
+                  <div className="mb-6 flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm rounded-xl border border-amber-100 dark:border-amber-900/30">
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <p>{enrichmentWarning}</p>
+                  </div>
                 )}
-              </button>
-            </div>
-          </form>
+
+                <div className="space-y-6 flex-1">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Clean Title</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">AI Summary</label>
+                    <textarea
+                      value={editSummary}
+                      onChange={(e) => setEditSummary(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none text-sm leading-relaxed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Tags / Topics</label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {editTags.map(tag => (
+                        <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full text-xs font-bold border border-primary-100 dark:border-primary-800/50 group">
+                          {tag}
+                          <button onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <form onSubmit={addTag} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        placeholder="Add a custom tag..."
+                        className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                      <button
+                        type="submit"
+                        className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </form>
+                  </div>
+                </div>
+
+                <div className="mt-8 flex gap-4 pt-6 border-t border-gray-100 dark:border-gray-800">
+                  <button
+                    onClick={handleClose}
+                    className="flex-1 px-6 py-4 text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    onClick={handleFinish}
+                    disabled={isSubmitting}
+                    className="flex-[2] py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold transition-all shadow-xl hover:shadow-gray-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-5 h-5" />
+                        Add to Collection
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Close button - top right */}
+          <button
+            onClick={handleClose}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
       </div>
     </div>
   )
 }
+
