@@ -55,15 +55,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   initialize: async () => {
     set({ isLoading: true })
 
-    // Check active session
+    // Use getUser() instead of getSession() for a more robust check against the server
+    const { data: { user } } = await supabase.auth.getUser()
     const { data: { session } } = await supabase.auth.getSession()
 
     // Set initial state
-    if (session) {
+    if (user && session) {
       localStorage.setItem('markly_token', session.access_token)
       set({
         isAuthenticated: true,
-        user: session.user,
+        user: user,
         token: session.access_token,
         isLoading: false
       })
