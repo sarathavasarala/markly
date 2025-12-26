@@ -7,6 +7,9 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  paramsSerializer: {
+    indexes: null
+  }
 })
 
 // Add auth token to requests
@@ -75,28 +78,89 @@ export interface BookmarkListResponse {
   pages: number
 }
 
+export interface ImportJob {
+  id: string
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'canceled'
+  total: number
+  imported_count: number
+  skipped_count: number
+  enqueue_enrich_count: number
+  enrich_completed: number
+  enrich_failed: number
+  use_nano_model: boolean
+  last_error?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ImportJobItem {
+  id: string
+  job_id: string
+  url: string
+  title: string
+  tags: string[]
+  bookmark_id: string | null
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped' | 'canceled'
+  error?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  created_at: string
+}
+
+export interface ImportJobResponse {
+  job: ImportJob
+  current_item: ImportJobItem | null
+  items: ImportJobItem[]
+  items_total: number
+  page: number
+  per_page: number
+}
+
 export const bookmarksApi = {
-  create: (url: string, notes?: string, description?: string) =>
-    api.post<Bookmark>('/bookmarks', { url, notes, description }),
+  create: (url: string, notes?: string, description?: string, extraData?: any) =>
+    api.post<{ bookmark: Bookmark; already_exists?: boolean }>('/bookmarks', {
+      url,
+      notes,
+      description,
+      ...extraData,
+    }),
 
   get: (id: string) => api.get<Bookmark>(`/bookmarks/${id}`),
-  
+
   list: (params?: {
     page?: number
     per_page?: number
     domain?: string
     content_type?: string
-    tag?: string
+    tag?: string[]
     status?: string
     sort?: string
     order?: 'asc' | 'desc'
   }) => api.get<BookmarkListResponse>('/bookmarks', { params }),
-  
+
+  analyze: (url: string, notes?: string) =>
+    api.post<any>('/bookmarks/analyze', { url, notes }),
+
   delete: (id: string) => api.delete(`/bookmarks/${id}`),
-  
+  update: (id: string, data: Partial<Bookmark>) => api.patch<Bookmark>(`/bookmarks/${id}`, data),
   trackAccess: (id: string) => api.post(`/bookmarks/${id}/access`),
-  
   retry: (id: string) => api.post(`/bookmarks/${id}/retry`),
+
+  importBatch: (payload: {
+    bookmarks: { url: string; title?: string; tags?: string[]; enrich?: boolean }[]
+    use_nano_model?: boolean
+  }) => api.post<{ job_id: string; imported: number; skipped: number; enrichment_queued: number; use_nano_model: boolean }>(
+    '/bookmarks/import',
+    payload
+  ),
+
+  getImportJob: (jobId: string, params?: { with_items?: boolean; page?: number; per_page?: number }) =>
+    api.get<ImportJobResponse>(`/bookmarks/import/${jobId}`, { params }),
+
+  stopImportJob: (jobId: string) => api.post(`/bookmarks/import/${jobId}/stop`, {}),
+  deleteImportJob: (jobId: string, removeBookmarks?: boolean) =>
+    api.delete(`/bookmarks/import/${jobId}`, { params: { remove_bookmarks: removeBookmarks ? 'true' : 'false' } }),
+  skipImportItem: (jobId: string, itemId: string) => api.post(`/bookmarks/import/${jobId}/items/${itemId}/skip`, {}),
 }
 
 // Search API
@@ -116,7 +180,7 @@ export const searchApi = {
     content_type?: string
     tag?: string
   }) => api.get<SearchResult>('/search', { params }),
-  
+
   getHistory: (limit?: number) =>
     api.get<{ history: { query: string; results_count: number; created_at: string }[] }>(
       '/search/history',
@@ -130,19 +194,11 @@ export interface ResurfaceSuggestion extends Bookmark {
 }
 
 export const statsApi = {
-  getTopDomains: (limit?: number) =>
-    api.get<{ domains: { domain: string; count: number }[] }>('/stats/domains', {
-      params: { limit },
-    }),
-  
   getTopTags: (limit?: number) =>
     api.get<{ tags: { tag: string; count: number }[] }>('/stats/tags', {
       params: { limit },
     }),
-  
-  getRecent: (limit?: number) =>
-    api.get<{ bookmarks: Bookmark[] }>('/stats/recent', { params: { limit } }),
-  
+
   getResurface: () =>
     api.get<{ suggestions: ResurfaceSuggestion[] }>('/stats/resurface'),
 }

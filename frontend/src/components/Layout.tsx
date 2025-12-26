@@ -1,20 +1,25 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom'
-import { 
-  BookMarked, 
-  Search, 
+import {
+  BookMarked,
+  Search,
   LogOut,
-  Plus
+  Plus,
+  Upload,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../stores/authStore'
+import { useUIStore } from '../stores/uiStore'
 import AddBookmarkModal from './AddBookmarkModal'
 
 export default function Layout() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const navigate = useNavigate()
-  
+
   const logout = useAuthStore((state) => state.logout)
+  const { theme, toggleTheme } = useUIStore()
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,13 +59,29 @@ export default function Layout() {
             {/* Actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
+                onClick={() => navigate('/import')}
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
+              >
+                <Upload className="w-5 h-5" />
+                <span className="hidden md:inline">Import</span>
+              </button>
+
+              <button
                 onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-full hover:bg-primary-700 transition-colors font-medium"
               >
                 <Plus className="w-5 h-5" />
                 <span className="hidden sm:inline">Add</span>
               </button>
-              
+
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              >
+                {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+              </button>
+
               <button
                 onClick={logout}
                 className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -77,12 +98,13 @@ export default function Layout() {
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-8">
         <Outlet />
       </main>
-      
+
       {/* Add Bookmark Modal */}
-      <AddBookmarkModal 
-        isOpen={showAddModal} 
-        onClose={() => setShowAddModal(false)} 
+      <AddBookmarkModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
       />
+
     </div>
   )
 }

@@ -7,10 +7,50 @@ import validators
 
 from database import get_supabase
 from middleware.auth import require_auth
-from services.enrichment import enrich_bookmark_async, retry_failed_enrichment
+from services.enrichment import enrich_bookmark_async, retry_failed_enrichment, analyze_link
 
 logger = logging.getLogger(__name__)
 bookmarks_bp = Blueprint("bookmarks", __name__)
+
+
+@bookmarks_bp.route("/analyze", methods=["POST"])
+@require_auth
+def analyze_bookmark():
+    """Analyze a URL synchronously without creating a database record."""
+    data = request.get_json()
+    if not data or "url" not in data:
+        return jsonify({"error": "URL is required"}), 400
+    
+    url = data["url"].strip()
+    if not validators.url(url):
+        return jsonify({"error": "Invalid URL format"}), 400
+        
+    user_notes = data.get("notes", "").strip() or None
+    use_nano_model = bool(data.get("use_nano_model", False))
+    
+    try:
+        extracted, enriched = analyze_link(url, user_notes=user_notes, use_nano_model=use_nano_model)
+        
+        # Merge the two into a preview object
+        preview = {
+            "url": url,
+            "domain": extracted.get("domain"),
+            "original_title": extracted.get("title") or url,
+            "favicon_url": extracted.get("favicon_url"),
+            "thumbnail_url": extracted.get("thumbnail_url"),
+            "clean_title": enriched.get("clean_title"),
+            "ai_summary": enriched.get("ai_summary"),
+            "auto_tags": enriched.get("auto_tags", []),
+            "content_type": enriched.get("content_type"),
+            "intent_type": enriched.get("intent_type"),
+            "technical_level": enriched.get("technical_level"),
+            "scrape_success": bool(extracted.get("content")),
+        }
+        
+        return jsonify(preview)
+    except Exception as e:
+        logger.error(f"Analysis failed: {str(e)}")
+        return jsonify({"error": f"Failed to analyze link: {str(e)}"}), 500
 
 
 @bookmarks_bp.route("", methods=["POST"])
@@ -38,10 +78,13 @@ def create_bookmark():
     raw_notes = data.get("notes", "").strip() or None
     user_description = data.get("description", "").strip() or None
     
+    # Check if pre-enriched data is provided (from the Curator flow)
+    is_pre_enriched = all(k in data for k in ["clean_title", "ai_summary", "auto_tags"])
+    
     try:
         supabase = get_supabase()
         
-        # Check if URL already exists; if so, return the existing record instead of 409
+        # Check if URL already exists
         existing = supabase.table("bookmarks").select("*").eq("url", url).execute()
         
         if existing.data:
@@ -53,30 +96,52 @@ def create_bookmark():
                 "already_exists": True,
             })
         
-        # Set initial title - background enrichment will scrape and improve it
-        # This removes blocking I/O from the request path for faster response
-        if user_description:
-            # Use first line of user description as initial title
-            first_line = user_description.split('\n')[0][:100].strip()
-            original_title = first_line if first_line else url
+        if is_pre_enriched:
+            # Save data directly as provided by user/curator
+            bookmark_data = {
+                "url": url,
+                "domain": data.get("domain") or data.get("url"),
+                "original_title": data.get("original_title") or url,
+                "clean_title": data.get("clean_title"),
+                "ai_summary": data.get("ai_summary"),
+                "auto_tags": data.get("auto_tags", []),
+                "favicon_url": data.get("favicon_url"),
+                "thumbnail_url": data.get("thumbnail_url"),
+                "content_type": data.get("content_type"),
+                "intent_type": data.get("intent_type"),
+                "technical_level": data.get("technical_level"),
+                "raw_notes": raw_notes,
+                "user_description": user_description,
+                "enrichment_status": "completed",
+            }
         else:
-            original_title = url
-        
-        # Use Google favicon service as placeholder until enrichment runs
-        favicon_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=64"
-        
-        # Create bookmark with minimal initial data - enrichment handles the rest
-        bookmark_data = {
-            "url": url,
-            "domain": domain,
-            "original_title": original_title,
-            "clean_title": original_title,  # Will be improved by AI enrichment
-            "favicon_url": favicon_url,
-            "thumbnail_url": None,  # Will be set by enrichment
-            "raw_notes": raw_notes,
-            "user_description": user_description,
-            "enrichment_status": "pending",
-        }
+            # Set initial title - background enrichment will scrape and improve it
+            if user_description:
+                first_line = user_description.split('\n')[0][:100].strip()
+                original_title = first_line if first_line else url
+            else:
+                original_title = url
+            
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(url)
+                domain = parsed.netloc.replace("www.", "")
+            except Exception:
+                domain = None
+                
+            favicon_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=64" if domain else None
+            
+            bookmark_data = {
+                "url": url,
+                "domain": domain,
+                "original_title": original_title,
+                "clean_title": original_title,
+                "favicon_url": favicon_url,
+                "thumbnail_url": None,
+                "raw_notes": raw_notes,
+                "user_description": user_description,
+                "enrichment_status": "pending",
+            }
         
         result = supabase.table("bookmarks").insert(bookmark_data).execute()
         
@@ -85,8 +150,26 @@ def create_bookmark():
         
         bookmark = result.data[0]
         
-        # Trigger background enrichment
-        enrich_bookmark_async(bookmark["id"])
+        # Trigger background enrichment only if not already done
+        if not is_pre_enriched:
+            enrich_bookmark_async(bookmark["id"])
+        else:
+            # Still trigger embedding generation in background even if pre-enriched
+            from services.openai_service import AzureOpenAIService
+            def generate_async_embedding(bid, text):
+                try:
+                    embedding = AzureOpenAIService.generate_embedding(text)
+                    get_supabase().table("bookmarks").update({"embedding": embedding}).eq("id", bid).execute()
+                except: pass
+            
+            emb_text = " ".join(filter(None, [
+                bookmark_data["clean_title"],
+                bookmark_data["ai_summary"],
+                " ".join(bookmark_data["auto_tags"]),
+                raw_notes
+            ]))
+            from concurrent.futures import ThreadPoolExecutor
+            ThreadPoolExecutor().submit(generate_async_embedding, bookmark["id"], emb_text)
         
         return jsonify(bookmark), 201
         
@@ -108,7 +191,7 @@ def list_bookmarks():
     domain = request.args.get("domain")
     content_type = request.args.get("content_type")
     intent_type = request.args.get("intent_type")
-    tag = request.args.get("tag")
+    tags = request.args.getlist("tag")
     status = request.args.get("status")  # enrichment status
     
     # Sort
@@ -134,8 +217,8 @@ def list_bookmarks():
             query = query.eq("content_type", content_type)
         if intent_type:
             query = query.eq("intent_type", intent_type)
-        if tag:
-            query = query.contains("auto_tags", [tag])
+        if tags:
+            query = query.overlaps("auto_tags", tags)
         if status:
             query = query.eq("enrichment_status", status)
         
@@ -237,6 +320,42 @@ def retry_enrichment(bookmark_id: str):
         return jsonify({"error": f"Failed to retry enrichment: {str(e)}"}), 500
 
 
+@bookmarks_bp.route("/<bookmark_id>", methods=["PATCH"])
+@require_auth
+def update_bookmark(bookmark_id: str):
+    """Update bookmark metadata."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    # Allowed fields for update
+    allowed_fields = [
+        "clean_title", "ai_summary", "auto_tags", "raw_notes", 
+        "user_description", "content_type", "intent_type", "technical_level"
+    ]
+    
+    update_data = {
+        k: v for k, v in data.items() if k in allowed_fields
+    }
+    
+    if not update_data:
+        return jsonify({"error": "No valid fields to update"}), 400
+    
+    try:
+        supabase = get_supabase()
+        result = supabase.table("bookmarks").update(update_data).eq(
+            "id", bookmark_id
+        ).execute()
+        
+        if not result.data:
+            return jsonify({"error": "Bookmark not found"}), 404
+        
+        return jsonify(result.data[0])
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to update bookmark: {str(e)}"}), 500
+
+
 @bookmarks_bp.route("/<bookmark_id>", methods=["GET"])
 @require_auth
 def get_bookmark(bookmark_id: str):
@@ -257,3 +376,241 @@ def get_bookmark(bookmark_id: str):
         if "PGRST116" in str(e):
             return jsonify({"error": "Bookmark not found"}), 404
         return jsonify({"error": f"Failed to get bookmark: {str(e)}"}), 500
+
+
+@bookmarks_bp.route("/import", methods=["POST"])
+@require_auth
+def import_bookmarks():
+    """Bulk import browser bookmarks with optional enrichment selection."""
+    payload = request.get_json() or {}
+    items = payload.get("bookmarks") or []
+    use_nano_model = bool(payload.get("use_nano_model", True))
+
+    if not isinstance(items, list) or len(items) == 0:
+        return jsonify({"error": "bookmarks array is required"}), 400
+
+    # Normalize and validate inputs
+    normalized = []
+    for raw in items:
+        url = (raw.get("url") or "").strip() if isinstance(raw, dict) else ""
+        if not url:
+            continue
+        try:
+            parsed_url = url if validators.url(url) else None
+        except Exception:
+            parsed_url = None
+        if not parsed_url:
+            continue
+        title = (raw.get("title") or url).strip()
+        tags = raw.get("tags") or []
+        tags = [str(t).strip().lower().replace(" ", "-") for t in tags if str(t).strip()]
+        enrich = bool(raw.get("enrich", False))
+        normalized.append({
+            "url": url,
+            "title": title,
+            "tags": tags,
+            "enrich": enrich,
+        })
+
+    if not normalized:
+        return jsonify({"error": "No valid bookmarks provided"}), 400
+
+    supabase = get_supabase()
+
+    def chunked(seq, size):
+        for i in range(0, len(seq), size):
+            yield seq[i:i + size]
+
+    # Create import job record
+    job_result = supabase.table("import_jobs").insert({
+        "status": "processing",
+        "total": len(normalized),
+        "use_nano_model": use_nano_model,
+    }).execute()
+
+    if not job_result.data:
+        return jsonify({"error": "Failed to start import job"}), 500
+
+    job_id = job_result.data[0]["id"]
+
+    # Deduplicate against existing URLs
+    urls = [item["url"] for item in normalized]
+    existing_urls = set()
+    for chunk in chunked(urls, 100):
+        existing = supabase.table("bookmarks").select("url").in_("url", chunk).execute()
+        existing_urls.update({row["url"] for row in (existing.data or [])})
+
+    to_insert = []
+    enrich_candidates = []
+    skipped_count = 0
+
+    for item in normalized:
+        if item["url"] in existing_urls:
+            skipped_count += 1
+            continue
+
+        try:
+            parsed = urlparse(item["url"])
+            domain = parsed.netloc.replace("www.", "")
+        except Exception:
+            domain = None
+
+        enrich = item["enrich"] is True
+        favicon_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=64" if domain else None
+
+        record = {
+            "url": item["url"],
+            "domain": domain,
+            "original_title": item["title"] or item["url"],
+            "clean_title": item["title"] or item["url"],
+            "favicon_url": favicon_url,
+            "auto_tags": item.get("tags") or [],
+            "enrichment_status": "pending" if enrich else "completed",
+            "import_job_id": job_id if enrich else None,
+        }
+
+        to_insert.append(record)
+        if enrich:
+            enrich_candidates.append(item["url"])
+
+    inserted: list[dict] = []
+    for chunk in chunked(to_insert, 200):
+        insert_result = supabase.table("bookmarks").insert(chunk).execute()
+        inserted.extend(insert_result.data or [])
+
+    # Map URLs to inserted IDs for enrichment queueing
+        to_enqueue = [row for row in inserted if row.get("url") in enrich_candidates]
+
+        # Create import_job_items rows for enrich tasks
+        item_ids_by_url = {}
+        if to_enqueue:
+            items_payload = [
+                {
+                    "job_id": job_id,
+                    "url": row["url"],
+                    "title": row.get("clean_title") or row.get("original_title") or row["url"],
+                    "tags": row.get("auto_tags") or [],
+                    "bookmark_id": row["id"],
+                    "status": "pending",
+                }
+                for row in to_enqueue
+            ]
+            # batch insert items
+            for chunk in chunked(items_payload, 200):
+                res = supabase.table("import_job_items").insert(chunk).execute()
+                data_rows = res.data or []
+                for payload, created in zip(chunk, data_rows):
+                    item_ids_by_url[payload["url"]] = created.get("id")
+
+        to_enqueue_ids = [row["id"] for row in to_enqueue]
+
+    # Update import job counts
+    supabase.table("import_jobs").update({
+        "imported_count": len(inserted),
+        "skipped_count": len(normalized) - len(inserted),
+        "enqueue_enrich_count": len(to_enqueue_ids),
+        "status": "processing" if to_enqueue_ids else "completed",
+    }).eq("id", job_id).execute()
+
+    # Queue enrichments
+    for row in to_enqueue:
+        item_id = item_ids_by_url.get(row.get("url"))
+        enrich_bookmark_async(row["id"], use_nano_model=use_nano_model, import_job_id=job_id, import_item_id=item_id)
+
+    return jsonify({
+        "job_id": job_id,
+        "imported": len(inserted),
+        "skipped": len(normalized) - len(inserted),
+        "enrichment_queued": len(to_enqueue_ids),
+        "use_nano_model": use_nano_model,
+    }), 202
+
+
+@bookmarks_bp.route("/import/<job_id>", methods=["GET"])
+@require_auth
+def get_import_job(job_id: str):
+    """Return import job status and counters."""
+    supabase = get_supabase()
+    try:
+        with_items = request.args.get("with_items", "false").lower() == "true"
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 50, type=int)
+        per_page = min(max(per_page, 1), 200)
+        offset = (page - 1) * per_page
+
+        result = supabase.table("import_jobs").select("*").eq("id", job_id).single().execute()
+        if not result.data:
+            return jsonify({"error": "Import job not found"}), 404
+
+        job = result.data
+
+        current_item = None
+        if job.get("current_item_id"):
+            current = supabase.table("import_job_items").select("*").eq("id", job["current_item_id"]).single().execute()
+            current_item = current.data if current.data else None
+
+        items = []
+        total_items = 0
+        if with_items:
+            items_res = supabase.table("import_job_items").select("*", count="exact").eq("job_id", job_id).range(offset, offset + per_page - 1).order("created_at", desc=False).execute()
+            items = items_res.data or []
+            total_items = items_res.count or 0
+
+        return jsonify({
+            "job": job,
+            "current_item": current_item,
+            "items": items,
+            "items_total": total_items,
+            "page": page,
+            "per_page": per_page,
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to fetch import job: {str(e)}"}), 500
+
+
+@bookmarks_bp.route("/import/<job_id>/stop", methods=["POST"])
+@require_auth
+def stop_import_job(job_id: str):
+    """Mark an import job as canceled; workers will honor this."""
+    supabase = get_supabase()
+    try:
+        supabase.table("import_jobs").update({"status": "canceled", "last_error": "Manually canceled"}).eq("id", job_id).execute()
+        supabase.table("import_job_items").update({"status": "canceled", "error": "Canceled"}).eq("job_id", job_id).eq("status", "pending").execute()
+        return jsonify({"message": "Job canceled"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to cancel job: {str(e)}"}), 500
+
+
+@bookmarks_bp.route("/import/<job_id>", methods=["DELETE"])
+@require_auth
+def delete_import_job(job_id: str):
+    """Delete an import job; optionally delete bookmarks created by it."""
+    supabase = get_supabase()
+    remove_bookmarks = request.args.get("remove_bookmarks", "false").lower() == "true"
+    try:
+        if remove_bookmarks:
+            supabase.table("bookmarks").delete().eq("import_job_id", job_id).execute()
+        supabase.table("import_jobs").delete().eq("id", job_id).execute()
+        return jsonify({"message": "Job deleted"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete job: {str(e)}"}), 500
+
+
+@bookmarks_bp.route("/import/<job_id>/items/<item_id>/skip", methods=["POST"])
+@require_auth
+def skip_import_item(job_id: str, item_id: str):
+    """Skip a specific import job item."""
+    supabase = get_supabase()
+    try:
+        # Mark item skipped if pending/processing
+        supabase.table("import_job_items").update({
+            "status": "skipped",
+            "error": "Manually skipped",
+            "finished_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", item_id).eq("job_id", job_id).in_("status", ["pending", "processing"]).execute()
+
+        # If this item was current, clear it
+        supabase.table("import_jobs").update({"current_item_id": None}).eq("id", job_id).eq("current_item_id", item_id).execute()
+        return jsonify({"message": "Item skipped"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to skip item: {str(e)}"}), 500
