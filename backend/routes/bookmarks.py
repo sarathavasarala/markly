@@ -205,8 +205,7 @@ def list_bookmarks():
         query = supabase.table("bookmarks").select(
             "id, url, domain, original_title, clean_title, ai_summary, "
             "auto_tags, favicon_url, thumbnail_url, content_type, intent_type, "
-            "technical_level, created_at, updated_at, last_accessed_at, "
-            "access_count, enrichment_status, raw_notes",
+            "technical_level, created_at, enrichment_status",
             count="exact"
         )
         

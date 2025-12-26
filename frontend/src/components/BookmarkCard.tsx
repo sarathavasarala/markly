@@ -8,7 +8,7 @@ import {
   Trash2,
   Edit2
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { Bookmark } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 import { useUIStore } from '../stores/uiStore'
@@ -19,7 +19,7 @@ interface BookmarkCardProps {
   onTagClick?: (tag: string) => void
 }
 
-export default function BookmarkCard({
+const BookmarkCard = memo(function BookmarkCard({
   bookmark,
   onDeleted,
   onTagClick,
@@ -269,4 +269,6 @@ export default function BookmarkCard({
       </div>
     </div>
   )
-}
+})
+
+export default BookmarkCard
