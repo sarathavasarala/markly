@@ -5,7 +5,8 @@ import {
   Sparkles,
   LayoutGrid,
   List,
-  Trash2
+  Trash2,
+  Plus
 } from 'lucide-react'
 import { statsApi, bookmarksApi, Bookmark, ResurfaceSuggestion } from '../lib/api'
 import BookmarkCard from '../components/BookmarkCard'
@@ -24,7 +25,7 @@ export default function Dashboard() {
   const [showAllTags, setShowAllTags] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const { bookmarksViewMode: viewMode, setBookmarksViewMode: setViewMode } = useUIStore()
+  const { bookmarksViewMode: viewMode, setBookmarksViewMode: setViewMode, setIsAddModalOpen } = useUIStore()
   const { trackAccess, deleteBookmark } = useBookmarksStore()
 
   // Use ref to track enriching state without causing re-renders
@@ -263,14 +264,23 @@ export default function Dashboard() {
 
         {/* Bookmarks Grid */}
         {recentBookmarks.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center">
-            <BookMarked className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-            <h2 className="text-xl font-medium text-gray-900 dark:text-white mb-2">
-              No bookmarks yet
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-16 text-center border border-dashed border-gray-200 dark:border-gray-700">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-50 dark:bg-primary-900/20 rounded-3xl mb-6">
+              <BookMarked className="w-10 h-10 text-primary-600 dark:text-primary-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              Start curating your knowledge
             </h2>
-            <p className="text-gray-500 dark:text-gray-400">
-              Paste a link in the bar above to save your first bookmark
+            <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8 leading-relaxed">
+              Build your personal knowledge base. Best for articles, deep-reads, and everything worth remembering.
             </p>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition-all font-semibold shadow-lg shadow-primary-500/20 active:scale-[0.98]"
+            >
+              <Plus className="w-5 h-5" />
+              Add your first bookmark
+            </button>
           </div>
         ) : (
           viewMode === 'cards' ? (
