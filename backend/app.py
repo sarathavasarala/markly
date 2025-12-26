@@ -79,19 +79,20 @@ def create_app():
                         url = f"https://markly.azurewebsites.net/@{username}"
                         
                         # Strip existing generic meta tags to avoid confusion for crawlers
+                        # Using a more robust regex that ignores attribute order and whitespace
                         import re
                         tags_to_strip = [
                             r'<title>.*?</title>',
-                            r'<meta name="description" content=".*?">',
-                            r'<meta property="og:title" content=".*?">',
-                            r'<meta property="og:description" content=".*?">',
-                            r'<meta property="og:image" content=".*?">',
-                            r'<meta property="og:url" content=".*?">',
-                            r'<meta property="og:site_name" content=".*?">',
-                            r'<meta name="twitter:title" content=".*?">',
-                            r'<meta name="twitter:description" content=".*?">',
-                            r'<meta name="twitter:image" content=".*?">',
-                            r'<meta name="twitter:card" content=".*?">'
+                            r'<meta\s+[^>]*?name="description"[^>]*?>',
+                            r'<meta\s+[^>]*?property="og:title"[^>]*?>',
+                            r'<meta\s+[^>]*?property="og:description"[^>]*?>',
+                            r'<meta\s+[^>]*?property="og:image"[^>]*?>',
+                            r'<meta\s+[^>]*?property="og:url"[^>]*?>',
+                            r'<meta\s+[^>]*?property="og:site_name"[^>]*?>',
+                            r'<meta\s+[^>]*?name="twitter:title"[^>]*?>',
+                            r'<meta\s+[^>]*?name="twitter:description"[^>]*?>',
+                            r'<meta\s+[^>]*?name="twitter:image"[^>]*?>',
+                            r'<meta\s+[^>]*?name="twitter:card"[^>]*?>'
                         ]
                         
                         for tag_re in tags_to_strip:
