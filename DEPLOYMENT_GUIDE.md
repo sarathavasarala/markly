@@ -47,38 +47,41 @@ When you make changes to your code, you usually want to do two things:
 These are separate actions. You can save to git without deploying to Azure, and vice-versa (though usually you want both).
 
 ### Part A: Save Code (Git)
-Always do this first to ensure your changes are safe.
+The industry-standard way to save progress and collaborate.
+
 ```bash
-# 1. Add changes
+# 1. Stage all your changes
 git add .
 
-# 2. Commit with a message
-git commit -m "Updated mobile layout and hidden imports"
+# 2. Commit with a meaningful message
+git commit -m "feat: added jina scraper and cleaned up UI"
 
-# 3. Push to GitHub (or your git provider)
-git push
+# 3. Push to the cloud (GitHub)
+git push origin main
 ```
 
-### Part B: Deploy App (Azure)
-Once your code is safe in Git, ship it to the world.
+### Part B: Deploy to Production (Azure Docker)
+This packages your code into a "container" and ships it to Azure.
 
-**1. Login (Use once per session)**
+**1. Login to the Registry (Once per session)**
 ```bash
-# Tells Docker who you are (paste your password when prompted if not using stored creds)
 docker login marklyregistry.azurecr.io -u marklyregistry
 ```
 
-**2. Build & Push (The "Shippable" Command)**
-Run this single command to package and upload your new code.
-*Note: We assume you are on a Mac. The `--platform linux/amd64` flag is CRITICAL to ensure it runs on Azure servers.*
+**2. The "One-Liner" Build & Push**
+*Crucial: If you are on an M1/M2/M3 Mac, you MUST include the `--platform linux/amd64` flag so it works on Azure's Intel/AMD servers.*
+
 ```bash
-docker build --platform linux/amd64 -t marklyregistry.azurecr.io/markly:latest . && docker push marklyregistry.azurecr.io/markly:latest
+# Build and Push in one go
+docker build --platform linux/amd64 -t marklyregistry.azurecr.io/markly:latest . && \
+docker push marklyregistry.azurecr.io/markly:latest
 ```
 
-**3. Restart Azure**
-*   Go to **Azure Portal** -> **Markly Web App** -> **Overview**.
-*   Click **Restart**.
-*   *Wait 60 seconds.* Your update is live!
+**3. Final Step: Manual Restart**
+*   Go to: [Azure Portal](https://portal.azure.com)
+*   Find: **Markly Web App**
+*   Action: Click **Restart**
+*   *Note: It takes about 30-60 seconds for the container to "boot up" after a restart.*
 
 ---
 
