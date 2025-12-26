@@ -65,7 +65,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     }
 
     useEffect(() => {
-        if (!isOwner) return
+        if (!username) return
 
         const fetchCount = async () => {
             try {
@@ -79,7 +79,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
             }
         }
         fetchCount()
-    }, [username, isOwner])
+    }, [username])
 
     // Fetch bookmarks
     useEffect(() => {
