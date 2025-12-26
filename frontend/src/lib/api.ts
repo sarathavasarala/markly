@@ -36,15 +36,7 @@ api.interceptors.response.use(
 
 export default api
 
-// Auth API
-export const authApi = {
-  login: (secretPhrase: string) =>
-    api.post<{ token: string; expires_at: string }>('/auth/login', {
-      secret_phrase: secretPhrase,
-    }),
-  logout: () => api.post('/auth/logout'),
-  verify: () => api.get<{ valid: boolean; expires_at?: string }>('/auth/verify'),
-}
+// Auth API removed - using Supabase Auth directly
 
 // Bookmarks API
 export interface Bookmark {

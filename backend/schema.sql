@@ -12,6 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 -- Import jobs table (tracks bulk imports and enrichment progress)
 CREATE TABLE IF NOT EXISTS import_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL DEFAULT auth.uid(),
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'canceled')),
     total INTEGER NOT NULL DEFAULT 0,
     imported_count INTEGER NOT NULL DEFAULT 0,
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS import_jobs (
 CREATE TABLE IF NOT EXISTS import_job_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     job_id UUID REFERENCES import_jobs(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL DEFAULT auth.uid(),
     url TEXT NOT NULL,
     title TEXT,
     tags TEXT[],
@@ -44,7 +46,8 @@ CREATE TABLE IF NOT EXISTS import_job_items (
 -- Bookmarks table
 CREATE TABLE IF NOT EXISTS bookmarks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    url TEXT NOT NULL UNIQUE,
+    user_id UUID NOT NULL DEFAULT auth.uid(),
+    url TEXT NOT NULL,
     domain TEXT,
     original_title TEXT,
     favicon_url TEXT,
@@ -56,7 +59,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     content_extract TEXT,
     key_quotes TEXT[],
     auto_tags TEXT[],
-    import_job_id UUID REFERENCES import_jobs(id),
+    import_job_id UUID,  -- Circular ref handled below
     intent_type TEXT CHECK (intent_type IN ('reference', 'tutorial', 'inspiration', 'deep-dive', 'tool')),
     technical_level TEXT CHECK (technical_level IN ('beginner', 'intermediate', 'advanced', 'general')),
     content_type TEXT CHECK (content_type IN ('article', 'documentation', 'video', 'tool', 'paper', 'other')),
@@ -67,27 +70,40 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     access_count INTEGER DEFAULT 0,
     enrichment_status TEXT DEFAULT 'pending' CHECK (enrichment_status IN ('pending', 'processing', 'completed', 'failed')),
     enrichment_error TEXT,
-    -- Full Text Search column (Generated)
+    -- Full Text Search
     fts tsvector GENERATED ALWAYS AS (
         to_tsvector('english', coalesce(clean_title, '') || ' ' || coalesce(ai_summary, '') || ' ' || coalesce(original_title, ''))
-    ) STORED
+    ) STORED,
+    -- Constraints
+    UNIQUE(user_id, url)
 );
 
 -- Search history table
 CREATE TABLE IF NOT EXISTS search_history (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL DEFAULT auth.uid(),
     query TEXT NOT NULL,
     results_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Sessions table for auth
-CREATE TABLE IF NOT EXISTS sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_token TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    expires_at TIMESTAMPTZ NOT NULL
-);
+-- Sessions table (REMOVED: Supabase Auth handles sessions now)
+-- We drop it if it exists to clean up
+DROP TABLE IF EXISTS sessions;
+
+-- Fix circular reference (idempotent)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_bookmarks_import_job'
+    ) THEN
+        ALTER TABLE bookmarks 
+        ADD CONSTRAINT fk_bookmarks_import_job 
+        FOREIGN KEY (import_job_id) REFERENCES import_jobs(id);
+    END IF;
+END
+$$;
+
 
 -- ============================================
 
@@ -95,8 +111,10 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- ============================================
 
 -- Bookmarks indexes
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_domain ON bookmarks(domain);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_created_at ON bookmarks(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_compos_user_created ON bookmarks(user_id, created_at DESC); -- Important for dashboard
 CREATE INDEX IF NOT EXISTS idx_bookmarks_enrichment_status ON bookmarks(enrichment_status);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_auto_tags ON bookmarks USING GIN(auto_tags);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_content_type ON bookmarks(content_type);
@@ -109,18 +127,51 @@ CREATE INDEX IF NOT EXISTS idx_import_job_items_job ON import_job_items(job_id);
 CREATE INDEX IF NOT EXISTS idx_import_job_items_status ON import_job_items(status);
 CREATE INDEX IF NOT EXISTS idx_import_jobs_created ON import_jobs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_import_job_items_created ON import_job_items(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_user ON import_jobs(user_id);
 
 -- Vector similarity search index (IVFFlat for approximate nearest neighbors)
 -- Note: Create this after you have some data for better index quality
 -- CREATE INDEX IF NOT EXISTS idx_bookmarks_embedding ON bookmarks 
 -- USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
--- Sessions indexes
-CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(session_token);
-CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
-
 -- Search history index
 CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at DESC);
+
+-- ============================================
+-- ROW LEVEL SECURITY (RLS)
+-- ============================================
+
+-- Enable RLS
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE search_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE import_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE import_job_items ENABLE ROW LEVEL SECURITY;
+
+-- Policies for Bookmarks
+CREATE POLICY "Users can only see their own bookmarks" 
+ON bookmarks FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own bookmarks" 
+ON bookmarks FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own bookmarks" 
+ON bookmarks FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own bookmarks" 
+ON bookmarks FOR DELETE USING (auth.uid() = user_id);
+
+-- Policies for Search History
+CREATE POLICY "Users can see own search history" 
+ON search_history FOR ALL USING (auth.uid() = user_id);
+
+-- Policies for Import Jobs
+CREATE POLICY "Users can manage own import jobs" 
+ON import_jobs FOR ALL USING (auth.uid() = user_id);
+
+-- Policies for Import Job Items
+CREATE POLICY "Users can manage own import job items" 
+ON import_job_items FOR ALL USING (auth.uid() = user_id);
+
 
 -- ============================================
 -- FUNCTIONS
@@ -155,6 +206,7 @@ CREATE TRIGGER update_import_job_items_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- Function for semantic search using cosine similarity
+-- Security: Filters by auth.uid() to respect user isolation
 CREATE OR REPLACE FUNCTION match_bookmarks(
     query_embedding vector(3072),
     match_threshold float DEFAULT 0.5,
@@ -172,6 +224,7 @@ RETURNS TABLE (
     similarity float
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 BEGIN
     RETURN QUERY
@@ -186,7 +239,8 @@ BEGIN
         b.thumbnail_url,
         1 - (b.embedding <=> query_embedding) AS similarity
     FROM bookmarks b
-    WHERE b.embedding IS NOT NULL
+    WHERE b.user_id = auth.uid()
+      AND b.embedding IS NOT NULL
       AND b.enrichment_status = 'completed'
       AND 1 - (b.embedding <=> query_embedding) > match_threshold
     ORDER BY b.embedding <=> query_embedding
@@ -195,6 +249,7 @@ END;
 $$;
 
 -- RPC for single-query dashboard stats
+-- Security: Filters by auth.uid() to respect user isolation
 CREATE OR REPLACE FUNCTION get_dashboard_stats()
 RETURNS TABLE (
     total_bookmarks BIGINT,
@@ -203,15 +258,19 @@ RETURNS TABLE (
     completed BIGINT,
     pending BIGINT,
     failed BIGINT
-) LANGUAGE plpgsql AS $$
+) LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    current_user_id UUID := auth.uid();
 BEGIN
     RETURN QUERY SELECT
-        (SELECT count(*) FROM bookmarks) as total_bookmarks,
-        (SELECT count(*) FROM bookmarks WHERE created_at >= NOW() - INTERVAL '7 days') as this_week,
-        (SELECT count(*) FROM bookmarks WHERE created_at >= NOW() - INTERVAL '30 days') as this_month,
-        (SELECT count(*) FROM bookmarks WHERE enrichment_status = 'completed') as completed,
-        (SELECT count(*) FROM bookmarks WHERE enrichment_status IN ('pending', 'processing')) as pending,
-        (SELECT count(*) FROM bookmarks WHERE enrichment_status = 'failed') as failed;
+        (SELECT count(*) FROM bookmarks WHERE user_id = current_user_id) as total_bookmarks,
+        (SELECT count(*) FROM bookmarks WHERE user_id = current_user_id AND created_at >= NOW() - INTERVAL '7 days') as this_week,
+        (SELECT count(*) FROM bookmarks WHERE user_id = current_user_id AND created_at >= NOW() - INTERVAL '30 days') as this_month,
+        (SELECT count(*) FROM bookmarks WHERE user_id = current_user_id AND enrichment_status = 'completed') as completed,
+        (SELECT count(*) FROM bookmarks WHERE user_id = current_user_id AND enrichment_status IN ('pending', 'processing')) as pending,
+        (SELECT count(*) FROM bookmarks WHERE user_id = current_user_id AND enrichment_status = 'failed') as failed;
 END;
 $$;
 

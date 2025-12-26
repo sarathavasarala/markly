@@ -30,8 +30,6 @@ class Config:
     )
     
     # Auth
-    # Auth phrase must be provided via environment
-    AUTH_SECRET_PHRASE = os.getenv("AUTH_SECRET_PHRASE")
     SESSION_EXPIRY_DAYS = 365  # 1 year
     
     # Optional services
@@ -45,7 +43,6 @@ class Config:
             ("SUPABASE_SERVICE_KEY", cls.SUPABASE_SERVICE_KEY),
             ("AZURE_OPENAI_ENDPOINT", cls.AZURE_OPENAI_ENDPOINT),
             ("AZURE_OPENAI_API_KEY", cls.AZURE_OPENAI_API_KEY),
-            ("AUTH_SECRET_PHRASE", cls.AUTH_SECRET_PHRASE),
         ]
         
         missing = [name for name, value in required if not value]

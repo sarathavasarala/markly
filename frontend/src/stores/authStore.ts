@@ -1,93 +1,103 @@
 import { create } from 'zustand'
-import { authApi } from '../lib/api'
+import { supabase } from '../lib/supabase'
 
 interface AuthState {
   isAuthenticated: boolean
+  user: any | null
   token: string | null
-  expiresAt: string | null
   isLoading: boolean
   error: string | null
-  
-  login: (secretPhrase: string) => Promise<boolean>
-  logout: () => void
-  checkAuth: () => Promise<boolean>
+
+  signInWithGoogle: () => Promise<void>
+  logout: () => Promise<void>
+  initialize: () => Promise<void>
   clearError: () => void
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-  isAuthenticated: !!localStorage.getItem('markly_token'),
-  token: localStorage.getItem('markly_token'),
-  expiresAt: localStorage.getItem('markly_expires'),
-  isLoading: false,
+export const useAuthStore = create<AuthState>((set) => ({
+  isAuthenticated: false,
+  user: null,
+  token: null, // We'll sync this to localStorage 'markly_token' for api.ts
+  isLoading: true,
   error: null,
-  
-  login: async (secretPhrase: string) => {
+
+  signInWithGoogle: async () => {
     set({ isLoading: true, error: null })
-    
     try {
-      const response = await authApi.login(secretPhrase)
-      const { token, expires_at } = response.data
-      
-      localStorage.setItem('markly_token', token)
-      localStorage.setItem('markly_expires', expires_at)
-      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      })
+      if (error) throw error
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false })
+    }
+  },
+
+  logout: async () => {
+    set({ isLoading: true })
+    try {
+      await supabase.auth.signOut()
+      localStorage.removeItem('markly_token')
+      set({
+        isAuthenticated: false,
+        user: null,
+        token: null,
+        isLoading: false
+      })
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false })
+    }
+  },
+
+  initialize: async () => {
+    set({ isLoading: true })
+
+    // Check active session
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // Set initial state
+    if (session) {
+      localStorage.setItem('markly_token', session.access_token)
       set({
         isAuthenticated: true,
-        token,
-        expiresAt: expires_at,
-        isLoading: false,
+        user: session.user,
+        token: session.access_token,
+        isLoading: false
       })
-      
-      return true
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Login failed'
+    } else {
+      localStorage.removeItem('markly_token')
       set({
-        isLoading: false,
-        error: message,
+        isAuthenticated: false,
+        user: null,
+        token: null,
+        isLoading: false
       })
-      return false
     }
-  },
-  
-  logout: () => {
-    authApi.logout().catch(() => {})
-    
-    localStorage.removeItem('markly_token')
-    localStorage.removeItem('markly_expires')
-    
-    set({
-      isAuthenticated: false,
-      token: null,
-      expiresAt: null,
+
+    // Listen for changes
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        localStorage.setItem('markly_token', session.access_token)
+        set({
+          isAuthenticated: true,
+          user: session.user,
+          token: session.access_token,
+          isLoading: false
+        })
+      } else {
+        localStorage.removeItem('markly_token')
+        set({
+          isAuthenticated: false,
+          user: null,
+          token: null,
+          isLoading: false
+        })
+      }
     })
   },
-  
-  checkAuth: async () => {
-    const token = localStorage.getItem('markly_token')
-    
-    if (!token) {
-      set({ isAuthenticated: false })
-      return false
-    }
-    
-    try {
-      set({ isLoading: true })
-      const response = await authApi.verify()
-      
-      if (response.data.valid) {
-        set({ isAuthenticated: true, isLoading: false })
-        return true
-      } else {
-        get().logout()
-        return false
-      }
-    } catch {
-      get().logout()
-      return false
-    } finally {
-      set({ isLoading: false })
-    }
-  },
-  
+
   clearError: () => set({ error: null }),
 }))
