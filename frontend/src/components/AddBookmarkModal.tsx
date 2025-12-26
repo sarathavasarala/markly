@@ -22,6 +22,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   const [newTag, setNewTag] = useState('')
   const [previewData, setPreviewData] = useState<any>(null)
   const [enrichmentWarning, setEnrichmentWarning] = useState<string | null>(null)
+  const [isPublic, setIsPublic] = useState(true) // Default to public
 
   const createBookmark = useBookmarksStore((state) => state.createBookmark)
 
@@ -95,6 +96,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           clean_title: editTitle,
           ai_summary: editSummary,
           auto_tags: finalTags,
+          is_public: isPublic,
         }
       )
       handleClose()
@@ -114,6 +116,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
     setEditSummary('')
     setEditTags([])
     setEnrichmentWarning(null)
+    setIsPublic(true)
     setStep('idle')
     setIsSubmitting(false)
     onClose()
@@ -285,6 +288,28 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                         <Plus className="w-5 h-5" />
                       </button>
                     </form>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Visibility</label>
+                      <button
+                        onClick={() => setIsPublic(!isPublic)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${isPublic
+                          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-100 dark:border-green-900/30'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-gray-700'
+                          }`}
+                      >
+                        {isPublic ? (
+                          <>
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            Public (Shared to profile)
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-2 h-2 rounded-full bg-gray-400" />
+                            Private (Only you)
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
