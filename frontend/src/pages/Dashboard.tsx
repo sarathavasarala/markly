@@ -168,7 +168,7 @@ export default function Dashboard() {
           </h1>
         </div>
 
-        <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="hidden sm:inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           <button
             type="button"
             onClick={() => setViewMode('cards')}
@@ -205,7 +205,7 @@ export default function Dashboard() {
               {showAllTags ? 'Show less' : 'View more'}
             </button>
           </div>
-          <div className={`flex flex-wrap gap-2 transition-all duration-300 ${showAllTags ? 'max-h-[1000px]' : 'max-h-9 overflow-hidden'}`}>
+          <div className={`flex flex-wrap gap-2 p-1 -m-1 transition-all duration-300 ${showAllTags ? 'max-h-[1000px]' : 'max-h-11 overflow-hidden'}`}>
             {topTags.map(({ tag, count }) => {
               const isSelected = selectedTags.includes(tag)
               return (
