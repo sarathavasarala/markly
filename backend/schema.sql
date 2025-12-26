@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     favicon_url TEXT,
     thumbnail_url TEXT,
     raw_notes TEXT,
-    user_description TEXT,  -- Optional description provided by user (for JS-heavy sites)
+    user_description TEXT,
     clean_title TEXT,
     ai_summary TEXT,
     content_extract TEXT,
@@ -66,7 +66,11 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     last_accessed_at TIMESTAMPTZ,
     access_count INTEGER DEFAULT 0,
     enrichment_status TEXT DEFAULT 'pending' CHECK (enrichment_status IN ('pending', 'processing', 'completed', 'failed')),
-    enrichment_error TEXT
+    enrichment_error TEXT,
+    -- Full Text Search column (Generated)
+    fts tsvector GENERATED ALWAYS AS (
+        to_tsvector('english', coalesce(clean_title, '') || ' ' || coalesce(ai_summary, '') || ' ' || coalesce(original_title, ''))
+    ) STORED
 );
 
 -- Search history table
@@ -86,6 +90,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 -- ============================================
+
 -- INDEXES
 -- ============================================
 
@@ -97,8 +102,13 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_auto_tags ON bookmarks USING GIN(auto_t
 CREATE INDEX IF NOT EXISTS idx_bookmarks_content_type ON bookmarks(content_type);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_intent_type ON bookmarks(intent_type);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_import_job ON bookmarks(import_job_id);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_fts ON bookmarks USING GIN (fts);
+
+-- Import job indexes
 CREATE INDEX IF NOT EXISTS idx_import_job_items_job ON import_job_items(job_id);
 CREATE INDEX IF NOT EXISTS idx_import_job_items_status ON import_job_items(status);
+CREATE INDEX IF NOT EXISTS idx_import_jobs_created ON import_jobs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_import_job_items_created ON import_job_items(created_at DESC);
 
 -- Vector similarity search index (IVFFlat for approximate nearest neighbors)
 -- Note: Create this after you have some data for better index quality
@@ -111,8 +121,6 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
 -- Search history index
 CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_import_jobs_created ON import_jobs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_import_job_items_created ON import_job_items(created_at DESC);
 
 -- ============================================
 -- FUNCTIONS
@@ -186,21 +194,7 @@ BEGIN
 END;
 $$;
 
--- ============================================
--- ROW LEVEL SECURITY (Optional - for multi-user future)
--- ============================================
--- For now, we're using service key so RLS is bypassed
--- Enable these if you add multi-user support later
-
--- ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE search_history ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-
--- ============================================
--- PERFORMANCE OPTIMIZATIONS
--- ============================================
-
--- RPC for single-query dashboard stats (Fixes 7 separate queries in stats.py)
+-- RPC for single-query dashboard stats
 CREATE OR REPLACE FUNCTION get_dashboard_stats()
 RETURNS TABLE (
     total_bookmarks BIGINT,
@@ -221,8 +215,3 @@ BEGIN
 END;
 $$;
 
--- Add Full Text Search column and index (Fixes slow wildcard ILIKE search)
-ALTER TABLE bookmarks ADD COLUMN IF NOT EXISTS fts tsvector 
-GENERATED ALWAYS AS (to_tsvector('english', coalesce(clean_title, '') || ' ' || coalesce(ai_summary, '') || ' ' || coalesce(original_title, ''))) STORED;
-
-CREATE INDEX IF NOT EXISTS idx_bookmarks_fts ON bookmarks USING GIN (fts);
