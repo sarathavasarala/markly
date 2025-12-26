@@ -26,6 +26,8 @@ interface UIState {
   applyTheme: (themeOverride?: Theme) => void
   editingBookmark: Bookmark | null
   setEditingBookmark: (bookmark: Bookmark | null) => void
+  isAddModalOpen: boolean
+  setIsAddModalOpen: (isOpen: boolean) => void
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -50,5 +52,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     }
   },
   editingBookmark: null,
-  setEditingBookmark: (bookmark) => set({ editingBookmark: bookmark })
+  setEditingBookmark: (bookmark) => set({ editingBookmark: bookmark }),
+  isAddModalOpen: false,
+  setIsAddModalOpen: (isOpen) => set({ isAddModalOpen: isOpen })
 }))

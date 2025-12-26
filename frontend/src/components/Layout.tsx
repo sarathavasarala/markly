@@ -16,11 +16,9 @@ import EditBookmarkModal from './EditBookmarkModal'
 
 export default function Layout() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [showAddModal, setShowAddModal] = useState(false)
-  const navigate = useNavigate()
-
   const { logout, user } = useAuthStore((state) => ({ logout: state.logout, user: state.user }))
-  const { theme, toggleTheme, editingBookmark, setEditingBookmark } = useUIStore()
+  const { theme, toggleTheme, editingBookmark, setEditingBookmark, isAddModalOpen, setIsAddModalOpen } = useUIStore()
+  const navigate = useNavigate()
 
   // Get user display info
   const userEmail = user?.email || ''
@@ -76,7 +74,7 @@ export default function Layout() {
               </button>
 
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={() => setIsAddModalOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-full hover:bg-primary-700 transition-colors font-medium"
               >
                 <Plus className="w-5 h-5" />
@@ -134,8 +132,8 @@ export default function Layout() {
 
       {/* Add Bookmark Modal */}
       <AddBookmarkModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
       />
       {/* Edit Bookmark Modal */}
       <EditBookmarkModal
