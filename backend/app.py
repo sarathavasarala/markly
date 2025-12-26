@@ -72,8 +72,9 @@ def create_app():
                             html = f.read()
                         
                         display_name = profile.get('full_name') or username
+                        count = profile.get('bookmark_count') or 0
                         title = f"{display_name}'s Reads on Markly"
-                        description = f"A collection of interesting reads, curated by {display_name}."
+                        description = f"Discover {count} interesting finds curated by {display_name}."
                         image = profile.get('avatar_url') or profile.get('picture') or "https://markly.azurewebsites.net/og-image.png"
                         url = f"https://markly.azurewebsites.net/@{username}"
                         
@@ -86,6 +87,7 @@ def create_app():
                             r'<meta property="og:description" content=".*?">',
                             r'<meta property="og:image" content=".*?">',
                             r'<meta property="og:url" content=".*?">',
+                            r'<meta property="og:site_name" content=".*?">',
                             r'<meta name="twitter:title" content=".*?">',
                             r'<meta name="twitter:description" content=".*?">',
                             r'<meta name="twitter:image" content=".*?">',
@@ -97,7 +99,6 @@ def create_app():
 
                         # Prepare fresh, personalized OG tags
                         og_tags = f'''
-    <!-- High-Signal Personalized OG Tags -->
     <title>{title}</title>
     <meta name="description" content="{description}">
     <meta property="og:site_name" content="Markly">

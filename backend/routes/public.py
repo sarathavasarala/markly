@@ -24,11 +24,17 @@ def get_user_profile_by_username(username: str) -> dict | None:
             u_metadata = getattr(user, 'user_metadata', None) or user.get('user_metadata') if isinstance(user, dict) else getattr(user, 'user_metadata', None)
             
             if u_email and u_email.split('@')[0].lower() == username.lower():
+                # Also get bookmark count for this user
+                count_res = supabase.table('bookmarks').select('id', count='exact') \
+                    .eq('user_id', u_id).eq('is_public', True).execute()
+                bookmark_count = count_res.count or 0
+                
                 return {
                     'id': u_id,
                     'email': u_email,
                     'avatar_url': u_metadata.get('avatar_url') or u_metadata.get('picture') if u_metadata else None,
-                    'full_name': u_metadata.get('full_name') or u_metadata.get('name') if u_metadata else None
+                    'full_name': u_metadata.get('full_name') or u_metadata.get('name') if u_metadata else None,
+                    'bookmark_count': bookmark_count
                 }
         return None
     except Exception as e:
