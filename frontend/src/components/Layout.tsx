@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { useUIStore } from '../stores/uiStore'
 import AddBookmarkModal from './AddBookmarkModal'
+import EditBookmarkModal from './EditBookmarkModal'
 
 export default function Layout() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -19,7 +20,7 @@ export default function Layout() {
   const navigate = useNavigate()
 
   const logout = useAuthStore((state) => state.logout)
-  const { theme, toggleTheme } = useUIStore()
+  const { theme, toggleTheme, editingBookmark, setEditingBookmark } = useUIStore()
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,6 +104,11 @@ export default function Layout() {
       <AddBookmarkModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
+      />
+      {/* Edit Bookmark Modal */}
+      <EditBookmarkModal
+        bookmark={editingBookmark}
+        onClose={() => setEditingBookmark(null)}
       />
 
     </div>

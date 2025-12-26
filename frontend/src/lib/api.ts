@@ -52,16 +52,16 @@ export interface Bookmark {
   url: string
   domain: string
   original_title: string
-  clean_title: string
-  ai_summary: string
+  clean_title: string | null
+  ai_summary: string | null
   raw_notes: string | null
   auto_tags: string[]
-  favicon_url: string
-  thumbnail_url: string
-  content_type: string
-  intent_type: string
-  technical_level: string
-  key_quotes: string[]
+  favicon_url: string | null
+  thumbnail_url: string | null
+  content_type: string | null
+  intent_type: string | null
+  technical_level: string | null
+  key_quotes: string[] | null
   created_at: string
   updated_at: string
   last_accessed_at: string | null

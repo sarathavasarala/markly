@@ -112,6 +112,26 @@ export default function Dashboard() {
     setSelectedTags([])
   }
 
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '—'
+    const d = new Date(dateStr)
+    if (Number.isNaN(d.getTime())) return '—'
+    const now = new Date()
+
+    // Normalize dates to midnight to compare calendar days
+    const d1 = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    const diffMs = d2.getTime() - d1.getTime()
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    if (diffDays < 7) return `${diffDays} days ago`
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
+    return d.toLocaleDateString()
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -271,10 +291,7 @@ export default function Dashboard() {
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
                 {recentBookmarks.map((bookmark) => {
                   const title = bookmark.clean_title || bookmark.original_title || bookmark.url
-                  const createdAt = bookmark.created_at ? new Date(bookmark.created_at) : null
-                  const createdAtLabel = createdAt && !Number.isNaN(createdAt.getTime())
-                    ? createdAt.toLocaleDateString()
-                    : '—'
+                  const createdAtLabel = formatDate(bookmark.created_at)
 
                   return (
                     <div

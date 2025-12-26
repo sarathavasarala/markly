@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { Bookmark } from '../lib/api'
 
 export type BookmarkViewMode = 'cards' | 'list'
 export type Theme = 'light' | 'dark'
@@ -23,6 +24,8 @@ interface UIState {
   theme: Theme
   toggleTheme: () => void
   applyTheme: (themeOverride?: Theme) => void
+  editingBookmark: Bookmark | null
+  setEditingBookmark: (bookmark: Bookmark | null) => void
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -45,5 +48,7 @@ export const useUIStore = create<UIState>((set, get) => ({
     } else {
       document.documentElement.classList.remove('dark')
     }
-  }
+  },
+  editingBookmark: null,
+  setEditingBookmark: (bookmark) => set({ editingBookmark: bookmark })
 }))
