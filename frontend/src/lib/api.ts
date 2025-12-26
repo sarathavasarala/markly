@@ -70,44 +70,6 @@ export interface BookmarkListResponse {
   pages: number
 }
 
-export interface ImportJob {
-  id: string
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'canceled'
-  total: number
-  imported_count: number
-  skipped_count: number
-  enqueue_enrich_count: number
-  enrich_completed: number
-  enrich_failed: number
-  use_nano_model: boolean
-  last_error?: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface ImportJobItem {
-  id: string
-  job_id: string
-  url: string
-  title: string
-  tags: string[]
-  bookmark_id: string | null
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped' | 'canceled'
-  error?: string | null
-  started_at?: string | null
-  finished_at?: string | null
-  created_at: string
-}
-
-export interface ImportJobResponse {
-  job: ImportJob
-  current_item: ImportJobItem | null
-  items: ImportJobItem[]
-  items_total: number
-  page: number
-  per_page: number
-}
-
 export const bookmarksApi = {
   create: (url: string, notes?: string, description?: string, extraData?: any) =>
     api.post<{ bookmark: Bookmark; already_exists?: boolean }>('/bookmarks', {
@@ -137,22 +99,6 @@ export const bookmarksApi = {
   update: (id: string, data: Partial<Bookmark>) => api.patch<Bookmark>(`/bookmarks/${id}`, data),
   trackAccess: (id: string) => api.post(`/bookmarks/${id}/access`),
   retry: (id: string) => api.post(`/bookmarks/${id}/retry`),
-
-  importBatch: (payload: {
-    bookmarks: { url: string; title?: string; tags?: string[]; enrich?: boolean }[]
-    use_nano_model?: boolean
-  }) => api.post<{ job_id: string; imported: number; skipped: number; enrichment_queued: number; use_nano_model: boolean }>(
-    '/bookmarks/import',
-    payload
-  ),
-
-  getImportJob: (jobId: string, params?: { with_items?: boolean; page?: number; per_page?: number }) =>
-    api.get<ImportJobResponse>(`/bookmarks/import/${jobId}`, { params }),
-
-  stopImportJob: (jobId: string) => api.post(`/bookmarks/import/${jobId}/stop`, {}),
-  deleteImportJob: (jobId: string, removeBookmarks?: boolean) =>
-    api.delete(`/bookmarks/import/${jobId}`, { params: { remove_bookmarks: removeBookmarks ? 'true' : 'false' } }),
-  skipImportItem: (jobId: string, itemId: string) => api.post(`/bookmarks/import/${jobId}/items/${itemId}/skip`, {}),
 }
 
 // Search API

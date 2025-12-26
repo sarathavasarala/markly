@@ -4,7 +4,6 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Search from './pages/Search'
-import Import from './pages/Import'
 import { useEffect } from 'react'
 
 import { useUIStore } from './stores/uiStore'
@@ -47,7 +46,6 @@ function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="search" element={<Search />} />
-        <Route path="import" element={<Import />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

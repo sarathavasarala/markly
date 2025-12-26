@@ -9,40 +9,6 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 -- TABLES
 -- ============================================
 
--- Import jobs table (tracks bulk imports and enrichment progress)
-CREATE TABLE IF NOT EXISTS import_jobs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL DEFAULT auth.uid(),
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'canceled')),
-    total INTEGER NOT NULL DEFAULT 0,
-    imported_count INTEGER NOT NULL DEFAULT 0,
-    skipped_count INTEGER NOT NULL DEFAULT 0,
-    enqueue_enrich_count INTEGER NOT NULL DEFAULT 0,
-    enrich_completed INTEGER NOT NULL DEFAULT 0,
-    enrich_failed INTEGER NOT NULL DEFAULT 0,
-    use_nano_model BOOLEAN NOT NULL DEFAULT FALSE,
-    current_item_id UUID,
-    last_error TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Import job items table for per-item tracking
-CREATE TABLE IF NOT EXISTS import_job_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    job_id UUID REFERENCES import_jobs(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL DEFAULT auth.uid(),
-    url TEXT NOT NULL,
-    title TEXT,
-    tags TEXT[],
-    bookmark_id UUID,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'skipped', 'canceled')),
-    error TEXT,
-    started_at TIMESTAMPTZ,
-    finished_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- Bookmarks table
 CREATE TABLE IF NOT EXISTS bookmarks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -59,7 +25,6 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     content_extract TEXT,
     key_quotes TEXT[],
     auto_tags TEXT[],
-    import_job_id UUID,  -- Circular ref handled below
     intent_type TEXT CHECK (intent_type IN ('reference', 'tutorial', 'inspiration', 'deep-dive', 'tool')),
     technical_level TEXT CHECK (technical_level IN ('beginner', 'intermediate', 'advanced', 'general')),
     content_type TEXT CHECK (content_type IN ('article', 'documentation', 'video', 'tool', 'paper', 'other')),
@@ -88,25 +53,10 @@ CREATE TABLE IF NOT EXISTS search_history (
 );
 
 -- Sessions table (REMOVED: Supabase Auth handles sessions now)
--- We drop it if it exists to clean up
 DROP TABLE IF EXISTS sessions;
-
--- Fix circular reference (idempotent)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'fk_bookmarks_import_job'
-    ) THEN
-        ALTER TABLE bookmarks 
-        ADD CONSTRAINT fk_bookmarks_import_job 
-        FOREIGN KEY (import_job_id) REFERENCES import_jobs(id);
-    END IF;
-END
-$$;
 
 
 -- ============================================
-
 -- INDEXES
 -- ============================================
 
@@ -119,20 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_enrichment_status ON bookmarks(enrichme
 CREATE INDEX IF NOT EXISTS idx_bookmarks_auto_tags ON bookmarks USING GIN(auto_tags);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_content_type ON bookmarks(content_type);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_intent_type ON bookmarks(intent_type);
-CREATE INDEX IF NOT EXISTS idx_bookmarks_import_job ON bookmarks(import_job_id);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_fts ON bookmarks USING GIN (fts);
-
--- Import job indexes
-CREATE INDEX IF NOT EXISTS idx_import_job_items_job ON import_job_items(job_id);
-CREATE INDEX IF NOT EXISTS idx_import_job_items_status ON import_job_items(status);
-CREATE INDEX IF NOT EXISTS idx_import_jobs_created ON import_jobs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_import_job_items_created ON import_job_items(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_import_jobs_user ON import_jobs(user_id);
-
--- Vector similarity search index (IVFFlat for approximate nearest neighbors)
--- Note: Create this after you have some data for better index quality
--- CREATE INDEX IF NOT EXISTS idx_bookmarks_embedding ON bookmarks 
--- USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- Search history index
 CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at DESC);
@@ -144,8 +81,6 @@ CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_
 -- Enable RLS
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE search_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE import_jobs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE import_job_items ENABLE ROW LEVEL SECURITY;
 
 -- Policies for Bookmarks
 CREATE POLICY "Users can only see their own bookmarks" 
@@ -163,14 +98,6 @@ ON bookmarks FOR DELETE USING (auth.uid() = user_id);
 -- Policies for Search History
 CREATE POLICY "Users can see own search history" 
 ON search_history FOR ALL USING (auth.uid() = user_id);
-
--- Policies for Import Jobs
-CREATE POLICY "Users can manage own import jobs" 
-ON import_jobs FOR ALL USING (auth.uid() = user_id);
-
--- Policies for Import Job Items
-CREATE POLICY "Users can manage own import job items" 
-ON import_job_items FOR ALL USING (auth.uid() = user_id);
 
 
 -- ============================================
@@ -190,18 +117,6 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS update_bookmarks_updated_at ON bookmarks;
 CREATE TRIGGER update_bookmarks_updated_at
     BEFORE UPDATE ON bookmarks
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_import_jobs_updated_at ON import_jobs;
-CREATE TRIGGER update_import_jobs_updated_at
-    BEFORE UPDATE ON import_jobs
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_import_job_items_updated_at ON import_job_items;
-CREATE TRIGGER update_import_job_items_updated_at
-    BEFORE UPDATE ON import_job_items
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
@@ -273,4 +188,3 @@ BEGIN
         (SELECT count(*) FROM bookmarks WHERE user_id = current_user_id AND enrichment_status = 'failed') as failed;
 END;
 $$;
-

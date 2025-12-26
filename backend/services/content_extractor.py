@@ -61,26 +61,41 @@ class ContentExtractor:
     @classmethod
     def _extract_via_jina(cls, url: str) -> dict:
         """Extract content using Jina Reader API."""
+        import urllib.parse
         try:
-            jina_url = f"https://r.jina.ai/{url}"
+            # Properly encode the URL to handle special characters
+            encoded_url = urllib.parse.quote(url, safe='')
+            jina_url = f"https://r.jina.ai/{encoded_url}"
             headers = {
                 "Authorization": f"Bearer {Config.JINA_READER_API_KEY}",
                 "Accept": "application/json",
             }
             
+            print(f"Calling Jina Reader for: {url}")
             response = requests.get(jina_url, headers=headers, timeout=cls.TIMEOUT)
             response.raise_for_status()
             
-            data = response.json()
+            raw_data = response.json()
             
+            # Jina API returns content nested inside a 'data' object
+            data = raw_data.get("data", {}) if "data" in raw_data else raw_data
+            
+            title = data.get("title")
+            description = data.get("description")
+            content = data.get("content", "")
+            
+            if not content and not title:
+                print(f"Jina returned empty data for {url}")
+                return {}
+
             return {
-                "title": data.get("title"),
-                "description": data.get("description"),
-                "content": data.get("content", "")[:15000],  # Limit content size
+                "title": title,
+                "description": description,
+                "content": content[:15000],  # Limit content size
             }
             
         except Exception as e:
-            print(f"Jina extraction failed: {e}")
+            print(f"Jina extraction failed for {url}: {str(e)}")
             return {}
     
     @classmethod
