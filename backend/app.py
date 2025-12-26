@@ -73,26 +73,45 @@ def create_app():
                         
                         display_name = profile.get('full_name') or username
                         title = f"{display_name}'s Reads on Markly"
-                        description = f"Explore curated links and interesting finds from {display_name}."
-                        image = profile.get('avatar_url') or "https://markly.azurewebsites.net/og-image.png"
+                        description = f"A collection of interesting reads, curated by {display_name}."
+                        image = profile.get('avatar_url') or profile.get('picture') or "https://markly.azurewebsites.net/og-image.png"
                         url = f"https://markly.azurewebsites.net/@{username}"
                         
-                        # Prepare OG tags
+                        # Strip existing generic meta tags to avoid confusion for crawlers
+                        import re
+                        tags_to_strip = [
+                            r'<title>.*?</title>',
+                            r'<meta name="description" content=".*?">',
+                            r'<meta property="og:title" content=".*?">',
+                            r'<meta property="og:description" content=".*?">',
+                            r'<meta property="og:image" content=".*?">',
+                            r'<meta property="og:url" content=".*?">',
+                            r'<meta name="twitter:title" content=".*?">',
+                            r'<meta name="twitter:description" content=".*?">',
+                            r'<meta name="twitter:image" content=".*?">',
+                            r'<meta name="twitter:card" content=".*?">'
+                        ]
+                        
+                        for tag_re in tags_to_strip:
+                            html = re.sub(tag_re, '', html, flags=re.IGNORECASE | re.DOTALL)
+
+                        # Prepare fresh, personalized OG tags
                         og_tags = f'''
-    <!-- Dynamic OG Tags -->
+    <!-- High-Signal Personalized OG Tags -->
     <title>{title}</title>
     <meta name="description" content="{description}">
+    <meta property="og:site_name" content="Markly">
     <meta property="og:title" content="{title}">
     <meta property="og:description" content="{description}">
     <meta property="og:image" content="{image}">
     <meta property="og:url" content="{url}">
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="profile">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{title}">
     <meta name="twitter:description" content="{description}">
     <meta name="twitter:image" content="{image}">
 '''
-                        # Inject into head (replace existing title if possible or just append)
+                        # Inject into head
                         html = html.replace('<head>', f'<head>{og_tags}')
                         return html
             except Exception as e:

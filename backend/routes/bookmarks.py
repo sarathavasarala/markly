@@ -213,13 +213,13 @@ def list_bookmarks():
     try:
         supabase = g.supabase
         
-        # Build query
+        # Build query - ENFORCE user_id isolation
         query = supabase.table("bookmarks").select(
             "id, url, domain, original_title, clean_title, ai_summary, "
             "auto_tags, favicon_url, thumbnail_url, content_type, intent_type, "
-            "technical_level, created_at, enrichment_status",
+            "technical_level, created_at, enrichment_status, is_public",
             count="exact"
-        )
+        ).eq("user_id", g.user.id)
         
         # Apply filters
         if domain:
