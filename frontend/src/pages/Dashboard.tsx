@@ -12,6 +12,7 @@ import BookmarkCard from '../components/BookmarkCard'
 import { useUIStore } from '../stores/uiStore'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 import { X } from 'lucide-react'
+import { Virtuoso } from 'react-virtuoso'
 
 export default function Dashboard() {
   const [recentBookmarks, setRecentBookmarks] = useState<Bookmark[]>([])
@@ -100,17 +101,21 @@ export default function Dashboard() {
     }
   }, [selectedTags, loadBookmarks])
 
-  const toggleTag = (tag: string) => {
+  const toggleTag = useCallback((tag: string) => {
     setSelectedTags(prev =>
       prev.includes(tag)
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     )
-  }
+  }, [])
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSelectedTags([])
-  }
+  }, [])
+
+  const handleBookmarkDeleted = useCallback((id: string) => {
+    setRecentBookmarks((prev) => prev.filter((b) => b.id !== id))
+  }, [])
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '—'
@@ -274,47 +279,62 @@ export default function Dashboard() {
                 <div key={bookmark.id} className="mb-4 break-inside-avoid">
                   <BookmarkCard
                     bookmark={bookmark}
-                    onDeleted={(id) => setRecentBookmarks((prev) => prev.filter((b) => b.id !== id))}
+                    onDeleted={handleBookmarkDeleted}
                     onTagClick={toggleTag}
                   />
                 </div>
               ))}
             </div>
           ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="grid grid-cols-12 px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                <div className="col-span-6">Title</div>
-                <div className="col-span-4">Site</div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden h-[600px] flex flex-col">
+              <div className="grid grid-cols-12 px-4 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0 z-10">
+                <div className="col-span-5">Title & Description</div>
+                <div className="col-span-3">Tags</div>
+                <div className="col-span-2">Site</div>
                 <div className="col-span-1 text-right">Added</div>
                 <div className="col-span-1 text-right">Actions</div>
               </div>
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {recentBookmarks.map((bookmark) => {
+              <Virtuoso
+                data={recentBookmarks}
+                itemContent={(_, bookmark) => {
                   const title = bookmark.clean_title || bookmark.original_title || bookmark.url
                   const createdAtLabel = formatDate(bookmark.created_at)
 
                   return (
                     <div
-                      key={bookmark.id}
-                      className="grid grid-cols-12 px-4 py-3 text-sm items-center hover:bg-gray-50 dark:hover:bg-gray-750"
+                      className="grid grid-cols-12 px-4 py-3 text-sm items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700/50"
                     >
-                      <div className="col-span-6 pr-3 min-w-0">
+                      <div className="col-span-5 pr-3 min-w-0">
                         <a
                           href={bookmark.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => trackAccess(bookmark.id)}
-                          className="text-gray-900 dark:text-white font-medium hover:text-primary-600 dark:hover:text-primary-400 truncate block"
+                          className="text-gray-900 dark:text-white font-medium hover:text-primary-600 dark:hover:text-primary-400 truncate block text-sm"
                           title={title}
                         >
                           {title}
                         </a>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{bookmark.url}</div>
+                        {bookmark.ai_summary && (
+                          <div className="text-xs text-gray-400 dark:text-gray-500 line-clamp-1 mt-0.5 font-normal italic" title={bookmark.ai_summary}>
+                            {bookmark.ai_summary}
+                          </div>
+                        )}
                       </div>
-                      <div className="col-span-4 text-gray-700 dark:text-gray-300 truncate">
+                      <div className="col-span-3 flex flex-wrap gap-1 pr-2">
+                        {bookmark.auto_tags?.slice(0, 3).map(tag => (
+                          <span key={tag} className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-primary-50 dark:bg-primary-900/10 text-primary-600 dark:text-primary-400 border border-primary-100 dark:border-primary-800/50">
+                            {tag}
+                          </span>
+                        ))}
+                        {(bookmark.auto_tags?.length || 0) > 3 && (
+                          <span className="text-[10px] text-gray-400">+{bookmark.auto_tags.length - 3}</span>
+                        )}
+                      </div>
+                      <div className="col-span-2 text-gray-500 dark:text-gray-400 truncate text-xs">
                         {bookmark.domain}
                       </div>
-                      <div className="col-span-1 text-right text-xs text-gray-500 dark:text-gray-400">
+                      <div className="col-span-1 text-right text-xs text-gray-400 dark:text-gray-500">
                         {createdAtLabel}
                       </div>
                       <div className="col-span-1 text-right">
@@ -340,8 +360,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                   )
-                })}
-              </div>
+                }}
+              />
             </div>
           )
         )}

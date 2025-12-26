@@ -2,6 +2,7 @@
 import logging
 from flask import Flask
 from flask_cors import CORS
+from flask_compress import Compress
 
 from config import Config
 
@@ -20,6 +21,9 @@ def create_app():
     # Enable CORS for frontend
     CORS(app, origins=["http://localhost:5173", "http://localhost:3000"], 
          supports_credentials=True)
+    
+    # Enable Gzip compression
+    Compress(app)
     
     # Validate configuration on startup
     try:
