@@ -100,6 +100,7 @@ export const bookmarksApi = {
   trackAccess: (id: string) => api.post(`/bookmarks/${id}/access`),
   retry: (id: string) => api.post(`/bookmarks/${id}/retry`),
   savePublic: (id: string) => api.post<Bookmark>('/bookmarks/save-public', { bookmark_id: id }),
+  deleteAccount: () => api.delete('/public/account'),
 }
 
 // Search API
@@ -140,4 +141,15 @@ export const statsApi = {
 
   getResurface: () =>
     api.get<{ suggestions: ResurfaceSuggestion[] }>('/stats/resurface'),
+}
+
+export const publicApi = {
+  listSubscribers: (username: string) =>
+    api.get<{ subscribers: { email: string; subscribed_at: string }[] }>(`/public/@${username}/subscribers`),
+  unsubscribe: (username: string, email?: string) =>
+    api.post(`/public/@${username}/unsubscribe`, { email }),
+  checkSubscription: (username: string) =>
+    api.get<{ is_subscribed: boolean }>(`/public/@${username}/subscription/check`),
+  deleteSubscriber: (username: string, subscriberEmail: string) =>
+    api.delete(`/public/@${username}/subscribers/${subscriberEmail}`),
 }

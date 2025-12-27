@@ -14,6 +14,10 @@ export default function Login() {
     }
   }, [isAuthenticated, navigate])
 
+  useEffect(() => {
+    document.title = 'Markly - Your smart bookmark library'
+  }, [])
+
   const handleLogin = async () => {
     await signInWithGoogle()
   }
