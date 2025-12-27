@@ -52,71 +52,66 @@ def create_app():
     def health():
         return {"status": "healthy", "service": "markly-api"}
 
-    # SPA Routing: Serve index.html for all non-API paths
-    @app.route('/', defaults={'path': ''})
-    @app.route('/<path:path>')
-    def serve(path):
-        # Clean the path
-        clean_path = path.strip('/')
+    # --- Public Profile Injection Logic ---
+    def serve_with_injection(username, full_path):
+        """Helper to serve index.html with injected OG tags."""
+        clean_username = username.strip('@').strip('/')
+        index_path = os.path.join(app.static_folder, 'index.html')
         
-        if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-            return send_from_directory(app.static_folder, path)
-            
-        # Handle Public Profile OG Tags for social sharing
-        # Support both @username and u/username
-        username = None
-        if clean_path.startswith('@'):
-            username = clean_path[1:]
-        elif clean_path.startswith('u/'):
-            username = clean_path[2:]
-            
-        if username:
-            try:
-                from routes.public import get_user_profile_by_username
-                profile = get_user_profile_by_username(username)
-                
-                if profile:
-                    index_path = os.path.join(app.static_folder, 'index.html')
-                    if os.path.exists(index_path):
-                        with open(index_path, 'r') as f:
-                            html = f.read()
-                        
-                        display_name = profile.get('full_name') or username
-                        count = profile.get('bookmark_count') or 0
-                        title = f"{display_name}'s Reads on Markly"
-                        description = f"Discover {count} interesting finds curated by {display_name}."
-                        image = profile.get('avatar_url') or profile.get('picture')
-                        if not image:
-                            # Use a nice UI Avatar as fallback for OG image
-                            image = f"https://ui-avatars.com/api/?name={display_name}&background=6366f1&color=fff&size=512"
-                        
-                        # Use the requested path format in the URL tag
-                        if clean_path.startswith('@'):
-                            url = f"https://markly.azurewebsites.net/@{username}"
-                        else:
-                            url = f"https://markly.azurewebsites.net/u/{username}"
-                        
-                        # Strip existing generic meta tags to avoid confusion for crawlers
-                        tags_to_strip = [
-                            r'<title>.*?</title>',
-                            r'<meta\s+[^>]*?name="description"[^>]*?>',
-                            r'<meta\s+[^>]*?property="og:title"[^>]*?>',
-                            r'<meta\s+[^>]*?property="og:description"[^>]*?>',
-                            r'<meta\s+[^>]*?property="og:image"[^>]*?>',
-                            r'<meta\s+[^>]*?property="og:url"[^>]*?>',
-                            r'<meta\s+[^>]*?property="og:site_name"[^>]*?>',
-                            r'<meta\s+[^>]*?name="twitter:title"[^>]*?>',
-                            r'<meta\s+[^>]*?name="twitter:description"[^>]*?>',
-                            r'<meta\s+[^>]*?name="twitter:image"[^>]*?>',
-                            r'<meta\s+[^>]*?name="twitter:card"[^>]*?>'
-                        ]
-                        
-                        for tag_re in tags_to_strip:
-                            html = re.sub(tag_re, '', html, flags=re.IGNORECASE | re.DOTALL)
+        if not os.path.exists(index_path):
+            return "App is building, please refresh...", 503
 
-                        # Prepare fresh, personalized OG tags
-                        # Ensure we have the minimum required tags: og:title, og:type, og:image, og:url
-                        og_tags = f'''
+        with open(index_path, 'r') as f:
+            html = f.read()
+
+        # Try to get profile data
+        profile = None
+        try:
+            from routes.public import get_user_profile_by_username
+            profile = get_user_profile_by_username(clean_username)
+        except Exception as e:
+            app.logger.error(f"Error looking up profile for {clean_username}: {e}")
+
+        # Fallback values if profile lookup fails
+        display_name = clean_username
+        count = 0
+        image = f"https://ui-avatars.com/api/?name={clean_username}&background=6366f1&color=fff&size=512"
+        description = f"Discover interesting finds curated by {display_name} on Markly."
+        
+        if profile:
+            display_name = profile.get('full_name') or clean_username
+            count = profile.get('bookmark_count') or 0
+            image = profile.get('avatar_url') or profile.get('picture') or image
+            description = f"Discover {count} interesting finds curated by {display_name} on Markly."
+
+        title = f"{display_name}'s Reads on Markly"
+        # Ensure URL is absolute and matches the requested format
+        base_url = "https://markly.azurewebsites.net"
+        # If it was a /u/ route, keep it as /u/ in the og:url
+        url = f"{base_url}{full_path}"
+
+        # Strip existing generic meta tags to avoid confusion for crawlers
+        # We use a broad regex to catch many variations
+        tags_to_strip = [
+            r'<title>.*?</title>',
+            r'<meta\s+[^>]*?name="description"[^>]*?>',
+            r'<meta\s+[^>]*?property="og:title"[^>]*?>',
+            r'<meta\s+[^>]*?property="og:description"[^>]*?>',
+            r'<meta\s+[^>]*?property="og:image"[^>]*?>',
+            r'<meta\s+[^>]*?property="og:url"[^>]*?>',
+            r'<meta\s+[^>]*?property="og:site_name"[^>]*?>',
+            r'<meta\s+[^>]*?property="og:type"[^>]*?>',
+            r'<meta\s+[^>]*?name="twitter:title"[^>]*?>',
+            r'<meta\s+[^>]*?name="twitter:description"[^>]*?>',
+            r'<meta\s+[^>]*?name="twitter:image"[^>]*?>',
+            r'<meta\s+[^>]*?name="twitter:card"[^>]*?>'
+        ]
+        
+        for tag_re in tags_to_strip:
+            html = re.sub(tag_re, '', html, flags=re.IGNORECASE | re.DOTALL)
+
+        # Prepare fresh, personalized OG tags
+        og_tags = f'''
     <title>{title}</title>
     <meta name="description" content="{description}">
     <meta property="og:site_name" content="Markly">
@@ -130,12 +125,32 @@ def create_app():
     <meta name="twitter:description" content="{description}">
     <meta name="twitter:image" content="{image}">
 '''
-                        # Inject into head - find the end of <head> or start of it
-                        # Injecting right after <head> is safest
-                        html = re.sub(r'(<head[^>]*>)', r'\1' + og_tags, html, flags=re.IGNORECASE)
-                        return html
-            except Exception as e:
-                app.logger.error(f"Error injecting OG tags for {username}: {e}")
+        # Inject right after <head>
+        html = re.sub(r'(<head[^>]*>)', r'\1' + og_tags, html, flags=re.IGNORECASE)
+        return html
+
+    # Explicit profile routes for injection
+    @app.route('/u/<username>')
+    @app.route('/@<username>')
+    def profile_serve(username):
+        return serve_with_injection(username, request.path)
+
+    # SPA Routing: Serve index.html for all non-API paths
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve(path):
+        # Clean the path
+        clean_path = path.strip('/')
+        
+        if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+            
+        # Handle Public Profile OG Tags for social sharing
+        # This handles cases not caught by explicit u/ and @ routes
+        if clean_path.startswith('@'):
+            return serve_with_injection(clean_path[1:], request.path)
+        elif clean_path.startswith('u/'):
+            return serve_with_injection(clean_path[2:], request.path)
 
         return send_from_directory(app.static_folder, 'index.html')
 
