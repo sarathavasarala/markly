@@ -207,7 +207,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
           {/* Right Pane - Curator */}
           <div className="w-full md:w-7/12 p-8 flex flex-col bg-white dark:bg-gray-900">
             {step === 'idle' || step === 'analyzing' ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+              <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center p-8">
                 <div className="w-20 h-20 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-6 border border-gray-100 dark:border-gray-700">
                   <Sparkles className={`w-10 h-10 ${step === 'analyzing' ? 'text-primary-500 animate-pulse' : 'text-gray-300'}`} />
                 </div>
@@ -288,7 +288,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                         <Plus className="w-5 h-5" />
                       </button>
                     </form>
-                    <div>
+                    <div className="mt-6">
                       <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Visibility</label>
                       <button
                         onClick={() => setIsPublic(!isPublic)}
@@ -323,7 +323,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                   <button
                     onClick={handleFinish}
                     disabled={isSubmitting}
-                    className="flex-[2] py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold transition-all shadow-xl hover:shadow-gray-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="flex-[2] px-6 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold transition-all shadow-xl hover:shadow-gray-500/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSubmitting ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
