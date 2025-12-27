@@ -157,6 +157,153 @@ def get_subscriber_count(username: str):
         return jsonify({'count': 0})
 
 
+@public_bp.route('/@<username>/subscribers', methods=['GET'])
+@require_auth
+def list_subscribers(username: str):
+    """List subscribers for a curator (owner only)."""
+    user_email = getattr(g.user, 'email', None)
+    
+    # Simple owner check: email prefix must match username
+    if not user_email or user_email.split('@')[0].lower() != username.lower():
+        # As an extra safety, check if it's the same ID if we can't trust email prefix
+        profile = get_user_profile_by_username(username)
+        if not profile or profile['id'] != g.user.id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+    try:
+        supabase = get_supabase()
+        response = supabase.table('subscribers') \
+            .select('email, subscribed_at') \
+            .eq('curator_username', username.lower()) \
+            .is_('unsubscribed_at', 'null') \
+            .order('subscribed_at', desc=True) \
+            .execute()
+            
+        return jsonify({'subscribers': response.data or []})
+    except Exception as e:
+        logger.error(f"Error listing subscribers for {username}: {str(e)}")
+        return jsonify({'error': f'Failed to list subscribers: {str(e)}'}), 500
+
+
+@public_bp.route('/@<username>/subscription/check', methods=['GET'])
+@require_auth
+def check_subscription(username: str):
+    """Check if the current user is subscribed to this curator."""
+    user_email = getattr(g.user, 'email', None)
+    if not user_email:
+        return jsonify({'is_subscribed': False})
+        
+    supabase = get_supabase()
+    try:
+        response = supabase.table('subscribers') \
+            .select('id') \
+            .eq('curator_username', username.lower()) \
+            .eq('email', user_email.lower()) \
+            .is_('unsubscribed_at', 'null') \
+            .execute()
+            
+        return jsonify({'is_subscribed': len(response.data) > 0})
+    except Exception as e:
+        return jsonify({'is_subscribed': False})
+
+
+@public_bp.route('/@<username>/unsubscribe', methods=['POST'])
+def unsubscribe_from_curator(username: str):
+    """Unsubscribe from a curator's digest."""
+    data = request.get_json() or {}
+    email = data.get('email', '').lower().strip()
+    
+    # If not provided in body, try to get from logged-in user
+    if not email:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                from database import get_supabase
+                admin_client = get_supabase()
+                user_resp = admin_client.auth.get_user(auth_header[7:])
+                if user_resp and user_resp.user:
+                    email = user_resp.user.email.lower().strip()
+            except:
+                pass
+
+    if not email:
+        return jsonify({'error': 'Email required to unsubscribe'}), 400
+        
+    supabase = get_supabase()
+    try:
+        # We perform a soft delete by setting unsubscribed_at
+        supabase.table('subscribers') \
+            .update({'unsubscribed_at': 'now()'}) \
+            .eq('curator_username', username.lower()) \
+            .eq('email', email) \
+            .execute()
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Unsubscribe error: {e}")
+        return jsonify({'error': 'Failed to unsubscribe'}), 500
+
+
+@public_bp.route('/@<username>/subscribers/<subscriber_email>', methods=['DELETE'])
+@require_auth
+def delete_subscriber(username: str, subscriber_email: str):
+    """Delete a subscriber from your list (owner only)."""
+    user_email = getattr(g.user, 'email', None)
+    
+    # Verify owner
+    if not user_email or user_email.split('@')[0].lower() != username.lower():
+        profile = get_user_profile_by_username(username)
+        if not profile or profile['id'] != g.user.id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+    try:
+        supabase = get_supabase()
+        # Hard delete because the curator doesn't want them anymore
+        supabase.table('subscribers') \
+            .delete() \
+            .eq('curator_username', username.lower()) \
+            .eq('email', subscriber_email.lower()) \
+            .execute()
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error deleting subscriber {subscriber_email}: {e}")
+        return jsonify({'error': 'Failed to delete subscriber'}), 500
+
+
+@public_bp.route('/account', methods=['DELETE'])
+@require_auth
+def delete_account():
+    """Completely delete the user's account and all data."""
+    user_id = g.user.id
+    user_email = g.user.email
+    username = user_email.split('@')[0].lower()
+    
+    try:
+        supabase = get_supabase()
+        
+        # 1. Delete all bookmarks (RLS might handle this, but being explicit)
+        supabase.table('bookmarks').delete().eq('user_id', user_id).execute()
+        
+        # 2. Delete all search history
+        supabase.table('search_history').delete().eq('user_id', user_id).execute()
+        
+        # 3. Delete all people SUBSCRIBED TO the user
+        supabase.table('subscribers').delete().eq('curator_username', username).execute()
+        
+        # 4. Delete the user's own SUBSCRIPTIONS to others
+        supabase.table('subscribers').delete().eq('email', user_email).execute()
+        
+        # 5. Finally, delete the auth user (requires service role)
+        # Note: In a production app, you might want to sign them out first or do this via admin client
+        supabase.auth.admin.delete_user(user_id)
+        
+        return jsonify({'success': True, 'message': 'Account and all data deleted'})
+    except Exception as e:
+        logger.error(f"Error deleting account for {user_id}: {e}")
+        return jsonify({'error': f'Failed to delete account: {str(e)}'}), 500
+
+
 @public_bp.route('/bookmarks/<bookmark_id>/visibility', methods=['PATCH'])
 @require_auth
 def toggle_bookmark_visibility(bookmark_id: str):

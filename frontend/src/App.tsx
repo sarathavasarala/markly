@@ -28,10 +28,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 // Handle /@username by catching :path and checking if it starts with @
 function ProfileOrRedirect() {
   const { path } = useParams<{ path: string }>()
+  const { user, isAuthenticated } = useAuthStore()
 
   // Check if this looks like a profile route (starts with @)
   if (path?.startsWith('@')) {
     const username = path.slice(1) // Remove the @
+    const currentUserUsername = user?.email?.split('@')[0]?.toLowerCase()
+    const isOwner = isAuthenticated && currentUserUsername === username.toLowerCase()
+
+    if (isOwner) {
+      return (
+        <ProtectedRoute>
+          <Layout>
+            <PublicProfile username={username} />
+          </Layout>
+        </ProtectedRoute>
+      )
+    }
+
     return <PublicProfile username={username} />
   }
 

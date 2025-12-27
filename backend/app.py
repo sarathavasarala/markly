@@ -87,7 +87,7 @@ def create_app():
             image = profile.get('avatar_url') or profile.get('picture') or image
 
         description = f"Discover {count} interesting finds curated by {display_name} on Markly."
-        title = f"{first_name}'s Reads on Markly"
+        title = f"{display_name} - Markly"
         # Ensure URL is absolute and matches the requested format
         base_url = "https://markly.azurewebsites.net"
         # If it was a /u/ route, keep it as /u/ in the og:url

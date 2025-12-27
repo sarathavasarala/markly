@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookMarked, Mail, CheckCircle, Loader2, ExternalLink, Bookmark, Eye, EyeOff, Plus, Copy, Check } from 'lucide-react'
+import { BookMarked, Mail, CheckCircle, Loader2, ExternalLink, Bookmark, Eye, EyeOff, Plus, Copy, Check, AlertTriangle, MoreVertical } from 'lucide-react'
+import { publicApi } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
+import SubscribersModal from '../components/SubscribersModal'
 
 interface Bookmark {
     id: string
@@ -37,6 +39,8 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     const [profileNotFound, setProfileNotFound] = useState(false)
     const [profileMetadata, setProfileMetadata] = useState<{ avatar_url?: string, full_name?: string } | null>(null)
     const [isCopied, setIsCopied] = useState(false)
+    const [isSubscribersModalOpen, setIsSubscribersModalOpen] = useState(false)
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
 
     // Check if current user is the owner of this profile locally
     const currentUserUsername = user?.email?.split('@')[0]?.toLowerCase()
@@ -158,6 +162,58 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
         setTimeout(() => setIsCopied(false), 2000)
     }
 
+    const handleUnsubscribe = async () => {
+        if (!window.confirm(`Stop receiving updates from ${firstName}?`)) return
+        setIsLoading(true)
+        try {
+            await publicApi.unsubscribe(username!)
+            setIsSubscribed(false)
+            setSubscriberCount(prev => Math.max(0, prev - 1))
+        } catch (err) {
+            console.error('Unsubscribe error:', err)
+            setError('Failed to unsubscribe. Please try again.')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleDeleteAccount = async () => {
+        const confirmed = window.confirm("CRITICAL ACTION: This will permanently delete your Markly account, all your bookmarks, search history, and followers. This cannot be undone.\n\nAre you absolutely sure?")
+        if (!confirmed) return
+
+        const doubleConfirmed = window.prompt("To confirm, please type 'DELETE MY ACCOUNT' below:")
+        if (doubleConfirmed !== 'DELETE MY ACCOUNT') return
+
+        setIsLoading(true)
+        try {
+            const { bookmarksApi } = await import('../lib/api')
+            await bookmarksApi.deleteAccount()
+            const { logout } = useAuthStore.getState()
+            logout()
+            navigate('/login')
+        } catch (err) {
+            console.error('Account deletion error:', err)
+            setError('Failed to delete account. Please contact support.')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // Check subscription status
+    useEffect(() => {
+        if (isAuthenticated && username && !isOwner) {
+            const checkSub = async () => {
+                try {
+                    const res = await publicApi.checkSubscription(username)
+                    setIsSubscribed(res.data.is_subscribed)
+                } catch (err) {
+                    console.error('Check sub error:', err)
+                }
+            }
+            checkSub()
+        }
+    }, [isAuthenticated, username, isOwner])
+
     const toggleBookmarkVisibility = async (bookmark: Bookmark) => {
         if (!isOwner) return
 
@@ -183,12 +239,12 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
     useEffect(() => {
         if (username) {
-            document.title = `${firstName}'s Reads on Markly`
+            document.title = `${fullName} - Markly`
         }
         return () => {
-            document.title = 'Markly'
+            document.title = 'Markly - Your smart bookmark library'
         }
-    }, [username, firstName])
+    }, [username, fullName])
 
     return (
         <div className="min-h-screen bg-gray-950 text-gray-200 selection:bg-primary-500/30">
@@ -200,6 +256,42 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
             </div>
 
             <div className="relative max-w-[1600px] mx-auto px-6 py-8 sm:py-16">
+                {/* Top Right Menu for Owner */}
+                {isOwner && (
+                    <div className="absolute top-8 right-6 z-30">
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="p-2 text-gray-500 hover:text-white hover:bg-gray-900/50 rounded-xl transition-all"
+                            title="More options"
+                        >
+                            <MoreVertical className="w-5 h-5" />
+                        </button>
+
+                        {isMenuOpen && (
+                            <>
+                                <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setIsMenuOpen(false)}
+                                />
+                                <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl z-20 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
+                                    <div className="p-2">
+                                        <button
+                                            onClick={() => {
+                                                setIsMenuOpen(false)
+                                                handleDeleteAccount()
+                                            }}
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-500/10 rounded-xl text-xs font-black uppercase tracking-widest transition-colors group"
+                                        >
+                                            <AlertTriangle className="w-4 h-4" />
+                                            <span>Delete Account</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
                 {/* Hero Curation Unit */}
                 <div className="flex flex-col items-center text-center mb-12 sm:mb-20">
                     {/* Profile Identity Section */}
@@ -240,7 +332,11 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                 <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black mt-2">Reads</span>
                             </div>
                             <div className="w-px h-8 bg-gray-800 hidden sm:block" />
-                            <div className="flex flex-col items-center sm:items-start min-w-[80px]">
+                            <div
+                                className={`flex flex-col items-center sm:items-start min-w-[80px] ${isOwner ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                                onClick={() => isOwner && setIsSubscribersModalOpen(true)}
+                                title={isOwner ? "View your subscribers" : undefined}
+                            >
                                 <span className="text-xl font-black text-white leading-none">{subscriberCount}</span>
                                 <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-black mt-2">Subscribers</span>
                             </div>
@@ -293,13 +389,22 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                     </button>
                                 </form>
                             ) : (
-                                <div className="flex-1 h-12 flex items-center justify-center sm:justify-start px-8 gap-3 text-green-400">
-                                    <CheckCircle className="w-4 h-4" />
-                                    <span className="text-[11px] font-black uppercase tracking-widest">You're on the list!</span>
+                                <div className="flex-1 h-12 flex items-center justify-between px-8 text-green-400">
+                                    <div className="flex items-center gap-3">
+                                        <CheckCircle className="w-4 h-4" />
+                                        <span className="text-[11px] font-black uppercase tracking-widest">You're on the list!</span>
+                                    </div>
+                                    <button
+                                        onClick={handleUnsubscribe}
+                                        className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-colors"
+                                    >
+                                        Unsubscribe
+                                    </button>
                                 </div>
                             )}
                         </div>
                     </div>
+
                     {error && <p className="text-red-400 text-[10px] mt-4 font-black uppercase tracking-widest animate-pulse">{error}</p>}
                 </div>
 
@@ -429,6 +534,14 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                     </a>
                 </div>
             </div>
+
+            {isOwner && (
+                <SubscribersModal
+                    isOpen={isSubscribersModalOpen}
+                    onClose={() => setIsSubscribersModalOpen(false)}
+                    username={username}
+                />
+            )}
         </div>
     )
 }

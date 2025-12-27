@@ -8,13 +8,13 @@ import {
   Moon,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { useUIStore } from '../stores/uiStore'
 import AddBookmarkModal from './AddBookmarkModal'
 import EditBookmarkModal from './EditBookmarkModal'
 
-export default function Layout() {
+export default function Layout({ children }: { children?: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const { logout, user } = useAuthStore((state) => ({ logout: state.logout, user: state.user }))
@@ -35,6 +35,21 @@ export default function Layout() {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
     }
   }
+
+  // Update document title post-login
+  useEffect(() => {
+    const displayName = userName || userEmail.split('@')[0]
+    if (displayName) {
+      document.title = `${displayName} - Markly`
+    } else {
+      document.title = 'Markly'
+    }
+
+    // Cleanup to reset title if layout unmounts (though it's the main container)
+    return () => {
+      document.title = 'Markly - Your smart bookmark library'
+    }
+  }, [userName, userEmail])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -156,7 +171,7 @@ export default function Layout() {
 
       {/* Main Content */}
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-8">
-        <Outlet />
+        {children || <Outlet />}
       </main>
 
       {/* Add Bookmark Modal */}

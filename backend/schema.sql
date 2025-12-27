@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     access_count INTEGER DEFAULT 0,
     enrichment_status TEXT DEFAULT 'pending' CHECK (enrichment_status IN ('pending', 'processing', 'completed', 'failed')),
     enrichment_error TEXT,
+    is_public BOOLEAN DEFAULT true,  -- Shared visibility control (default public)
     -- Full Text Search
     fts tsvector GENERATED ALWAYS AS (
         to_tsvector('english', coalesce(clean_title, '') || ' ' || coalesce(ai_summary, '') || ' ' || coalesce(original_title, ''))
@@ -50,6 +51,16 @@ CREATE TABLE IF NOT EXISTS search_history (
     query TEXT NOT NULL,
     results_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Subscribers table (for email subscriptions)
+CREATE TABLE IF NOT EXISTS subscribers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    curator_username TEXT NOT NULL,  -- The curator they subscribed to (e.g., 'sarath')
+    email TEXT NOT NULL,
+    subscribed_at TIMESTAMPTZ DEFAULT NOW(),
+    unsubscribed_at TIMESTAMPTZ,  -- NULL if still subscribed
+    UNIQUE(curator_username, email)  -- Prevent duplicate subscriptions
 );
 
 -- Sessions table (REMOVED: Supabase Auth handles sessions now)
@@ -70,9 +81,14 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_auto_tags ON bookmarks USING GIN(auto_t
 CREATE INDEX IF NOT EXISTS idx_bookmarks_content_type ON bookmarks(content_type);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_intent_type ON bookmarks(intent_type);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_fts ON bookmarks USING GIN (fts);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_public ON bookmarks(user_id, is_public) WHERE is_public = true;
 
 -- Search history index
 CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at DESC);
+
+-- Subscribers indexes
+CREATE INDEX IF NOT EXISTS idx_subscribers_curator ON subscribers(curator_username);
+CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -81,6 +97,7 @@ CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_
 -- Enable RLS
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE search_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
 
 -- Policies for Bookmarks
 CREATE POLICY "Users can only see their own bookmarks" 
@@ -95,9 +112,19 @@ ON bookmarks FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own bookmarks" 
 ON bookmarks FOR DELETE USING (auth.uid() = user_id);
 
+CREATE POLICY "Anyone can view public bookmarks" 
+ON bookmarks FOR SELECT USING (is_public = true);
+
 -- Policies for Search History
 CREATE POLICY "Users can see own search history" 
 ON search_history FOR ALL USING (auth.uid() = user_id);
+
+-- Policies for Subscribers
+CREATE POLICY "Anyone can subscribe" 
+ON subscribers FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Anyone can count subscribers" 
+ON subscribers FOR SELECT USING (true);
 
 
 -- ============================================
