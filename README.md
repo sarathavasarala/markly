@@ -1,86 +1,56 @@
 # Markly
 
-AI-powered bookmark manager with semantic search. Saves links, extracts content, generates summaries/tags via LLM, and stores embeddings for meaning-based retrieval.
+AI-powered bookmark manager with semantic search. Saves links, extracts content, generates summaries and tags via LLM, and stores embeddings for meaning-based retrieval.
 
 ## Features
-- Save bookmarks with optional notes
-- Auto-extract page content (falls back to user description when scraping fails)
-- LLM-generated titles, summaries, tags, and content classification
-- Keyword search (ILIKE) + semantic search (vector similarity via pgvector)
-- Masonry card layout with tag filtering
-- Zen Reader mode for distraction-free reading
-- Google OAuth via Supabase Auth
-- Per-user data isolation with Row Level Security (RLS)
+- Save bookmarks with optional notes.
+- Auto-extract page content with Jina Reader fallback.
+- LLM-generated titles, summaries, tags, and classification.
+- Keyword and semantic search via pgvector.
+- Masonry card layout with tag filtering.
+- Public profiles (`/@username`) with shareable bookmark collections.
+- Email subscriptions for public profile updates.
+- Zen Reader mode for distraction-free reading.
+- Google OAuth via Supabase.
+- Per-user data isolation with Row Level Security (RLS).
 
 ## Architecture
-- **Backend**: Flask + Supabase (PostgREST + RPC for vector search) + Azure OpenAI
-- **Frontend**: React + Vite + Tailwind + Zustand
-- **Auth**: Supabase Auth (Google OAuth), JWT validation on backend
-- **Database**: PostgreSQL with pgvector extension, RLS-enabled tables
+- **Backend**: Flask, Supabase (PostgREST + RPC), Azure OpenAI.
+- **Frontend**: React, Vite, Tailwind, Zustand.
+- **Auth**: Supabase Auth (Google OAuth), JWT validation.
+- **Database**: PostgreSQL with pgvector and RLS.
+- **Testing**: Vitest, Playwright (E2E), Pytest.
+- **CI/CD**: GitHub Actions, Docker, Azure Container Registry.
 
 ## Prerequisites
 - Python 3.10+
-- Node 18+
-- Supabase project
-- Azure OpenAI resource with chat and embedding deployments
+- Node 20+
+- Supabase project.
+- Azure OpenAI resource (gpt-4o and text-embedding-3-large).
 
-## Supabase Setup
+## Setup
 
-1. Create a new Supabase project at [supabase.com](https://supabase.com)
+### 1. Supabase
+- Enable pgvector extension.
+- Run `backend/schema.sql` and migrations in `backend/migrations/`.
+- Configure Google OAuth in Authentication > Providers.
+- Add app URL to Redirect URLs.
 
-2. Enable pgvector extension:
-   - Go to Database > Extensions > Search "vector" > Enable
+### 2. Environment Variables
 
-3. Run the schema:
-   - Go to SQL Editor > New Query
-   - Paste contents of `backend/schema.sql`
-   - Execute
-
-4. Enable Google OAuth:
-   - Go to Authentication > Providers > Google
-   - Enable and configure with your Google Cloud OAuth credentials
-   - Add your app URL to "Redirect URLs" (e.g., `http://localhost:5173`)
-
-5. Get your keys:
-   - Project Settings > API
-   - Copy `Project URL` (SUPABASE_URL)
-   - Copy `anon public` key (VITE_SUPABASE_ANON_KEY)
-   - Copy `service_role secret` key (SUPABASE_SERVICE_KEY)
-
-## Azure OpenAI Setup
-
-1. Create an Azure OpenAI resource in Azure Portal
-
-2. Deploy two models:
-   - Chat model (e.g., `gpt-4o`)
-   - Embedding model (e.g., `text-embedding-3-large`)
-
-3. Note down:
-   - Endpoint URL
-   - API Key
-   - Deployment names for both models
-
-## Environment Variables
-
-### Backend (`backend/.env`)
+#### Backend (`backend/.env`)
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key
-
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-api-key
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-large
 AZURE_OPENAI_API_VERSION=2024-08-01-preview
-
-# Optional: Jina Reader API for better content extraction
-JINA_READER_API_KEY=
-
-FLASK_ENV=development
-FLASK_DEBUG=true
+JINA_READER_API_KEY=your-jina-key
 ```
 
-### Frontend (`frontend/.env`)
+#### Frontend (`frontend/.env`)
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-public-key
@@ -92,8 +62,9 @@ VITE_SUPABASE_ANON_KEY=your-anon-public-key
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 ### Frontend
@@ -104,58 +75,41 @@ npm install
 
 ## Running
 
-### Start backend (port 5050)
+### Backend (Port 5050)
 ```bash
 cd backend
-source .venv/bin/activate
-flask --app app:create_app run --port 5050
+flask run --port 5050
 ```
 
-### Start frontend (port 5173)
+### Frontend (Port 5173)
 ```bash
 cd frontend
 npm run dev
 ```
 
-Frontend dev server proxies `/api/*` requests to `http://localhost:5050` via `vite.config.ts`.
-
-Open http://localhost:5173 and sign in with Google.
-
-## Database Schema Notes
-
-The schema in `backend/schema.sql` includes:
-- `bookmarks` table with `user_id` column and RLS policies
-- `search_history`, `import_jobs`, `import_job_items` tables with RLS
-- `match_bookmarks` RPC function for semantic search
-- Indexes for performance (user_id, created_at, domain, tags, FTS)
-- Unique constraint on (user_id, url) to prevent duplicate bookmarks per user
+## Testing
+- **Backend**: `cd backend && pytest`
+- **Frontend Unit**: `cd frontend && npm run test`
+- **E2E**: `cd frontend && npm run test:e2e`
 
 ## Project Structure
 ```
 markly/
 ├── backend/
-│   ├── app.py              # Flask app factory
-│   ├── database.py         # Supabase client initialization
-│   ├── config.py           # Environment config
-│   ├── schema.sql          # Database schema + RLS policies
-│   ├── middleware/
-│   │   └── auth.py         # JWT validation middleware
-│   ├── routes/
-│   │   ├── bookmarks.py    # CRUD + enrichment
-│   │   ├── search.py       # Keyword + semantic search
-│   │   └── stats.py        # Dashboard stats
-│   └── services/
-│       ├── ai_service.py   # Azure OpenAI integration
-│       └── scraper.py      # Content extraction
+│   ├── migrations/         # SQL schema updates
+│   ├── routes/             # API endpoints (bookmarks, public, search, stats)
+│   ├── services/           # AI, scrubbing, enrichment logic
+│   ├── tests/              # Pytest suite
+│   ├── app.py              # Flask entry point
+│   └── database.py         # Supabase client
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx
-│   │   ├── components/     # Reusable UI components
-│   │   ├── pages/          # Route pages
-│   │   ├── stores/         # Zustand stores
-│   │   └── lib/
-│   │       ├── api.ts      # API client
-│   │       └── supabase.ts # Supabase client
-│   └── vite.config.ts
+│   │   ├── components/     # UI elements
+│   │   ├── pages/          # Page views (Dashboard, PublicProfile, Reader)
+│   │   ├── stores/         # Zustand state
+│   │   └── lib/            # API and Supabase clients
+│   ├── e2e/                # Playwright tests
+│   └── src/test/           # Vitest setup
+├── Dockerfile              # Production container
 └── README.md
 ```
