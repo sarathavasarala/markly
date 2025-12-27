@@ -9,9 +9,27 @@
     "setup": "npm run setup:backend && npm run setup:frontend",
     "setup:backend": "python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt",
     "setup:frontend": "cd frontend && npm install",
-    "stop": "lsof -ti:5050 | xargs kill -9 2>/dev/null; lsof -ti:5173 | xargs kill -9 2>/dev/null"
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && ../.venv/bin/python -m pytest",
+    "test:frontend": "cd frontend && npm run test",
+    "test:e2e": "cd frontend && npm run test:e2e",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && ../.venv/bin/python -m flake8 .",
+    "stop": "lsof -ti:5050 | xargs kill -9 2>/dev/null; lsof -ti:5173 | xargs kill -9 2>/dev/null",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "frontend/src/**/*.{ts,tsx}": [
+      "cd frontend && npm run lint"
+    ],
+    "backend/**/*.py": [
+      "cd backend && ../.venv/bin/python -m flake8"
+    ]
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7"
   }
 }
