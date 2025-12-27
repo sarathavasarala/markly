@@ -277,120 +277,126 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                 )}
 
                 {/* Hero Curation Unit */}
-                <div className="flex flex-col items-center text-center mb-10 sm:mb-20">
-                    {/* Profile Identity Section */}
-                    <div className="flex flex-col items-center mb-8 sm:mb-10">
-                        <div className="relative group mb-6">
-                            <div className="absolute -inset-1.5 bg-gradient-to-tr from-primary-500 to-blue-500 rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-                            {profileMetadata?.avatar_url ? (
-                                <img
-                                    src={profileMetadata.avatar_url}
-                                    alt={fullName}
-                                    className="relative w-20 h-20 sm:w-28 h-28 rounded-3xl object-cover border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]"
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${fullName}&background=6366f1&color=fff&size=128`
-                                    }}
-                                />
-                            ) : (
-                                <div className="relative w-20 h-20 sm:w-28 h-28 bg-gray-100 dark:bg-gray-900 rounded-3xl flex items-center justify-center border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl">
-                                    <Mail className="w-10 h-10 sm:w-12 sm:h-12 text-primary-500" />
-                                </div>
-                            )}
-                        </div>
-
-                        <h1 className="text-3xl sm:text-6xl font-black text-gray-900 dark:text-white tracking-tight mb-4">
-                            {firstName}'s Reads
-                        </h1>
-
-                        <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-base font-medium max-w-xl mx-auto leading-relaxed px-4">
-                            A collection of interesting reads, curated by <span className="text-gray-900 dark:text-white font-bold">{fullName}.</span>
-                        </p>
+                {isLoadingBookmarks ? (
+                    <div className="flex justify-center py-20">
+                        <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
                     </div>
-
-                    {/* Integrated Stats & Notify Bar */}
-                    <div className="w-full max-w-5xl bg-white dark:bg-gray-900/40 backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl p-2 sm:p-2 sm:pl-8 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center gap-4 sm:gap-10">
-                        {/* High-Impact Stats */}
-                        <div className="flex items-center justify-around sm:justify-start w-full sm:w-auto gap-6 sm:gap-10 py-4 sm:py-0 px-4 sm:px-0 border-b sm:border-b-0 border-gray-100 dark:border-gray-800/50">
-                            <div className="flex flex-col items-center sm:items-start min-w-[60px]">
-                                <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-none">{totalCount}</span>
-                                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Reads</span>
+                ) : (
+                    <div className="flex flex-col items-center text-center mb-10 sm:mb-20">
+                        {/* Profile Identity Section */}
+                        <div className="flex flex-col items-center mb-8 sm:mb-10">
+                            <div className="relative group mb-6">
+                                <div className="absolute -inset-1.5 bg-gradient-to-tr from-primary-500 to-blue-500 rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                                {profileMetadata?.avatar_url ? (
+                                    <img
+                                        src={profileMetadata.avatar_url}
+                                        alt={fullName}
+                                        className="relative w-20 h-20 sm:w-28 h-28 rounded-3xl object-cover border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${fullName}&background=6366f1&color=fff&size=128`
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="relative w-20 h-20 sm:w-28 h-28 bg-gray-100 dark:bg-gray-900 rounded-3xl flex items-center justify-center border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl">
+                                        <Mail className="w-10 h-10 sm:w-12 sm:h-12 text-primary-500" />
+                                    </div>
+                                )}
                             </div>
-                            <div className="w-px h-8 bg-gray-100 dark:bg-gray-800 hidden sm:block" />
-                            <div
-                                className={`flex flex-col items-center sm:items-start min-w-[80px] ${isOwner ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-                                onClick={() => isOwner && setIsSubscribersModalOpen(true)}
-                                title={isOwner ? "View your subscribers" : undefined}
-                            >
-                                <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-none">{subscriberCount}</span>
-                                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Subscribers</span>
+
+                            <h1 className="text-3xl sm:text-6xl font-black text-gray-900 dark:text-white tracking-tight mb-4">
+                                {firstName}'s Picks
+                            </h1>
+
+                            <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-base font-medium max-w-xl mx-auto leading-relaxed px-4">
+                                A collection of interesting picks, curated by <span className="text-gray-900 dark:text-white font-bold">{fullName}.</span>
+                            </p>
+                        </div>
+
+                        {/* Integrated Stats & Notify Bar */}
+                        <div className="w-full max-w-5xl bg-white dark:bg-gray-900/40 backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl p-2 sm:p-2 sm:pl-8 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center gap-4 sm:gap-10">
+                            {/* High-Impact Stats */}
+                            <div className="flex items-center justify-around sm:justify-start w-full sm:w-auto gap-6 sm:gap-10 py-4 sm:py-0 px-4 sm:px-0 border-b sm:border-b-0 border-gray-100 dark:border-gray-800/50">
+                                <div className="flex flex-col items-center sm:items-start min-w-[60px]">
+                                    <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-none">{totalCount}</span>
+                                    <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Picks</span>
+                                </div>
+                                <div className="w-px h-8 bg-gray-100 dark:bg-gray-800 hidden sm:block" />
+                                <div
+                                    className={`flex flex-col items-center sm:items-start min-w-[80px] ${isOwner ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                                    onClick={() => isOwner && setIsSubscribersModalOpen(true)}
+                                    title={isOwner ? "View your subscribers" : undefined}
+                                >
+                                    <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-none">{subscriberCount}</span>
+                                    <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Subscribers</span>
+                                </div>
+                            </div>
+
+                            {/* Integrated Action Area */}
+                            <div className="flex-1 w-full flex items-center sm:border-l border-gray-200 dark:border-gray-800/50">
+                                {isOwner ? (
+                                    <div className="flex-1 flex flex-col sm:flex-row items-center justify-between p-2 sm:p-1 sm:pl-8 gap-4 sm:gap-0">
+                                        <div className="flex flex-col items-center sm:items-start truncate w-full sm:w-auto">
+                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-primary-500 mb-0.5">Your Public Link</span>
+                                            <span className="text-xs sm:text-sm font-bold text-gray-400 truncate max-w-full">{window.location.origin}/@{username}</span>
+                                        </div>
+                                        <button
+                                            onClick={handleCopyProfileLink}
+                                            className="w-full sm:w-auto h-12 px-8 bg-gray-800 hover:bg-gray-700 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+                                        >
+                                            {isCopied ? (
+                                                <>
+                                                    <Check className="w-4 h-4 text-green-400" />
+                                                    <span className="text-green-400">Copied</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy className="w-4 h-4" />
+                                                    <span>Copy Link</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                ) : !isSubscribed ? (
+                                    <form onSubmit={handleSubscribe} className="flex flex-1 flex-col sm:flex-row items-center p-1 w-full gap-2 sm:gap-0">
+                                        <div className="flex-1 flex items-center px-4 w-full">
+                                            <Mail className="w-4 h-4 text-gray-400 dark:text-gray-600 mr-3 shrink-0" />
+                                            <input
+                                                type="email"
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                placeholder="Enter email to stay updated"
+                                                className="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-0 text-sm font-bold py-3 sm:py-0"
+                                                required
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={isLoading}
+                                            className="w-full sm:w-auto h-12 px-8 bg-primary-600 hover:bg-primary-500 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-all shadow-lg shadow-primary-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Notify Me'}
+                                        </button>
+                                    </form>
+                                ) : (
+                                    <div className="flex-1 h-12 flex items-center justify-between px-8 text-green-400">
+                                        <div className="flex items-center gap-3">
+                                            <CheckCircle className="w-4 h-4" />
+                                            <span className="text-[11px] font-black uppercase tracking-widest">You're on the list!</span>
+                                        </div>
+                                        <button
+                                            onClick={handleUnsubscribe}
+                                            className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-colors"
+                                        >
+                                            Unsubscribe
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Integrated Action Area */}
-                        <div className="flex-1 w-full flex items-center sm:border-l border-gray-200 dark:border-gray-800/50">
-                            {isOwner ? (
-                                <div className="flex-1 flex flex-col sm:flex-row items-center justify-between p-2 sm:p-1 sm:pl-8 gap-4 sm:gap-0">
-                                    <div className="flex flex-col items-center sm:items-start truncate w-full sm:w-auto">
-                                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-primary-500 mb-0.5">Your Public Link</span>
-                                        <span className="text-xs sm:text-sm font-bold text-gray-400 truncate max-w-full">{window.location.origin}/@{username}</span>
-                                    </div>
-                                    <button
-                                        onClick={handleCopyProfileLink}
-                                        className="w-full sm:w-auto h-12 px-8 bg-gray-800 hover:bg-gray-700 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95"
-                                    >
-                                        {isCopied ? (
-                                            <>
-                                                <Check className="w-4 h-4 text-green-400" />
-                                                <span className="text-green-400">Copied</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Copy className="w-4 h-4" />
-                                                <span>Copy Link</span>
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            ) : !isSubscribed ? (
-                                <form onSubmit={handleSubscribe} className="flex flex-1 flex-col sm:flex-row items-center p-1 w-full gap-2 sm:gap-0">
-                                    <div className="flex-1 flex items-center px-4 w-full">
-                                        <Mail className="w-4 h-4 text-gray-400 dark:text-gray-600 mr-3 shrink-0" />
-                                        <input
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            placeholder="Enter email to stay updated"
-                                            className="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-0 text-sm font-bold py-3 sm:py-0"
-                                            required
-                                        />
-                                    </div>
-                                    <button
-                                        type="submit"
-                                        disabled={isLoading}
-                                        className="w-full sm:w-auto h-12 px-8 bg-primary-600 hover:bg-primary-500 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-all shadow-lg shadow-primary-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                                    >
-                                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Notify Me'}
-                                    </button>
-                                </form>
-                            ) : (
-                                <div className="flex-1 h-12 flex items-center justify-between px-8 text-green-400">
-                                    <div className="flex items-center gap-3">
-                                        <CheckCircle className="w-4 h-4" />
-                                        <span className="text-[11px] font-black uppercase tracking-widest">You're on the list!</span>
-                                    </div>
-                                    <button
-                                        onClick={handleUnsubscribe}
-                                        className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-colors"
-                                    >
-                                        Unsubscribe
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        {error && <p className="text-red-400 text-[10px] mt-4 font-black uppercase tracking-widest animate-pulse">{error}</p>}
                     </div>
-
-                    {error && <p className="text-red-400 text-[10px] mt-4 font-black uppercase tracking-widest animate-pulse">{error}</p>}
-                </div>
+                )}
 
                 {/* Masonry Grid */}
                 {isLoadingBookmarks ? (
