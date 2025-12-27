@@ -40,6 +40,7 @@ const BookmarkCard = memo(function BookmarkCard({
   const [showMenu, setShowMenu] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [titleHovered, setTitleHovered] = useState(false)
 
   const { trackAccess, retryEnrichment, deleteBookmark } = useBookmarksStore()
   const setEditingBookmark = useUIStore((state) => state.setEditingBookmark)
@@ -97,14 +98,14 @@ const BookmarkCard = memo(function BookmarkCard({
   }
 
   return (
-    <div className={`group bg-white dark:bg-gray-900/40 border-2 border-gray-100 dark:border-gray-800 hover:border-primary-500/50 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-primary-500/10 break-inside-avoid w-full text-sm ${!bookmark.is_public && isPublicView ? 'hidden' : ''} ${!bookmark.is_public && !isPublicView && isOwner ? 'opacity-70 bg-gray-50/50 dark:bg-gray-900/20 border-dashed' : ''}`}>
+    <div className={`group bg-white dark:bg-gray-900/40 border-2 rounded-2xl overflow-hidden transition-all duration-300 break-inside-avoid w-full text-sm ${titleHovered ? 'border-primary-500/50 shadow-2xl shadow-primary-500/10' : 'border-gray-100 dark:border-gray-800'} ${!bookmark.is_public && isPublicView ? 'hidden' : ''} ${!bookmark.is_public && !isPublicView && isOwner ? 'opacity-70 bg-gray-50/50 dark:bg-gray-900/20 border-dashed' : ''}`}>
       {/* Thumbnail */}
       {bookmark.thumbnail_url && (
         <div className="h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
           <img
             src={bookmark.thumbnail_url}
             alt=""
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-full object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none'
             }}
@@ -132,7 +133,7 @@ const BookmarkCard = memo(function BookmarkCard({
             </div>
             <div className="min-w-0">
               <p className="text-gray-500 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest truncate">{bookmark.domain}</p>
-              <p className="text-gray-400 dark:text-gray-600 text-[9px] font-bold mt-0.5 uppercase tracking-tighter">{formatDate(bookmark.created_at)}</p>
+              <p className="text-gray-400 dark:text-gray-600 text-[9px] font-bold mt-0 uppercase tracking-tighter">{formatDate(bookmark.created_at)}</p>
             </div>
           </div>
 
@@ -213,12 +214,15 @@ const BookmarkCard = memo(function BookmarkCard({
         )}
 
         {/* Title */}
-        <h3 className="text-gray-900 dark:text-white font-bold text-lg leading-snug mb-3 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2">
+        <h3 className="text-gray-900 dark:text-white font-bold text-lg leading-snug mb-3 line-clamp-2">
           <a
             href={bookmark.url}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackAccess(bookmark.id)}
+            onMouseEnter={() => setTitleHovered(true)}
+            onMouseLeave={() => setTitleHovered(false)}
+            className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
           >
             {title}
           </a>
@@ -233,7 +237,7 @@ const BookmarkCard = memo(function BookmarkCard({
 
         {/* Tags - Refined lowercase style */}
         {bookmark.auto_tags && bookmark.auto_tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-6">
+          <div className="flex flex-wrap gap-1.5 mb-4">
             {bookmark.auto_tags.slice(0, 5).map((tag) => (
               <button
                 key={tag}
@@ -278,7 +282,10 @@ const BookmarkCard = memo(function BookmarkCard({
             {/* Visibility Toggle for Owner */}
             {!isPublicView && isOwner && (
               <button
-                onClick={() => onVisibilityToggle?.(bookmark)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onVisibilityToggle?.(bookmark)
+                }}
                 className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all border shrink-0 ${bookmark.is_public ? 'bg-primary-50 dark:bg-primary-900/10 border-primary-200 dark:border-primary-800 text-primary-600' : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                 title={bookmark.is_public ? 'Public (shared)' : 'Private (locked)'}
               >
