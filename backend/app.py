@@ -4,6 +4,7 @@ import os
 from flask import Flask, send_from_directory, request
 from flask_cors import CORS
 from flask_compress import Compress
+import re
 
 from config import Config
 
@@ -55,12 +56,21 @@ def create_app():
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def serve(path):
+        # Clean the path
+        clean_path = path.strip('/')
+        
         if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
             return send_from_directory(app.static_folder, path)
             
         # Handle Public Profile OG Tags for social sharing
-        if path.startswith('@'):
-            username = path[1:]
+        # Support both @username and u/username
+        username = None
+        if clean_path.startswith('@'):
+            username = clean_path[1:]
+        elif clean_path.startswith('u/'):
+            username = clean_path[2:]
+            
+        if username:
             try:
                 from routes.public import get_user_profile_by_username
                 profile = get_user_profile_by_username(username)
@@ -75,12 +85,18 @@ def create_app():
                         count = profile.get('bookmark_count') or 0
                         title = f"{display_name}'s Reads on Markly"
                         description = f"Discover {count} interesting finds curated by {display_name}."
-                        image = profile.get('avatar_url') or profile.get('picture') or "https://markly.azurewebsites.net/og-image.png"
-                        url = f"https://markly.azurewebsites.net/@{username}"
+                        image = profile.get('avatar_url') or profile.get('picture')
+                        if not image:
+                            # Use a nice UI Avatar as fallback for OG image
+                            image = f"https://ui-avatars.com/api/?name={display_name}&background=6366f1&color=fff&size=512"
+                        
+                        # Use the requested path format in the URL tag
+                        if clean_path.startswith('@'):
+                            url = f"https://markly.azurewebsites.net/@{username}"
+                        else:
+                            url = f"https://markly.azurewebsites.net/u/{username}"
                         
                         # Strip existing generic meta tags to avoid confusion for crawlers
-                        # Using a more robust regex that ignores attribute order and whitespace
-                        import re
                         tags_to_strip = [
                             r'<title>.*?</title>',
                             r'<meta\s+[^>]*?name="description"[^>]*?>',
@@ -99,6 +115,7 @@ def create_app():
                             html = re.sub(tag_re, '', html, flags=re.IGNORECASE | re.DOTALL)
 
                         # Prepare fresh, personalized OG tags
+                        # Ensure we have the minimum required tags: og:title, og:type, og:image, og:url
                         og_tags = f'''
     <title>{title}</title>
     <meta name="description" content="{description}">
@@ -113,11 +130,12 @@ def create_app():
     <meta name="twitter:description" content="{description}">
     <meta name="twitter:image" content="{image}">
 '''
-                        # Inject into head
-                        html = html.replace('<head>', f'<head>{og_tags}')
+                        # Inject into head - find the end of <head> or start of it
+                        # Injecting right after <head> is safest
+                        html = re.sub(r'(<head[^>]*>)', r'\1' + og_tags, html, flags=re.IGNORECASE)
                         return html
             except Exception as e:
-                app.logger.error(f"Error injecting OG tags: {e}")
+                app.logger.error(f"Error injecting OG tags for {username}: {e}")
 
         return send_from_directory(app.static_folder, 'index.html')
 

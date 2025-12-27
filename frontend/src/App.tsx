@@ -27,14 +27,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PublicProfileWrapper() {
   const { username } = useParams<{ username: string }>()
-
-  // If the path doesn't start with @, it's not a profile route we handle here
-  if (!username?.startsWith('@')) {
-    return <Navigate to="/" replace />
-  }
-
-  const actualUsername = username.slice(1)
-  return <PublicProfile username={actualUsername} />
+  return <PublicProfile username={username} />
 }
 
 function App() {
@@ -52,10 +45,10 @@ function App() {
       <Route path="/login" element={<Login />} />
 
       {/* 
-        Match anything that looks like a username. 
-        PublicProfileWrapper will handle the @ check.
+        Support both /@username and /u/username
       */}
-      <Route path="/:username" element={<PublicProfileWrapper />} />
+      <Route path="/@:username" element={<PublicProfileWrapper />} />
+      <Route path="/u/:username" element={<PublicProfileWrapper />} />
 
       {/* Protected routes */}
       <Route
