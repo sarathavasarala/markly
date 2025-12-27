@@ -25,9 +25,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function PublicProfileWrapper() {
-  const { username } = useParams<{ username: string }>()
-  return <PublicProfile username={username} />
+// Handle /@username by catching :path and checking if it starts with @
+function ProfileOrRedirect() {
+  const { path } = useParams<{ path: string }>()
+
+  // Check if this looks like a profile route (starts with @)
+  if (path?.startsWith('@')) {
+    const username = path.slice(1) // Remove the @
+    return <PublicProfile username={username} />
+  }
+
+  // Not a profile route, redirect to home (which will handle auth)
+  return <Navigate to="/" replace />
 }
 
 function App() {
@@ -44,13 +53,7 @@ function App() {
       {/* Public routes - no auth required */}
       <Route path="/login" element={<Login />} />
 
-      {/* 
-        Support both /@username and /u/username
-      */}
-      <Route path="/@:username" element={<PublicProfileWrapper />} />
-      <Route path="/u/:username" element={<PublicProfileWrapper />} />
-
-      {/* Protected routes */}
+      {/* Protected routes - must come before the catch-all */}
       <Route
         path="/"
         element={
@@ -63,7 +66,8 @@ function App() {
         <Route path="search" element={<Search />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Catch-all: handles /@username and redirects unknown paths */}
+      <Route path="/:path" element={<ProfileOrRedirect />} />
     </Routes>
   )
 }

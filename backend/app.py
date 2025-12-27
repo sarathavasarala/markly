@@ -129,11 +129,16 @@ def create_app():
         html = re.sub(r'(<head[^>]*>)', r'\1' + og_tags, html, flags=re.IGNORECASE)
         return html
 
-    # Explicit profile routes for injection
-    @app.route('/u/<username>')
+    # Canonical profile route: /@username
     @app.route('/@<username>')
     def profile_serve(username):
-        return serve_with_injection(username, request.path)
+        return serve_with_injection(username, f"/@{username}")
+
+    # Redirect /u/username to /@username for backwards compatibility
+    @app.route('/u/<username>')
+    def profile_redirect(username):
+        from flask import redirect
+        return redirect(f"/@{username}", code=301)
 
     # SPA Routing: Serve index.html for all non-API paths
     @app.route('/', defaults={'path': ''})
