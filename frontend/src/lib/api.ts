@@ -60,6 +60,7 @@ export interface Bookmark {
   access_count: number
   enrichment_status: 'pending' | 'processing' | 'completed' | 'failed'
   enrichment_error: string | null
+  is_public: boolean
 }
 
 export interface BookmarkListResponse {

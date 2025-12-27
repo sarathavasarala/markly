@@ -14,7 +14,13 @@ import { useUIStore } from '../stores/uiStore'
 import AddBookmarkModal from './AddBookmarkModal'
 import EditBookmarkModal from './EditBookmarkModal'
 
-export default function Layout({ children }: { children?: React.ReactNode }) {
+export default function Layout({
+  children,
+  noPadding = false
+}: {
+  children?: React.ReactNode,
+  noPadding?: boolean
+}) {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const { logout, user } = useAuthStore((state) => ({ logout: state.logout, user: state.user }))
@@ -52,9 +58,9 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
   }, [userName, userEmail])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
@@ -68,7 +74,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
             {/* Mobile Search Toggle */}
             <div className="sm:hidden flex-1 flex justify-end">
               {isSearchOpen ? (
-                <form onSubmit={handleSearch} className="absolute inset-x-0 top-0 h-16 bg-white dark:bg-gray-800 flex items-center px-4 z-50">
+                <form onSubmit={handleSearch} className="absolute inset-x-0 top-0 h-16 bg-white dark:bg-gray-900 flex items-center px-4 z-50">
                   <Search className="w-5 h-5 text-gray-400 mr-2" />
                   <input
                     type="text"
@@ -105,7 +111,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search your bookmarks..."
-                  className="w-full pl-12 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-full bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-600 transition-colors"
+                  className="w-full pl-12 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-full bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-700 transition-colors"
                 />
               </div>
             </form>
@@ -132,7 +138,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
                     <img
                       src={userAvatar}
                       alt={userName || userEmail}
-                      className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600 cursor-pointer hover:border-primary-500 transition-colors"
+                      className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700 cursor-pointer hover:border-primary-500 transition-colors"
                     />
                   ) : (
                     <div
@@ -143,9 +149,9 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
                   )}
                 </Link>
                 {/* Tooltip */}
-                <div className="absolute right-0 top-full mt-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50">
+                <div className="absolute right-0 top-full mt-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-800 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50">
                   View public profile
-                  <div className="absolute -top-1 right-3 w-2 h-2 bg-gray-900 dark:bg-gray-700 rotate-45"></div>
+                  <div className="absolute -top-1 right-3 w-2 h-2 bg-gray-900 dark:bg-gray-800 rotate-45"></div>
                 </div>
               </div>
 
@@ -170,7 +176,7 @@ export default function Layout({ children }: { children?: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-8">
+      <main className={`${noPadding ? '' : 'max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-8'}`}>
         {children || <Outlet />}
       </main>
 

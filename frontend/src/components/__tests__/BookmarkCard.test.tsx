@@ -28,6 +28,11 @@ vi.mock('lucide-react', () => ({
     MoreVertical: () => <div data-testid="more-icon" />,
     Trash2: () => <div data-testid="trash-icon" />,
     Edit2: () => <div data-testid="edit-icon" />,
+    Eye: () => <div data-testid="eye-icon" />,
+    EyeOff: () => <div data-testid="eye-off-icon" />,
+    Plus: () => <div data-testid="plus-icon" />,
+    Check: () => <div data-testid="check-icon" />,
+    BookMarked: () => <div data-testid="bookmarked-icon" />,
 }))
 
 const mockBookmark: Bookmark = {
@@ -49,6 +54,7 @@ const mockBookmark: Bookmark = {
     updated_at: new Date().toISOString(),
     last_accessed_at: null,
     access_count: 0,
+    is_public: true,
     enrichment_status: 'completed',
     enrichment_error: null,
 }
