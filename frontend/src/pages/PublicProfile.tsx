@@ -42,8 +42,9 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     const currentUserUsername = user?.email?.split('@')[0]?.toLowerCase()
     const isOwner = (isAuthenticated && currentUserUsername === username?.toLowerCase()) || backendIsOwner
 
-    // curator display name (don't capitalize as per user request)
-    const displayName = username || ''
+    // Get full name and first name for display
+    const fullName = profileMetadata?.full_name || username || ''
+    const firstName = fullName.split(' ')[0] || username || ''
 
     const formatDate = (dateStr: string | null | undefined) => {
         if (!dateStr) return '—'
@@ -182,12 +183,12 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
     useEffect(() => {
         if (username) {
-            document.title = `${displayName}'s Reads on Markly`
+            document.title = `${firstName}'s Reads on Markly`
         }
         return () => {
             document.title = 'Markly'
         }
-    }, [username, displayName])
+    }, [username, firstName])
 
     return (
         <div className="min-h-screen bg-gray-950 text-gray-200 selection:bg-primary-500/30">
@@ -208,10 +209,10 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                             {profileMetadata?.avatar_url ? (
                                 <img
                                     src={profileMetadata.avatar_url}
-                                    alt={displayName}
+                                    alt={fullName}
                                     className="relative w-20 h-20 sm:w-24 h-24 rounded-3xl object-cover border-2 border-gray-950 shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]"
                                     onError={(e) => {
-                                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${displayName}&background=6366f1&color=fff&size=128`
+                                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${fullName}&background=6366f1&color=fff&size=128`
                                     }}
                                 />
                             ) : (
@@ -222,11 +223,11 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                         </div>
 
                         <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
-                            {displayName}'s Reads
+                            {firstName}'s Reads
                         </h1>
 
                         <p className="text-gray-400 text-sm sm:text-base font-medium max-w-xl mx-auto leading-relaxed">
-                            A collection of interesting reads, curated by <span className="text-white font-bold">{displayName}.</span>
+                            A collection of interesting reads, curated by <span className="text-white font-bold">{fullName}.</span>
                         </p>
                     </div>
 

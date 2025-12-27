@@ -74,17 +74,20 @@ def create_app():
 
         # Fallback values if profile lookup fails
         display_name = clean_username
+        first_name = clean_username
         count = 0
         image = f"https://ui-avatars.com/api/?name={clean_username}&background=6366f1&color=fff&size=512"
-        description = f"Discover interesting finds curated by {display_name} on Markly."
         
         if profile:
-            display_name = profile.get('full_name') or clean_username
+            full_name = profile.get('full_name') or clean_username
+            display_name = full_name
+            # Extract first name for a friendlier title
+            first_name = full_name.split()[0] if full_name else clean_username
             count = profile.get('bookmark_count') or 0
             image = profile.get('avatar_url') or profile.get('picture') or image
-            description = f"Discover {count} interesting finds curated by {display_name} on Markly."
 
-        title = f"{display_name}'s Reads on Markly"
+        description = f"Discover {count} interesting finds curated by {display_name} on Markly."
+        title = f"{first_name}'s Reads on Markly"
         # Ensure URL is absolute and matches the requested format
         base_url = "https://markly.azurewebsites.net"
         # If it was a /u/ route, keep it as /u/ in the og:url
