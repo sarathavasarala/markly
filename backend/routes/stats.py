@@ -18,8 +18,9 @@ def get_top_tags():
     try:
         supabase = g.supabase
         
-        # Get all tags
-        result = supabase.table("bookmarks").select("auto_tags").execute()
+        # Get all tags - ENFORCE user_id isolation
+        result = supabase.table("bookmarks").select("auto_tags") \
+            .eq("user_id", g.user.id).execute()
         
         # Count tags
         tag_counts = {}
@@ -57,7 +58,7 @@ def get_resurface_suggestions():
         two_weeks_ago = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
         recent_result = supabase.table("bookmarks").select(
             "id, clean_title, ai_summary, auto_tags"
-        ).eq("enrichment_status", "completed").gte(
+        ).eq("user_id", g.user.id).eq("enrichment_status", "completed").gte(
             "created_at", two_weeks_ago
         ).order("created_at", desc=True).limit(10).execute()
         
@@ -73,7 +74,7 @@ def get_resurface_suggestions():
         month_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
         old_result = supabase.table("bookmarks").select(
             "id, clean_title, ai_summary, auto_tags, created_at, last_accessed_at"
-        ).eq("enrichment_status", "completed").lt(
+        ).eq("user_id", g.user.id).eq("enrichment_status", "completed").lt(
             "created_at", month_ago
         ).order("created_at", desc=True).limit(50).execute()
         

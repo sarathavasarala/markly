@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   BookMarked,
   Loader2,
@@ -137,6 +138,27 @@ export default function Dashboard() {
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
     return d.toLocaleDateString()
   }
+
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  useEffect(() => {
+    const bookmarkToSave = searchParams.get('save')
+    if (bookmarkToSave) {
+      const performSave = async () => {
+        try {
+          await bookmarksApi.savePublic(bookmarkToSave)
+          // Refresh bookmarks to show the newly saved one
+          loadBookmarks(selectedTags, false)
+          // Clear the param
+          searchParams.delete('save')
+          setSearchParams(searchParams)
+        } catch (err) {
+          console.error('Failed to auto-save bookmark:', err)
+        }
+      }
+      performSave()
+    }
+  }, [searchParams, setSearchParams, loadBookmarks, selectedTags])
 
   if (isLoading) {
     return (

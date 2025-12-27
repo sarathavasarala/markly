@@ -72,7 +72,7 @@ def _keyword_search(supabase, query: str, limit: int, offset: int,
         "id, url, domain, original_title, clean_title, ai_summary, "
         "auto_tags, favicon_url, thumbnail_url, content_type, intent_type, "
         "created_at, access_count, enrichment_status"
-    ).eq("enrichment_status", "completed")
+    ).eq("user_id", g.user.id).eq("enrichment_status", "completed")
     
     # Apply filters
     if domain:
@@ -112,7 +112,9 @@ def _semantic_search(supabase, query: str, limit: int,
         "match_count": limit * 2,  # Get more to filter
     }).execute()
     
-    results = result.data
+    # Post-filter by user_id in Python because RPC might return public bookmarks from others 
+    # if the database-level RLS policy for 'is_public=true' is active.
+    results = [r for r in result.data if r.get("user_id") == g.user.id]
 
     # Hydrate missing timestamps from bookmarks table (RPC may omit created_at)
     try:
@@ -159,7 +161,7 @@ def get_search_history():
         
         result = supabase.table("search_history").select(
             "query, results_count, created_at"
-        ).order("created_at", desc=True).limit(limit).execute()
+        ).eq("user_id", g.user.id).order("created_at", desc=True).limit(limit).execute()
         
         # Deduplicate by query (keep most recent)
         seen = set()

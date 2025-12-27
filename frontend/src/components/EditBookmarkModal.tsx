@@ -33,7 +33,7 @@ export default function EditBookmarkModal({ bookmark, onClose }: EditBookmarkMod
         setIsSubmitting(true)
         setError('')
 
-        let finalTags = [...editTags]
+        const finalTags = [...editTags]
         const tag = newTag.trim().toLowerCase().replace(/\s+/g, '-')
         if (tag && !finalTags.includes(tag)) {
             finalTags.push(tag)

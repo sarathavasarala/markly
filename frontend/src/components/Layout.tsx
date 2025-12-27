@@ -106,26 +106,30 @@ export default function Layout() {
                 <span className="hidden sm:inline">Add</span>
               </button>
 
-              {/* User Avatar/Initials */}
+              {/* User Avatar/Initials - Links to public profile */}
               <div className="relative group">
-                {userAvatar ? (
-                  <img
-                    src={userAvatar}
-                    alt={userName || userEmail}
-                    className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600 cursor-pointer"
-                    title={userEmail}
-                  />
-                ) : (
-                  <div
-                    className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-medium cursor-pointer"
-                    title={userEmail}
-                  >
-                    {userInitials}
-                  </div>
-                )}
+                <Link
+                  to={`/@${userEmail.split('@')[0]}`}
+                  className="block"
+                  title="View your public profile"
+                >
+                  {userAvatar ? (
+                    <img
+                      src={userAvatar}
+                      alt={userName || userEmail}
+                      className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-600 cursor-pointer hover:border-primary-500 transition-colors"
+                    />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-medium cursor-pointer hover:bg-primary-500 transition-colors"
+                    >
+                      {userInitials}
+                    </div>
+                  )}
+                </Link>
                 {/* Tooltip */}
                 <div className="absolute right-0 top-full mt-2 px-3 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50">
-                  {userEmail}
+                  View public profile
                   <div className="absolute -top-1 right-3 w-2 h-2 bg-gray-900 dark:bg-gray-700 rotate-45"></div>
                 </div>
               </div>
