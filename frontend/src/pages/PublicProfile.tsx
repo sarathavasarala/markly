@@ -286,18 +286,18 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                         {/* Profile Identity Section */}
                         <div className="flex flex-col items-center mb-8 sm:mb-10">
                             <div className="relative group mb-6">
-                                <div className="absolute -inset-1.5 bg-gradient-to-tr from-primary-500 to-blue-500 rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                                <div className="absolute -inset-1.5 bg-gradient-to-tr from-primary-500 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
                                 {profileMetadata?.avatar_url ? (
                                     <img
                                         src={profileMetadata.avatar_url}
                                         alt={fullName}
-                                        className="relative w-20 h-20 sm:w-28 h-28 rounded-3xl object-cover border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]"
+                                        className="relative w-20 h-20 sm:w-28 sm:h-28 aspect-square rounded-2xl object-cover object-center border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]"
                                         onError={(e) => {
                                             (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${fullName}&background=6366f1&color=fff&size=128`
                                         }}
                                     />
                                 ) : (
-                                    <div className="relative w-20 h-20 sm:w-28 h-28 bg-gray-100 dark:bg-gray-900 rounded-3xl flex items-center justify-center border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl">
+                                    <div className="relative w-20 h-20 sm:w-28 sm:h-28 aspect-square bg-gray-100 dark:bg-gray-900 rounded-2xl flex items-center justify-center border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl">
                                         <Mail className="w-10 h-10 sm:w-12 sm:h-12 text-primary-500" />
                                     </div>
                                 )}
