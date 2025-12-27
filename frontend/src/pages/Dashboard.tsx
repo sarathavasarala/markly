@@ -27,8 +27,15 @@ export default function Dashboard() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const { bookmarksViewMode: viewMode, setBookmarksViewMode: setViewMode, setIsAddModalOpen } = useUIStore()
-  const { trackAccess, deleteBookmark } = useBookmarksStore()
+  const { trackAccess, deleteBookmark, updateBookmark } = useBookmarksStore()
 
+  const toggleVisibility = async (bookmark: Bookmark) => {
+    try {
+      await updateBookmark(bookmark.id, { is_public: !bookmark.is_public })
+    } catch (err) {
+      console.error('Failed to toggle visibility:', err)
+    }
+  }
   // Use ref to track enriching state without causing re-renders
   const enrichingCountRef = useRef(0)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
@@ -313,6 +320,7 @@ export default function Dashboard() {
                     bookmark={bookmark}
                     onDeleted={handleBookmarkDeleted}
                     onTagClick={toggleTag}
+                    onVisibilityToggle={toggleVisibility}
                   />
                 </div>
               ))}

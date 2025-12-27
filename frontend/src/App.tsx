@@ -39,7 +39,7 @@ function ProfileOrRedirect() {
     if (isOwner) {
       return (
         <ProtectedRoute>
-          <Layout>
+          <Layout noPadding>
             <PublicProfile username={username} />
           </Layout>
         </ProtectedRoute>
