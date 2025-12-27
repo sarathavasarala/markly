@@ -251,7 +251,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                 <div className="flex-1 flex items-center justify-between p-1 pl-8">
                                     <div className="flex flex-col items-start">
                                         <span className="text-[10px] font-black uppercase tracking-widest text-primary-500 mb-0.5">Your Public Link</span>
-                                        <span className="text-sm font-bold text-gray-400 truncate max-w-[250px] sm:max-w-md">{window.location.origin}/@{username}</span>
+                                        <span className="text-sm font-bold text-gray-400 truncate max-w-[250px] sm:max-w-md">{window.location.origin}/u/{username}</span>
                                     </div>
                                     <button
                                         onClick={handleCopyProfileLink}
@@ -389,7 +389,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                                 <button
                                                     onClick={async () => {
                                                         if (!isAuthenticated) {
-                                                            navigate(`/login?redirect=/@${username}&save=${bookmark.id}`)
+                                                            navigate(`/login?redirect=/u/${username}&save=${bookmark.id}`)
                                                         } else {
                                                             try {
                                                                 const { bookmarksApi } = await import('../lib/api')

@@ -109,7 +109,7 @@ export default function Layout() {
               {/* User Avatar/Initials - Links to public profile */}
               <div className="relative group">
                 <Link
-                  to={`/@${userEmail.split('@')[0]}`}
+                  to={`/u/${userEmail.split('@')[0]}`}
                   className="block"
                   title="View your public profile"
                 >
