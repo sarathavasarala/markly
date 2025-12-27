@@ -112,6 +112,7 @@ def create_bookmark():
                 "raw_notes": raw_notes,
                 "user_description": user_description,
                 "enrichment_status": "completed",
+                "is_public": True,
             }
         else:
             # Set initial title - background enrichment will scrape and improve it
@@ -140,6 +141,7 @@ def create_bookmark():
                 "raw_notes": raw_notes,
                 "user_description": user_description,
                 "enrichment_status": "pending",
+                "is_public": True,
             }
         
         result = supabase.table("bookmarks").insert(bookmark_data).execute()
@@ -211,13 +213,13 @@ def list_bookmarks():
     try:
         supabase = g.supabase
         
-        # Build query
+        # Build query - ENFORCE user_id isolation
         query = supabase.table("bookmarks").select(
             "id, url, domain, original_title, clean_title, ai_summary, "
             "auto_tags, favicon_url, thumbnail_url, content_type, intent_type, "
-            "technical_level, created_at, enrichment_status",
+            "technical_level, created_at, enrichment_status, is_public",
             count="exact"
-        )
+        ).eq("user_id", g.user.id)
         
         # Apply filters
         if domain:
@@ -391,3 +393,65 @@ def get_bookmark(bookmark_id: str):
         if "PGRST116" in str(e):
             return jsonify({"error": "Bookmark not found"}), 404
         return jsonify({"error": f"Failed to get bookmark: {str(e)}"}), 500
+@bookmarks_bp.route("/save-public", methods=["POST"])
+@require_auth
+def save_public_bookmark():
+    """Save a public bookmark from another user to the current user's collection."""
+    data = request.get_json()
+    if not data or "bookmark_id" not in data:
+        return jsonify({"error": "Bookmark ID is required"}), 400
+    
+    bookmark_id = data["bookmark_id"]
+    
+    try:
+        # We use the admin client or a separate query to fetch the bookmark 
+        # because g.supabase is scoped to the CURRENT user (due to RLS).
+        # We need to fetch the original bookmark which belongs to SOMEONE ELSE.
+        from database import get_supabase
+        admin_supabase = get_supabase()
+        
+        # 1. Fetch the source bookmark (must be public)
+        source = admin_supabase.table("bookmarks").select("*").eq("id", bookmark_id).eq("is_public", True).single().execute()
+        
+        if not source.data:
+            return jsonify({"error": "Source bookmark not found or is not public"}), 404
+        
+        source_data = source.data
+        
+        # 2. Check if current user already has this URL
+        existing = g.supabase.table("bookmarks").select("id").eq("url", source_data["url"]).execute()
+        if existing.data:
+            return jsonify({
+                "message": "Bookmark already exists in your collection",
+                "bookmark": existing.data[0],
+                "already_exists": True
+            })
+        
+        # 3. Create new bookmark for current user using source metadata
+        # We strip the ID and timestamps to let Supabase generate new ones
+        new_bookmark_data = {
+            "url": source_data["url"],
+            "domain": source_data["domain"],
+            "original_title": source_data["original_title"],
+            "clean_title": source_data["clean_title"],
+            "ai_summary": source_data["ai_summary"],
+            "auto_tags": source_data["auto_tags"],
+            "favicon_url": source_data["favicon_url"],
+            "thumbnail_url": source_data["thumbnail_url"],
+            "content_type": source_data["content_type"],
+            "intent_type": source_data["intent_type"],
+            "technical_level": source_data["technical_level"],
+            "enrichment_status": "completed", # It's already enriched
+            "is_public": True, # Default to public in new user's collection too
+        }
+        
+        result = g.supabase.table("bookmarks").insert(new_bookmark_data).execute()
+        
+        if not result.data:
+            return jsonify({"error": "Failed to save bookmark"}), 500
+            
+        return jsonify(result.data[0]), 201
+        
+    except Exception as e:
+        logger.error(f"Failed to save public bookmark: {str(e)}")
+        return jsonify({"error": str(e)}), 500

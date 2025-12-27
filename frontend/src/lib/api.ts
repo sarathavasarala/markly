@@ -99,6 +99,7 @@ export const bookmarksApi = {
   update: (id: string, data: Partial<Bookmark>) => api.patch<Bookmark>(`/bookmarks/${id}`, data),
   trackAccess: (id: string) => api.post(`/bookmarks/${id}/access`),
   retry: (id: string) => api.post(`/bookmarks/${id}/retry`),
+  savePublic: (id: string) => api.post<Bookmark>('/bookmarks/save-public', { bookmark_id: id }),
 }
 
 // Search API
