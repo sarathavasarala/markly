@@ -139,19 +139,21 @@ def test_public_profile_visibility(client, mocker):
         'full_name': 'Test User',
         'avatar_url': 'http://avatar.com'
     })
-    
+
     # 2. Mock get_supabase
     mock_supabase = MagicMock()
     mocker.patch('routes.public.get_supabase', return_value=mock_supabase)
-    
+
     # Mock the count query
     mock_count = MagicMock(count=1)
-    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_count
-    
+    mock_query = mock_supabase.table.return_value.select.return_value
+    mock_query.eq.return_value.eq.return_value.execute.return_value = mock_count
+
     # Mock the data query
-    mock_data = MagicMock(data=[{"id": "1", "url": "https://public-only.com", "is_public": True}])
-    mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_data
-    
+    mock_item = {"id": "1", "url": "https://public-only.com", "is_public": True}
+    mock_data = MagicMock(data=[mock_item])
+    mock_query.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = mock_data
+
     # Use the correct route: /api/public/@username/bookmarks
     response = client.get('/api/public/@testuser/bookmarks')
     assert response.status_code == 200
