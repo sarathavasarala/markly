@@ -88,9 +88,11 @@ class AzureOpenAIService:
         """
         client = cls.get_chat_client()
         
-        # Truncate content if too long
-        if content and len(content) > 10000:
-            content = content[:10000] + "..."
+        # Smart truncation: first 2000 + last 2000 chars to capture intro and conclusion
+        if content and len(content) > 4000:
+            first_part = content[:2000]
+            last_part = content[-2000:]
+            content = f"{first_part}\n\n[... middle content truncated ...]\n\n{last_part}"
         
         prompt = f"""Analyze this bookmarked article and provide structured metadata.
 
