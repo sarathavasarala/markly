@@ -15,7 +15,7 @@ export default function Login() {
   }, [isAuthenticated, navigate])
 
   useEffect(() => {
-    document.title = 'Markly - Your smart bookmark library'
+    document.title = 'Markly - Never lose a great link again'
   }, [])
 
   const handleLogin = async () => {
@@ -24,26 +24,26 @@ export default function Login() {
 
   const mobilePreviews = [
     {
-      headline: "Your bookmarks, organized simply.",
+      headline: "Remember why you saved it.",
       title: "Scaling Design Systems for 2025",
       domain: "designlab.co / 5 min read",
-      summary: "How modern product teams leverage token-based architectures to maintain consistency across global engineering squads.",
+      summary: "AI summarizes every link so you never scratch your head wondering why you bookmarked it.",
       tags: ["design", "architecture", "ux-strategy"],
       icon: <Layers className="w-5 h-5 text-blue-500" />
     },
     {
-      headline: "Enriched with AI.",
+      headline: "Find by meaning, not memory.",
       title: "Why Modern Analytics Efforts Fail",
       domain: "datanews.io / 12 min read",
-      summary: "Common pitfalls in data engineering from zero to millions of daily orders, focusing on robust event tracking and observability.",
+      summary: "Search 'that startup growth article' even if you forgot the title. Your bookmarks, finally searchable.",
       tags: ["analytics", "bigquery", "strategy"],
       icon: <Sparkles className="w-5 h-5 text-primary-500" />
     },
     {
-      headline: "Powered by semantic search.",
+      headline: "Share your best finds.",
       title: "Memory in AI Agents Explained",
       domain: "techpulse.ai / 8 min read",
-      summary: "An exploration of four memory types—working, episodic, semantic, and procedural—for building persistent agentic workflows.",
+      summary: "Build a public profile of curated picks. Grow your audience around your taste.",
       tags: ["ai-agents", "memory-models", "workflow"],
       icon: <Search className="w-5 h-5 text-amber-500" />
     }
@@ -127,7 +127,7 @@ export default function Login() {
               Markly
             </h1>
             <p className="text-gray-400 mt-2 font-medium text-lg">
-              Your smart bookmark library
+              Never lose a great link again
             </p>
           </div>
 

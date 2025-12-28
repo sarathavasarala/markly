@@ -286,10 +286,10 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
     useEffect(() => {
         if (username) {
-            document.title = `${fullName} - Markly`
+            document.title = `${firstName}'s Reading List - Markly`
         }
         return () => {
-            document.title = 'Markly - Your smart bookmark library'
+            document.title = 'Markly - Never lose a great link again'
         }
     }, [username, fullName])
 
@@ -368,11 +368,11 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                             </div>
 
                             <h1 className="text-3xl sm:text-6xl font-black text-gray-900 dark:text-white tracking-tight mb-4">
-                                {firstName}'s Picks
+                                {firstName}'s Reading List
                             </h1>
 
                             <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-base font-medium max-w-xl mx-auto leading-relaxed px-4">
-                                A collection of interesting picks, curated by <span className="text-gray-900 dark:text-white font-bold">{fullName}.</span>
+                                Curated by <span className="text-gray-900 dark:text-white font-bold">{fullName}</span>
                             </p>
                         </div>
 

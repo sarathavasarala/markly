@@ -87,11 +87,11 @@ export default function SaveToCollectionModal({
                             </div>
 
                             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4 tracking-tight">
-                                Save this to your collection
+                                Never lose this. Add it to Markly.
                             </h2>
 
                             <p className="text-gray-400 text-base font-medium mb-10 leading-relaxed">
-                                Build your own smart bookmark library. Organize, search, and rediscover great content, all powered by AI.
+                                We'll read it, summarize it, and organize it for you. So you can actually find it later.
                             </p>
 
                             {/* Benefits */}
@@ -101,8 +101,8 @@ export default function SaveToCollectionModal({
                                         <Layers className="w-5 h-5 text-blue-400" />
                                     </div>
                                     <div>
-                                        <h3 className="text-white font-bold mb-1">Organize effortlessly</h3>
-                                        <p className="text-gray-400 text-sm">AI auto-tags and summarizes every bookmark</p>
+                                        <h3 className="text-white font-bold mb-1">Auto-summarized</h3>
+                                        <p className="text-gray-400 text-sm">We'll read it and save a summary so you remember why it mattered</p>
                                     </div>
                                 </div>
 
@@ -111,8 +111,8 @@ export default function SaveToCollectionModal({
                                         <Search className="w-5 h-5 text-amber-400" />
                                     </div>
                                     <div>
-                                        <h3 className="text-white font-bold mb-1">Find anything instantly</h3>
-                                        <p className="text-gray-400 text-sm">Semantic search understands what you're looking for</p>
+                                        <h3 className="text-white font-bold mb-1">Searchable by topic</h3>
+                                        <p className="text-gray-400 text-sm">Ask "AI agent memory article" and find it. No need to remember the title.</p>
                                     </div>
                                 </div>
 
@@ -121,8 +121,8 @@ export default function SaveToCollectionModal({
                                         <Sparkles className="w-5 h-5 text-primary-400" />
                                     </div>
                                     <div>
-                                        <h3 className="text-white font-bold mb-1">Share your picks</h3>
-                                        <p className="text-gray-400 text-sm">Create your own public profile like this one</p>
+                                        <h3 className="text-white font-bold mb-1">Shareable</h3>
+                                        <p className="text-gray-400 text-sm">Add it to your public profile and grow your following</p>
                                     </div>
                                 </div>
                             </div>
