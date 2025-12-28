@@ -112,9 +112,9 @@ def _semantic_search(supabase, query: str, limit: int,
         "match_count": limit * 2,  # Get more to filter
     }).execute()
     
-    # Post-filter by user_id in Python because RPC might return public bookmarks from others 
-    # if the database-level RLS policy for 'is_public=true' is active.
-    results = [r for r in result.data if r.get("user_id") == g.user.id]
+    # The match_bookmarks RPC already filters by auth.uid() in the SQL function,
+    # so no additional user_id filter is needed here.
+    results = result.data
 
     # Hydrate missing timestamps from bookmarks table (RPC may omit created_at)
     try:
