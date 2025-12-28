@@ -291,7 +291,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
         return () => {
             document.title = 'Markly - Never lose a great link again'
         }
-    }, [username, fullName])
+    }, [username, fullName, firstName])
 
     return (
         <div className={`${!isOwner ? 'dark min-h-screen bg-gray-950 px-6' : 'bg-transparent'} text-gray-900 dark:text-gray-200 selection:bg-primary-500/30 flex flex-col transition-colors duration-300`}>

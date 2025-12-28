@@ -298,10 +298,10 @@ export default function Dashboard() {
               <BookMarked className="w-10 h-10 text-primary-600 dark:text-primary-400" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-              Start curating your knowledge
+              Start your reading list
             </h2>
             <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-8 leading-relaxed">
-              Build your personal knowledge base. Best for articles, deep-reads, and everything worth remembering.
+              Save articles, newsletters, and deep reads. We'll summarize them so you can find them later.
             </p>
             <button
               onClick={() => setIsAddModalOpen(true)}
