@@ -26,6 +26,7 @@ interface BookmarkCardProps {
   onTagClick?: (tag: string) => void
   onVisibilityToggle?: (bookmark: Bookmark) => void
   onSave?: (bookmark: Bookmark) => void
+  isSaving?: boolean
 }
 
 const BookmarkCard = memo(function BookmarkCard({
@@ -36,6 +37,7 @@ const BookmarkCard = memo(function BookmarkCard({
   onTagClick,
   onVisibilityToggle,
   onSave,
+  isSaving = false,
 }: BookmarkCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -262,12 +264,30 @@ const BookmarkCard = memo(function BookmarkCard({
         {/* Actions Footer */}
         <div className="flex items-center gap-2 pt-5 border-t border-gray-50 dark:border-gray-800/50 mt-auto">
           {isPublicView && !isOwner ? (
-            <button
-              onClick={() => onSave?.(bookmark)}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary-600/20 active:scale-95"
-            >
-              <Plus className="w-4 h-4" /> Save
-            </button>
+            bookmark.is_saved_by_viewer ? (
+              <button
+                disabled
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed opacity-90"
+              >
+                <Check className="w-4 h-4" /> In Your Collection
+              </button>
+            ) : (
+              <button
+                onClick={() => onSave?.(bookmark)}
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-500 disabled:bg-primary-400 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary-600/20 active:scale-95 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" /> Save to Collection
+                  </>
+                )}
+              </button>
+            )
           ) : (
             <button
               onClick={handleOpen}

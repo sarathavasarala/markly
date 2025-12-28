@@ -61,6 +61,7 @@ export interface Bookmark {
   enrichment_status: 'pending' | 'processing' | 'completed' | 'failed'
   enrichment_error: string | null
   is_public: boolean
+  is_saved_by_viewer?: boolean
 }
 
 export interface BookmarkListResponse {
@@ -100,7 +101,7 @@ export const bookmarksApi = {
   update: (id: string, data: Partial<Bookmark>) => api.patch<Bookmark>(`/bookmarks/${id}`, data),
   trackAccess: (id: string) => api.post(`/bookmarks/${id}/access`),
   retry: (id: string) => api.post(`/bookmarks/${id}/retry`),
-  savePublic: (id: string) => api.post<Bookmark>('/bookmarks/save-public', { bookmark_id: id }),
+  savePublic: (id: string) => api.post<{ bookmark: Bookmark; already_exists?: boolean }>('/bookmarks/save-public', { bookmark_id: id }),
   deleteAccount: () => api.delete('/public/account'),
 }
 

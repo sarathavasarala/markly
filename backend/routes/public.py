@@ -55,6 +55,7 @@ def get_public_bookmarks(username: str):
     
     # Check if the requester is the owner
     is_owner = False
+    viewer_user_id = None
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
@@ -64,8 +65,10 @@ def get_public_bookmarks(username: str):
             from database import get_auth_client
             auth_client = get_auth_client(token)
             user_resp = auth_client.auth.get_user()
-            if user_resp and user_resp.user and user_resp.user.id == user_id:
-                is_owner = True
+            if user_resp and user_resp.user:
+                viewer_user_id = user_resp.user.id
+                if viewer_user_id == user_id:
+                    is_owner = True
         except Exception as auth_err:
             logger.debug(f"Auth check failed for public profile: {auth_err}")
             pass
@@ -95,8 +98,28 @@ def get_public_bookmarks(username: str):
             .limit(100) \
             .execute()
         
+        bookmarks = result.data or []
+        
+        # Check which bookmarks the viewer has already saved
+        if viewer_user_id and not is_owner:
+            # Get all URLs the viewer has saved
+            viewer_bookmarks = supabase.table('bookmarks') \
+                .select('url') \
+                .eq('user_id', viewer_user_id) \
+                .execute()
+            
+            viewer_urls = {b['url'] for b in (viewer_bookmarks.data or [])}
+            
+            # Mark bookmarks that are already saved
+            for bookmark in bookmarks:
+                bookmark['is_saved_by_viewer'] = bookmark['url'] in viewer_urls
+        else:
+            # Owner or unauthenticated - not saved
+            for bookmark in bookmarks:
+                bookmark['is_saved_by_viewer'] = False
+        
         return jsonify({
-            'bookmarks': result.data or [],
+            'bookmarks': bookmarks,
             'total_count': total_count,
             'username': username,
             'is_owner': is_owner,

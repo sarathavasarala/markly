@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Mail, CheckCircle, Loader2, Copy, Check, AlertTriangle, MoreVertical } from 'lucide-react'
-import { publicApi } from '../lib/api'
+import { publicApi, bookmarksApi } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import SubscribersModal from '../components/SubscribersModal'
+import SaveToCollectionModal from '../components/SaveToCollectionModal'
 import BookmarkCard from '../components/BookmarkCard'
 import { Bookmark } from '../lib/api'
 
@@ -29,6 +30,11 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     const [isCopied, setIsCopied] = useState(false)
     const [isSubscribersModalOpen, setIsSubscribersModalOpen] = useState(false)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [saveModalOpen, setSaveModalOpen] = useState(false)
+    const [bookmarkToSave, setBookmarkToSave] = useState<Bookmark | null>(null)
+    const [saveSuccess, setSaveSuccess] = useState(false)
+    const [savingBookmarkId, setSavingBookmarkId] = useState<string | null>(null)
+    const [retryBookmark, setRetryBookmark] = useState<Bookmark | null>(null)
 
     // Check if current user is the owner of this profile locally
     const currentUserUsername = user?.email?.split('@')[0]?.toLowerCase()
@@ -208,16 +214,74 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
     const handleSaveBookmark = async (bookmark: Bookmark) => {
         if (!isAuthenticated) {
-            navigate(`/login?redirect=/@${username}&save=${bookmark.id}`)
+            // Open modal instead of redirecting
+            setBookmarkToSave(bookmark)
+            setSaveModalOpen(true)
             return
         }
+
+        // Authenticated users save directly
+        setSavingBookmarkId(bookmark.id)
+        setError(null)
+        setRetryBookmark(null)
+
         try {
-            const { bookmarksApi } = await import('../lib/api')
-            await bookmarksApi.savePublic(bookmark.id)
-            // Optional: show a toast
-        } catch (err) {
+            const response = await bookmarksApi.savePublic(bookmark.id)
+
+            // Check if it's a duplicate
+            if (response.data.already_exists) {
+                // Show info message
+                setError('This bookmark is already in your collection')
+                setTimeout(() => setError(null), 3000)
+
+                // Update the bookmark state to show it's saved
+                setBookmarks(prev => prev.map(b =>
+                    b.id === bookmark.id ? { ...b, is_saved_by_viewer: true } : b
+                ))
+            } else {
+                // New save - show success
+                setSaveSuccess(true)
+                setTimeout(() => setSaveSuccess(false), 3000)
+
+                // Update the bookmark state
+                setBookmarks(prev => prev.map(b =>
+                    b.id === bookmark.id ? { ...b, is_saved_by_viewer: true } : b
+                ))
+            }
+        } catch (err: any) {
             console.error('Failed to save public bookmark:', err)
+
+            // Store bookmark for retry
+            setRetryBookmark(bookmark)
+
+            // Show error with specific message
+            if (err.response?.status === 404) {
+                setError('This bookmark is no longer available')
+            } else if (err.code === 'ERR_NETWORK') {
+                setError('Network error. Check your connection and try again.')
+            } else {
+                setError('Failed to save bookmark. Please try again.')
+            }
+
+            // Auto-clear error after 5 seconds
+            setTimeout(() => {
+                setError(null)
+                setRetryBookmark(null)
+            }, 5000)
+        } finally {
+            setSavingBookmarkId(null)
         }
+    }
+
+    const handleRetry = () => {
+        if (retryBookmark) {
+            handleSaveBookmark(retryBookmark)
+        }
+    }
+
+    const handleSaveSuccess = () => {
+        setSaveSuccess(true)
+        setTimeout(() => setSaveSuccess(false), 3000)
     }
 
     useEffect(() => {
@@ -422,6 +486,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                 isPublicView={!isOwner}
                                 onVisibilityToggle={toggleBookmarkVisibility}
                                 onSave={handleSaveBookmark}
+                                isSaving={savingBookmarkId === bookmark.id}
                             />
                         ))}
                     </div>
@@ -435,6 +500,41 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                 </div>
             </div>
 
+            {/* Success Toast */}
+            {saveSuccess && (
+                <div className="fixed bottom-8 right-8 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <div className="bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border border-green-500">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="font-bold">Saved to your collection</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Error/Info Toast with Retry */}
+            {error && (
+                <div className="fixed bottom-8 right-8 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <div className={`px-6 py-4 rounded-xl shadow-2xl border ${error.includes('already in your collection')
+                        ? 'bg-blue-600 border-blue-500'
+                        : 'bg-red-600 border-red-500'
+                        } text-white`}>
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <p className="font-bold mb-2">{error}</p>
+                                {retryBookmark && (
+                                    <button
+                                        onClick={handleRetry}
+                                        className="w-full px-4 py-2 bg-white text-red-600 rounded-lg font-bold text-sm hover:bg-gray-100 transition-colors"
+                                    >
+                                        Retry
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {isOwner && (
                 <SubscribersModal
                     isOpen={isSubscribersModalOpen}
@@ -442,6 +542,16 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                     username={username}
                 />
             )}
+
+            <SaveToCollectionModal
+                isOpen={saveModalOpen}
+                onClose={() => {
+                    setSaveModalOpen(false)
+                    setBookmarkToSave(null)
+                }}
+                bookmarkToSave={bookmarkToSave}
+                onSaveSuccess={handleSaveSuccess}
+            />
         </div>
     )
 }
