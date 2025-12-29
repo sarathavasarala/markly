@@ -17,6 +17,7 @@ import { useState, memo } from 'react'
 import { Bookmark } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 import { useUIStore } from '../stores/uiStore'
+import { useAuthStore } from '../stores/authStore'
 
 interface BookmarkCardProps {
   bookmark: Bookmark
@@ -46,13 +47,16 @@ const BookmarkCard = memo(function BookmarkCard({
 
   const { trackAccess, retryEnrichment, deleteBookmark } = useBookmarksStore()
   const setEditingBookmark = useUIStore((state) => state.setEditingBookmark)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
   const title = bookmark.clean_title || bookmark.original_title || bookmark.url
   const isEnriching = bookmark.enrichment_status === 'pending' || bookmark.enrichment_status === 'processing'
   const isFailed = bookmark.enrichment_status === 'failed'
 
   const handleOpen = () => {
-    trackAccess(bookmark.id)
+    if (isAuthenticated) {
+      trackAccess(bookmark.id)
+    }
     window.open(bookmark.url, '_blank')
   }
 
@@ -221,7 +225,11 @@ const BookmarkCard = memo(function BookmarkCard({
             href={bookmark.url}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackAccess(bookmark.id)}
+            onClick={() => {
+              if (isAuthenticated) {
+                trackAccess(bookmark.id)
+              }
+            }}
             onMouseEnter={() => setTitleHovered(true)}
             onMouseLeave={() => setTitleHovered(false)}
             className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
