@@ -421,15 +421,15 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                         </button>
                                     </div>
                                 ) : !isSubscribed ? (
-                                    <form onSubmit={handleSubscribe} className="flex flex-1 flex-col sm:flex-row items-center p-1 w-full gap-2 sm:gap-0">
-                                        <div className="flex-1 flex items-center px-4 w-full">
+                                    <form onSubmit={handleSubscribe} className="flex flex-1 flex-col sm:flex-row items-center p-1 w-full gap-2 sm:gap-3">
+                                        <div className="flex-1 flex items-center px-4 w-full bg-white dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 rounded-xl shadow-inner focus-within:ring-2 focus-within:ring-primary-500/30 focus-within:border-primary-500/50 transition-all">
                                             <Mail className="w-4 h-4 text-gray-400 dark:text-gray-600 mr-3 shrink-0" />
                                             <input
                                                 type="email"
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
-                                                placeholder="Enter email to stay updated"
-                                                className="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-0 text-sm font-bold py-3 sm:py-0"
+                                                placeholder="Enter email to join the list"
+                                                className="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-0 text-sm font-bold py-3.5"
                                                 required
                                             />
                                         </div>
@@ -438,7 +438,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                             disabled={isLoading}
                                             className="w-full sm:w-auto h-12 px-8 bg-primary-600 hover:bg-primary-500 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-all shadow-lg shadow-primary-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                                         >
-                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Notify Me'}
+                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Keep me updated'}
                                         </button>
                                     </form>
                                 ) : (
