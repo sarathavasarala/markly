@@ -38,23 +38,22 @@ AI-powered bookmark manager with semantic search. Saves links, extracts content,
 
 ### 2. Environment Variables
 
-#### Backend (`backend/.env`)
-```
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-role-key
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-large
-AZURE_OPENAI_API_VERSION=2024-08-01-preview
-JINA_READER_API_KEY=your-jina-key
-```
+Markly uses `.env` files for configuration. By default, it looks for a `.env` file in both `frontend/` and `backend/` directories.
 
-#### Frontend (`frontend/.env`)
-```
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-public-key
-```
+1.  **Frontend**: Copy `frontend/.env.example` to `frontend/.env` and fill in your Supabase keys.
+2.  **Backend**: Copy `backend/.env.example` to `backend/.env` and fill in your Supabase and Azure OpenAI keys.
+
+> [!NOTE]
+> For testing, the app looks for `.env.test`. You can copy the same templates to `.env.test` and point them to your test project.
+
+#### Backend Key Variables (`backend/.env`)
+- `SUPABASE_URL`: Your project URL.
+- `SUPABASE_SERVICE_KEY`: Service role key (required for backend bypass of RLS).
+- `AZURE_OPENAI_API_KEY`: Required for AI features.
+
+#### Frontend Key Variables (`frontend/.env`)
+- `VITE_SUPABASE_URL`: Your project URL.
+- `VITE_SUPABASE_ANON_KEY`: Public anon key.
 
 ## Installation
 

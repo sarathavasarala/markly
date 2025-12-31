@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 _executor: Optional[ThreadPoolExecutor] = None
 
 
-def analyze_link(url: str, user_notes: Optional[str] = None, use_nano_model: bool = False):
+def analyze_link(url: str, user_notes: Optional[str] = None, folders: Optional[list[str]] = None, use_nano_model: bool = False):
     """
     Extract content from a URL and perform AI analysis synchronously.
     Returns a tuple of (extracted_data, enriched_data).
@@ -52,6 +52,7 @@ def analyze_link(url: str, user_notes: Optional[str] = None, use_nano_model: boo
         title=extracted.get("title") or url,
         content=extracted.get("content") or extracted.get("description"),
         user_notes=user_notes,
+        folders=folders,
         use_nano_model=use_nano_model,
     )
     
@@ -100,6 +101,15 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
         bookmark = result.data
         url = bookmark["url"]
         user_description = bookmark.get("user_description")
+        user_id = bookmark.get("user_id")
+        
+        # Fetch user's folders for suggestion
+        folders_list = []
+        try:
+            folders_res = supabase.table("folders").select("name").eq("user_id", user_id).execute()
+            folders_list = [f["name"] for f in folders_res.data]
+        except Exception as fe:
+            logger.warning(f"Could not fetch folders for AI suggestion: {fe}")
         
         # Step 1 & 2: Get content and enrich with LLM
         if user_description:
@@ -120,6 +130,7 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
                 title=extracted.get("title") or bookmark.get("original_title"),
                 content=extracted.get("content") or extracted.get("description"),
                 user_notes=bookmark.get("raw_notes"),
+                folders=folders_list,
                 use_nano_model=use_nano_model,
             )
             logger.info(f"[{bookmark_id}] AI enrichment complete - Tags: {enriched.get('auto_tags', [])}")
@@ -128,6 +139,7 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
             extracted, enriched = analyze_link(
                 url=url,
                 user_notes=bookmark.get("raw_notes"),
+                folders=folders_list,
                 use_nano_model=use_nano_model
             )
             logger.info(f"[{bookmark_id}] AI enrichment complete - Tags: {enriched.get('auto_tags', [])}")
@@ -148,6 +160,7 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
             "intent_type": enriched.get("intent_type"),
             "technical_level": enriched.get("technical_level"),
             "content_type": enriched.get("content_type"),
+            "suggested_folder_name": enriched.get("suggested_folder"),
             "enrichment_status": "completed",
             "enrichment_error": None if was_scrape_successful else "Scraping failed: content could not be extracted. Please review AI guessed metadata.",
         }

@@ -11,13 +11,15 @@ import {
   EyeOff,
   Plus,
   Check,
-  BookMarked
+  BookMarked,
+  Folder as FolderIcon
 } from 'lucide-react'
 import { useState, memo } from 'react'
 import { Bookmark } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 import { useUIStore } from '../stores/uiStore'
 import { useAuthStore } from '../stores/authStore'
+import MoveToFolderModal from './MoveToFolderModal'
 
 interface BookmarkCardProps {
   bookmark: Bookmark
@@ -44,8 +46,9 @@ const BookmarkCard = memo(function BookmarkCard({
   const [copied, setCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [titleHovered, setTitleHovered] = useState(false)
+  const [showFolderModal, setShowFolderModal] = useState(false)
 
-  const { trackAccess, retryEnrichment, deleteBookmark } = useBookmarksStore()
+  const { trackAccess, retryEnrichment, deleteBookmark, updateBookmark } = useBookmarksStore()
   const setEditingBookmark = useUIStore((state) => state.setEditingBookmark)
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
@@ -82,6 +85,15 @@ const BookmarkCard = memo(function BookmarkCard({
       })
     }
     setShowMenu(false)
+  }
+
+  const handleMoveToFolder = async (folderId: string | null) => {
+    try {
+      await updateBookmark(bookmark.id, { folder_id: folderId })
+      setShowMenu(false)
+    } catch (err) {
+      console.error('Failed to move bookmark:', err)
+    }
   }
 
   const formatDate = (dateStr: string | null | undefined) => {
@@ -180,6 +192,18 @@ const BookmarkCard = memo(function BookmarkCard({
                         <Edit2 className="w-4 h-4" />
                         EDIT BOOKMARK
                       </button>
+
+                      <button
+                        onClick={() => {
+                          setShowFolderModal(true)
+                          setShowMenu(false)
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <FolderIcon className="w-4 h-4" />
+                        MOVE TO FOLDER
+                      </button>
+
                       <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
                       <button
                         onClick={handleDelete}
@@ -331,6 +355,12 @@ const BookmarkCard = memo(function BookmarkCard({
           </div>
         </div>
       </div>
+      <MoveToFolderModal
+        isOpen={showFolderModal}
+        onClose={() => setShowFolderModal(false)}
+        currentFolderId={bookmark.folder_id}
+        onSelect={handleMoveToFolder}
+      />
     </div>
   )
 })

@@ -9,6 +9,18 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 -- TABLES
 -- ============================================
 
+-- Folders table
+CREATE TABLE IF NOT EXISTS folders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL DEFAULT auth.uid(),
+    name TEXT NOT NULL,
+    icon TEXT, -- Emoji or Lucide icon name
+    color TEXT, -- Tailwind color class or hex
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, name)
+);
+
 -- Bookmarks table
 CREATE TABLE IF NOT EXISTS bookmarks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -36,6 +48,8 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     enrichment_status TEXT DEFAULT 'pending' CHECK (enrichment_status IN ('pending', 'processing', 'completed', 'failed')),
     enrichment_error TEXT,
     is_public BOOLEAN DEFAULT true,  -- Shared visibility control (default public)
+    folder_id UUID REFERENCES folders(id) ON DELETE SET NULL,
+    suggested_folder_name TEXT,
     -- Full Text Search
     fts tsvector GENERATED ALWAYS AS (
         to_tsvector('english', coalesce(clean_title, '') || ' ' || coalesce(ai_summary, '') || ' ' || coalesce(original_title, ''))
@@ -82,6 +96,10 @@ CREATE INDEX IF NOT EXISTS idx_bookmarks_content_type ON bookmarks(content_type)
 CREATE INDEX IF NOT EXISTS idx_bookmarks_intent_type ON bookmarks(intent_type);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_fts ON bookmarks USING GIN (fts);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_public ON bookmarks(user_id, is_public) WHERE is_public = true;
+CREATE INDEX IF NOT EXISTS idx_bookmarks_folder_id ON bookmarks(folder_id);
+
+-- Folders indexes
+CREATE INDEX IF NOT EXISTS idx_folders_user_id ON folders(user_id);
 
 -- Search history index
 CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at DESC);
@@ -98,6 +116,7 @@ CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
 ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE search_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscribers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE folders ENABLE ROW LEVEL SECURITY;
 
 -- Policies for Bookmarks
 CREATE POLICY "Users can only see their own bookmarks" 
@@ -118,6 +137,19 @@ ON bookmarks FOR SELECT USING (is_public = true);
 -- Policies for Search History
 CREATE POLICY "Users can see own search history" 
 ON search_history FOR ALL USING (auth.uid() = user_id);
+
+-- Policies for Folders
+CREATE POLICY "Users can only see their own folders" 
+ON folders FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own folders" 
+ON folders FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own folders" 
+ON folders FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own folders" 
+ON folders FOR DELETE USING (auth.uid() = user_id);
 
 -- Policies for Subscribers
 CREATE POLICY "Anyone can subscribe" 
@@ -144,6 +176,12 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS update_bookmarks_updated_at ON bookmarks;
 CREATE TRIGGER update_bookmarks_updated_at
     BEFORE UPDATE ON bookmarks
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_folders_updated_at ON folders;
+CREATE TRIGGER update_folders_updated_at
+    BEFORE UPDATE ON folders
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 

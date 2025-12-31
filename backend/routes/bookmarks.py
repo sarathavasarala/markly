@@ -142,6 +142,7 @@ def create_bookmark():
                 "user_description": user_description,
                 "enrichment_status": "pending",
                 "is_public": True,
+                "folder_id": data.get("folder_id"),
             }
         
         result = supabase.table("bookmarks").insert(bookmark_data).execute()
@@ -205,6 +206,7 @@ def list_bookmarks():
     intent_type = request.args.get("intent_type")
     tags = request.args.getlist("tag")
     status = request.args.get("status")  # enrichment status
+    folder_id = request.args.get("folder_id")
     
     # Sort
     sort_by = request.args.get("sort", "created_at")
@@ -217,7 +219,7 @@ def list_bookmarks():
         query = supabase.table("bookmarks").select(
             "id, url, domain, original_title, clean_title, ai_summary, "
             "auto_tags, favicon_url, thumbnail_url, content_type, intent_type, "
-            "technical_level, created_at, enrichment_status, is_public",
+            "technical_level, created_at, enrichment_status, is_public, folder_id, suggested_folder_name",
             count="exact"
         ).eq("user_id", g.user.id)
         
@@ -232,6 +234,11 @@ def list_bookmarks():
             query = query.overlaps("auto_tags", tags)
         if status:
             query = query.eq("enrichment_status", status)
+        if folder_id:
+            if folder_id == "unfiled":
+                query = query.is_("folder_id", "null")
+            else:
+                query = query.eq("folder_id", folder_id)
         
         # Apply sorting
         if sort_order == "asc":
@@ -348,7 +355,7 @@ def update_bookmark(bookmark_id: str):
     allowed_fields = [
         "clean_title", "ai_summary", "auto_tags", "raw_notes", 
         "user_description", "content_type", "intent_type", "technical_level",
-        "thumbnail_url"
+        "thumbnail_url", "folder_id", "is_public"
     ]
     
     update_data = {

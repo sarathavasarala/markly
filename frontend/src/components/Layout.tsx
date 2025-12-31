@@ -7,10 +7,13 @@ import {
   Sun,
   Moon,
   X,
+  Menu,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { useUIStore } from '../stores/uiStore'
+import { useFolderStore } from '../stores/folderStore'
+import Sidebar from './Sidebar'
 import AddBookmarkModal from './AddBookmarkModal'
 import EditBookmarkModal from './EditBookmarkModal'
 
@@ -24,7 +27,8 @@ export default function Layout({
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const { logout, user } = useAuthStore((state) => ({ logout: state.logout, user: state.user }))
-  const { theme, toggleTheme, editingBookmark, setEditingBookmark, isAddModalOpen, setIsAddModalOpen } = useUIStore()
+  const { theme, toggleTheme, editingBookmark, setEditingBookmark, isAddModalOpen, setIsAddModalOpen, isSidebarOpen, toggleSidebar } = useUIStore()
+  const { fetchFolders } = useFolderStore()
   const navigate = useNavigate()
 
   // Get user display info
@@ -51,11 +55,14 @@ export default function Layout({
       document.title = 'Markly'
     }
 
+    // Fetch folders on mount
+    fetchFolders()
+
     // Cleanup to reset title if layout unmounts (though it's the main container)
     return () => {
       document.title = 'Markly - Your smart bookmark library'
     }
-  }, [userName, userEmail])
+  }, [userName, userEmail, fetchFolders])
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
@@ -64,12 +71,20 @@ export default function Layout({
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 flex-shrink-0">
-              <BookMarked className="w-7 h-7 text-primary-600" />
-              <span className="text-lg font-bold text-gray-900 dark:text-white hidden sm:block">
-                Markly
-              </span>
-            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleSidebar}
+                className="p-2 -ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <Link to="/" className="flex items-center gap-2 flex-shrink-0">
+                <BookMarked className="w-7 h-7 text-primary-600" />
+                <span className="text-lg font-bold text-gray-900 dark:text-white hidden sm:block">
+                  Markly
+                </span>
+              </Link>
+            </div>
 
             {/* Mobile Search Toggle */}
             <div className="sm:hidden flex-1 flex justify-end">
@@ -176,9 +191,14 @@ export default function Layout({
       </header>
 
       {/* Main Content */}
-      <main className={`${noPadding ? '' : 'max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-8'}`}>
-        {children || <Outlet />}
-      </main>
+      <div className="flex pt-16">
+        {!noPadding && <Sidebar />}
+        <main className={`flex-1 transition-all duration-300 ${noPadding ? '' : `${isSidebarOpen ? 'lg:ml-64' : ''}`}`}>
+          <div className={noPadding ? '' : "max-w-screen-2xl mx-auto py-8 px-4 sm:px-6 lg:px-10"}>
+            {children || <Outlet />}
+          </div>
+        </main>
+      </div>
 
       {/* Add Bookmark Modal */}
       <AddBookmarkModal
