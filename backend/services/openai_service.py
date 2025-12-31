@@ -72,6 +72,7 @@ class AzureOpenAIService:
         title: str,
         content: str,
         user_notes: str | None = None,
+        folders: list[str] | None = None,
         use_nano_model: bool = False,
     ) -> dict:
         """
@@ -100,6 +101,7 @@ class AzureOpenAIService:
     Title: {title or 'Unknown'}
     Content: {content or 'No content extracted'}
     User Notes: {user_notes or 'None provided'}
+    Available Folders: {", ".join(folders) if folders else "None created yet"}
 
     Return a JSON object with exactly these fields:
     - clean_title: A clean, concise title (max 60 characters). If the original title is good, keep it.
@@ -109,6 +111,7 @@ class AzureOpenAIService:
     - technical_level: One of: "beginner", "intermediate", "advanced", "general"
     - content_type: One of: "article", "documentation", "video", "tool", "paper", "other"
     - key_quotes: An array of 0-3 notable quotes from the content (short, impactful quotes only)
+    - suggested_folder: From the list of 'Available Folders', which one best fits this bookmark? If none fit well, return null. Return the exact name from the list.
 
     Return ONLY valid JSON, no markdown formatting or explanation."""
 
@@ -145,6 +148,7 @@ class AzureOpenAIService:
                 "technical_level": "general",
                 "content_type": "article",
                 "key_quotes": [],
+                "suggested_folder": None,
             }
         
         # Validate and sanitize the result
@@ -168,6 +172,7 @@ class AzureOpenAIService:
                 "article"
             ),
             "key_quotes": [str(q)[:300] for q in result.get("key_quotes", [])][:3],
+            "suggested_folder": result.get("suggested_folder") if result.get("suggested_folder") in (folders or []) else None,
         }
         
         return validated

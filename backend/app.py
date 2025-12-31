@@ -41,11 +41,13 @@ def create_app():
     from routes.search import search_bp
     from routes.stats import stats_bp
     from routes.public import public_bp
+    from routes.folders import folders_bp
     
     app.register_blueprint(bookmarks_bp, url_prefix="/api/bookmarks")
     app.register_blueprint(search_bp, url_prefix="/api/search")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
     app.register_blueprint(public_bp, url_prefix="/api/public")  # Public profile routes
+    app.register_blueprint(folders_bp, url_prefix="/api/folders")
     
     # Health check endpoint
     @app.route("/api/health")

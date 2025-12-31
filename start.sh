@@ -5,28 +5,25 @@
 
 cd "$(dirname "$0")"
 
-echo "🚀 Starting Markly..."
+ENV=${1:-prod}
+echo "🚀 Starting Markly in $ENV mode..."
 
-# Kill any existing processes on ports 5000 and 5173
-lsof -ti:5000 | xargs kill -9 2>/dev/null
+# Kill any existing processes on ports 5050 and 5173
+lsof -ti:5050 | xargs kill -9 2>/dev/null
 lsof -ti:5173 | xargs kill -9 2>/dev/null
 
 # Start backend
 echo "📦 Starting backend on http://localhost:5050..."
-cd backend
-FLASK_APP=app:create_app ../.venv/bin/flask run --port 5050 &
+npm run backend:$ENV &
 BACKEND_PID=$!
-cd ..
 
 # Wait for backend to start
 sleep 2
 
 # Start frontend
 echo "🎨 Starting frontend on http://localhost:5173..."
-cd frontend
-npm run dev &
+npm run frontend:$ENV &
 FRONTEND_PID=$!
-cd ..
 
 echo ""
 echo "✅ Markly is running!"

@@ -61,6 +61,8 @@ export interface Bookmark {
   enrichment_status: 'pending' | 'processing' | 'completed' | 'failed'
   enrichment_error: string | null
   is_public: boolean
+  folder_id: string | null
+  suggested_folder_name: string | null
   is_saved_by_viewer?: boolean
 }
 
@@ -92,6 +94,7 @@ export const bookmarksApi = {
     status?: string
     sort?: string
     order?: 'asc' | 'desc'
+    folder_id?: string
   }) => api.get<BookmarkListResponse>('/bookmarks', { params }),
 
   analyze: (url: string, notes?: string) =>
@@ -103,6 +106,26 @@ export const bookmarksApi = {
   retry: (id: string) => api.post(`/bookmarks/${id}/retry`),
   savePublic: (id: string) => api.post<{ bookmark: Bookmark; already_exists?: boolean }>('/bookmarks/save-public', { bookmark_id: id }),
   deleteAccount: () => api.delete('/public/account'),
+}
+
+// Folders API
+export interface Folder {
+  id: string
+  user_id: string
+  name: string
+  icon: string | null
+  color: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const foldersApi = {
+  list: () => api.get<Folder[]>('/folders'),
+  create: (data: { name: string; icon?: string; color?: string }) =>
+    api.post<Folder>('/folders', data),
+  update: (id: string, data: Partial<Folder>) =>
+    api.patch<Folder>(`/folders/${id}`, data),
+  delete: (id: string) => api.delete(`/folders/${id}`),
 }
 
 // Search API
@@ -136,9 +159,9 @@ export interface ResurfaceSuggestion extends Bookmark {
 }
 
 export const statsApi = {
-  getTopTags: (limit?: number) =>
+  getTopTags: (limit?: number, folderId?: string | null) =>
     api.get<{ tags: { tag: string; count: number }[] }>('/stats/tags', {
-      params: { limit },
+      params: { limit, folder_id: folderId },
     }),
 
   getResurface: () =>

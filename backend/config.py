@@ -2,7 +2,12 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+env = os.getenv("APP_ENV", "prod")
+env_file = f".env.{env}"
+if os.path.exists(env_file):
+    load_dotenv(env_file)
+else:
+    load_dotenv() # Fallback to .env
 
 
 class Config:

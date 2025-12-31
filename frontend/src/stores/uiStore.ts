@@ -28,6 +28,9 @@ interface UIState {
   setEditingBookmark: (bookmark: Bookmark | null) => void
   isAddModalOpen: boolean
   setIsAddModalOpen: (isOpen: boolean) => void
+  isSidebarOpen: boolean
+  setIsSidebarOpen: (isOpen: boolean) => void
+  toggleSidebar: () => void
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -54,5 +57,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   editingBookmark: null,
   setEditingBookmark: (bookmark) => set({ editingBookmark: bookmark }),
   isAddModalOpen: false,
-  setIsAddModalOpen: (isOpen) => set({ isAddModalOpen: isOpen })
+  setIsAddModalOpen: (isOpen) => set({ isAddModalOpen: isOpen }),
+  isSidebarOpen: window.innerWidth >= 1024, // Open by default on desktop
+  setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
+  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen }))
 }))

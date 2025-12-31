@@ -14,13 +14,22 @@ def get_top_tags():
     """Get most used tags."""
     limit = request.args.get("limit", 20, type=int)
     limit = min(limit, 100)
+    folder_id = request.args.get("folder_id")
     
     try:
         supabase = g.supabase
         
-        # Get all tags - ENFORCE user_id isolation
-        result = supabase.table("bookmarks").select("auto_tags") \
-            .eq("user_id", g.user.id).execute()
+        # Build query - ENFORCE user_id isolation
+        query = supabase.table("bookmarks").select("auto_tags") \
+            .eq("user_id", g.user.id)
+            
+        if folder_id:
+            if folder_id == "unfiled":
+                query = query.is_("folder_id", "null")
+            else:
+                query = query.eq("folder_id", folder_id)
+                
+        result = query.execute()
         
         # Count tags
         tag_counts = {}
