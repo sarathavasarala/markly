@@ -26,6 +26,7 @@ frontend/.vite
 # Private Documentation
 PRIVATE_DEPLOYMENT.md
 WEEKLY_DIGEST_VISION.md
+magic_collections_vision.md
 DATABASE_SETUP.md
 
 # Test environment (contains secrets)

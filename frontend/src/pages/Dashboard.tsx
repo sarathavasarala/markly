@@ -177,7 +177,7 @@ export default function Dashboard() {
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
             <button
               onClick={() => setViewMode('cards')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
               title="Grid view"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -186,7 +186,7 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setViewMode('list' as BookmarkViewMode)}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
               title="List view"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -208,7 +208,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold tracking-wider text-gray-400">Topics</h2>
           {!isLoadingTags && topTags.length > 8 && (
-            <button onClick={() => setShowAllTags(!showAllTags)} className="text-xs font-medium text-primary-600 hover:text-primary-700">
+            <button onClick={() => setShowAllTags(!showAllTags)} className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
               {showAllTags ? 'Show less' : `Show all ${topTags.length}`}
             </button>
           )}
@@ -239,8 +239,8 @@ export default function Dashboard() {
       </div>
 
       {isFiltering ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />)}
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse break-inside-avoid" />)}
         </div>
       ) : (
         <div className="space-y-8">
@@ -250,9 +250,9 @@ export default function Dashboard() {
               <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary-600 rounded-full animate-pulse" /> Resurfacing
               </h2>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
+              <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
                 {resurfaceItems.map(item => (
-                  <div key={item.id}>
+                  <div key={item.id} className="break-inside-avoid mb-6">
                     <BookmarkCard
                       bookmark={item}
                       onDeleted={() => handleBookmarkDeleted(item.id)}
@@ -272,9 +272,9 @@ export default function Dashboard() {
                 <p className="text-gray-500">No bookmarks found here yet.</p>
               </div>
             ) : (
-              <div className={viewMode === 'cards' ? "grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6" : "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"}>
+              <div className={viewMode === 'cards' ? "columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6" : "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"}>
                 {recentBookmarks.map(bookmark => (
-                  <div key={bookmark.id}>
+                  <div key={bookmark.id} className={viewMode === 'cards' ? "break-inside-avoid mb-6" : ""}>
                     {viewMode === 'cards' ? (
                       <BookmarkCard
                         bookmark={bookmark}

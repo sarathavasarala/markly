@@ -244,7 +244,7 @@ const BookmarkCard = memo(function BookmarkCard({
         )}
 
         {/* Title */}
-        <h3 className="text-gray-900 dark:text-white font-bold text-lg leading-snug mb-3 line-clamp-2">
+        <h3 className="text-gray-900 dark:text-white font-bold text-lg leading-snug mb-3 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
           <a
             href={bookmark.url}
             target="_blank"
@@ -264,7 +264,7 @@ const BookmarkCard = memo(function BookmarkCard({
 
         {/* Summary */}
         {bookmark.ai_summary && (
-          <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-5 line-clamp-4 font-medium opacity-90">
+          <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-5 font-medium opacity-90">
             {bookmark.ai_summary}
           </p>
         )}
@@ -272,7 +272,7 @@ const BookmarkCard = memo(function BookmarkCard({
         {/* Tags - Refined lowercase style */}
         {bookmark.auto_tags && bookmark.auto_tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">
-            {bookmark.auto_tags.slice(0, 5).map((tag) => (
+            {bookmark.auto_tags.map((tag) => (
               <button
                 key={tag}
                 type="button"
@@ -285,11 +285,6 @@ const BookmarkCard = memo(function BookmarkCard({
                 {tag}
               </button>
             ))}
-            {bookmark.auto_tags.length > 5 && (
-              <span className="px-2 py-1 text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-tighter">
-                +{bookmark.auto_tags.length - 5}
-              </span>
-            )}
           </div>
         )}
 
