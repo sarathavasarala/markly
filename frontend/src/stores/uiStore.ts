@@ -58,7 +58,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   setEditingBookmark: (bookmark) => set({ editingBookmark: bookmark }),
   isAddModalOpen: false,
   setIsAddModalOpen: (isOpen) => set({ isAddModalOpen: isOpen }),
-  isSidebarOpen: window.innerWidth >= 1024, // Open by default on desktop
+  isSidebarOpen: false, // Hidden by default as requested
   setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen }))
 }))

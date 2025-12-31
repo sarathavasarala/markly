@@ -272,9 +272,9 @@ export default function Dashboard() {
                 <p className="text-gray-500">No bookmarks found here yet.</p>
               </div>
             ) : (
-              <div className={viewMode === 'cards' ? "columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6" : "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"}>
+              <div className={viewMode === 'cards' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"}>
                 {recentBookmarks.map(bookmark => (
-                  <div key={bookmark.id} className={viewMode === 'cards' ? "mb-6 break-inside-avoid" : ""}>
+                  <div key={bookmark.id}>
                     {viewMode === 'cards' ? (
                       <BookmarkCard
                         bookmark={bookmark}

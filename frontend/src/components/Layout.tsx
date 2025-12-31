@@ -193,8 +193,8 @@ export default function Layout({
       {/* Main Content */}
       <div className="flex pt-0">
         {!noPadding && <Sidebar />}
-        <main className={`flex-1 transition-all duration-300 ${noPadding ? '' : `${isSidebarOpen ? 'lg:ml-64' : ''}`}`}>
-          <div className={noPadding ? '' : "max-w-screen-2xl mx-auto pt-6 pb-8 px-4 sm:px-6 lg:px-10"}>
+        <main className={`flex-1 w-full transition-all duration-300 ${noPadding ? '' : `${isSidebarOpen ? 'lg:pl-64' : ''}`}`}>
+          <div className={noPadding ? '' : "max-w-screen-2xl mx-auto pt-6 pb-8 px-4 sm:px-6 lg:px-10 w-full overflow-hidden"}>
             {children || <Outlet />}
           </div>
         </main>
