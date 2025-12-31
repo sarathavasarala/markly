@@ -169,7 +169,7 @@ export default function Dashboard() {
     }
 
     return (
-      <div className="flex items-center justify-between flex-wrap gap-3 mt-[-6px]">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
           {titleContent}
         </h1>
@@ -206,7 +206,7 @@ export default function Dashboard() {
       {/* Topics Box */}
       <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400">Top Topics</h2>
+          <h2 className="text-sm font-bold tracking-wider text-gray-400">Topics</h2>
           {!isLoadingTags && topTags.length > 8 && (
             <button onClick={() => setShowAllTags(!showAllTags)} className="text-xs font-medium text-primary-600 hover:text-primary-700">
               {showAllTags ? 'Show less' : `Show all ${topTags.length}`}
@@ -267,9 +267,6 @@ export default function Dashboard() {
 
           {/* Main List */}
           <div className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400">
-              {selectedFolderId || selectedTags.length > 0 ? 'Results' : 'All Bookmarks'}
-            </h2>
             {recentBookmarks.length === 0 ? (
               <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                 <p className="text-gray-500">No bookmarks found here yet.</p>

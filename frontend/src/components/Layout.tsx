@@ -191,10 +191,10 @@ export default function Layout({
       </header>
 
       {/* Main Content */}
-      <div className="flex pt-16">
+      <div className="flex pt-0">
         {!noPadding && <Sidebar />}
         <main className={`flex-1 transition-all duration-300 ${noPadding ? '' : `${isSidebarOpen ? 'lg:ml-64' : ''}`}`}>
-          <div className={noPadding ? '' : "max-w-screen-2xl mx-auto py-8 px-4 sm:px-6 lg:px-10"}>
+          <div className={noPadding ? '' : "max-w-screen-2xl mx-auto pt-6 pb-8 px-4 sm:px-6 lg:px-10"}>
             {children || <Outlet />}
           </div>
         </main>
