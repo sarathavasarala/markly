@@ -239,8 +239,8 @@ export default function Dashboard() {
       </div>
 
       {isFiltering ? (
-        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
-          {[1, 2, 3, 4].map(i => <div key={i} className="h-64 mb-6 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse break-inside-avoid" />)}
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />)}
         </div>
       ) : (
         <div className="space-y-8">
@@ -250,9 +250,9 @@ export default function Dashboard() {
               <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-primary-600 rounded-full animate-pulse" /> Resurfacing
               </h2>
-              <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
                 {resurfaceItems.map(item => (
-                  <div key={item.id} className="mb-6 break-inside-avoid">
+                  <div key={item.id}>
                     <BookmarkCard
                       bookmark={item}
                       onDeleted={() => handleBookmarkDeleted(item.id)}
@@ -272,7 +272,7 @@ export default function Dashboard() {
                 <p className="text-gray-500">No bookmarks found here yet.</p>
               </div>
             ) : (
-              <div className={viewMode === 'cards' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"}>
+              <div className={viewMode === 'cards' ? "grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6" : "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"}>
                 {recentBookmarks.map(bookmark => (
                   <div key={bookmark.id}>
                     {viewMode === 'cards' ? (

@@ -67,7 +67,7 @@ export default function Layout({
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10">
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo */}
@@ -191,7 +191,7 @@ export default function Layout({
       </header>
 
       {/* Main Content */}
-      <div className="flex pt-0">
+      <div className="flex pt-16">
         {!noPadding && <Sidebar />}
         <main className={`flex-1 w-full transition-all duration-300 ${noPadding ? '' : `${isSidebarOpen ? 'lg:pl-64' : ''}`}`}>
           <div className={noPadding ? '' : "max-w-screen-2xl mx-auto pt-6 pb-8 px-4 sm:px-6 lg:px-10 w-full overflow-hidden"}>
