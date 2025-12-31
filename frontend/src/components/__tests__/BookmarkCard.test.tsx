@@ -57,6 +57,8 @@ const mockBookmark: Bookmark = {
     is_public: true,
     enrichment_status: 'completed',
     enrichment_error: null,
+    folder_id: null,
+    suggested_folder_name: null,
 }
 
 describe('BookmarkCard', () => {
