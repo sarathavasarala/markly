@@ -76,7 +76,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
     }
-  }, [])
+  }, [selectedFolderId])
 
   useEffect(() => {
     loadDashboardData()
@@ -148,8 +148,8 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
             <button
-              onClick={() => setViewMode('grid' as BookmarkViewMode)}
-              className={`p-1.5 rounded-md transition-all ${(viewMode as string) === 'grid' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+              onClick={() => setViewMode('cards')}
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
               title="Grid view"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -238,10 +238,10 @@ export default function Dashboard() {
                 <p className="text-gray-500">No bookmarks found here yet.</p>
               </div>
             ) : (
-              <div className={(viewMode as string) === 'grid' ? "columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6" : "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"}>
+              <div className={viewMode === 'cards' ? "columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6" : "bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden"}>
                 {recentBookmarks.map(bookmark => (
-                  <div key={bookmark.id} className={(viewMode as string) === 'grid' ? "mb-6 break-inside-avoid" : ""}>
-                    {(viewMode as string) === 'grid' ? (
+                  <div key={bookmark.id} className={viewMode === 'cards' ? "mb-6 break-inside-avoid" : ""}>
+                    {viewMode === 'cards' ? (
                       <BookmarkCard
                         bookmark={bookmark}
                         onDeleted={() => handleBookmarkDeleted(bookmark.id)}
