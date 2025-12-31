@@ -93,7 +93,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
       try {
         await createBookmark(finalUrl, description.trim() || undefined)
         handleClose()
-        setTimeout(() => window.location.reload(), 100)
+        // No reload needed - Zustand store already updated the bookmark list
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to save bookmark')
         setIsSubmitting(false)
@@ -153,7 +153,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
         }
       )
       handleClose()
-      setTimeout(() => window.location.reload(), 100)
+      // No reload needed - Zustand store already updated the bookmark list
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to save to collection')
       setIsSubmitting(false)

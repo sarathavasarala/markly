@@ -118,7 +118,8 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
             if (response.ok) {
                 setIsSubscribed(true)
-                if (isOwner) setSubscriberCount(prev => prev + 1)
+                // Optimistically update subscriber count for everyone
+                setSubscriberCount(prev => prev + 1)
             } else {
                 setError(data.error || 'Failed to subscribe')
             }

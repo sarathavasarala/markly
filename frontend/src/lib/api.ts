@@ -117,6 +117,7 @@ export interface Folder {
   color: string | null
   created_at: string
   updated_at: string
+  bookmark_count?: number
 }
 
 export const foldersApi = {

@@ -17,6 +17,7 @@ export default function Search() {
   const [hasSearched, setHasSearched] = useState(false)
   const [searchHistory, setSearchHistory] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
 
   // Load search history on mount
   useEffect(() => {
@@ -92,7 +93,9 @@ export default function Search() {
   // Keyboard search for keyword mode
   useEffect(() => {
     if (mode === 'keyword' && query.length >= 2) {
+      setIsTyping(true)
       const timeoutId = setTimeout(() => {
+        setIsTyping(false)
         const params: Record<string, string> = { q: query, mode }
         if (tag) params.tag = tag
         if (searchParams.get('q') !== query || searchParams.get('mode') !== mode || searchParams.get('tag') !== tag) {
@@ -100,7 +103,12 @@ export default function Search() {
         }
         performSearch(query, 'keyword', tag)
       }, 300)
-      return () => clearTimeout(timeoutId)
+      return () => {
+        clearTimeout(timeoutId)
+        setIsTyping(false)
+      }
+    } else {
+      setIsTyping(false)
     }
   }, [query, mode, performSearch, searchParams, setSearchParams, tag])
 
@@ -178,11 +186,10 @@ export default function Search() {
                   setSearchParams(params)
                   if (query) performSearch(query, 'keyword', tag)
                 }}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  mode === 'keyword'
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'keyword'
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-300'
-                }`}
+                  }`}
               >
                 Keyword
               </button>
@@ -195,17 +202,16 @@ export default function Search() {
                   setSearchParams(params)
                   if (query) performSearch(query, 'semantic', tag)
                 }}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  mode === 'semantic'
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'semantic'
                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                     : 'text-gray-600 dark:text-gray-300'
-                }`}
+                  }`}
               >
                 <Sparkles className="w-4 h-4" />
                 Semantic
               </button>
             </div>
-            
+
             {mode === 'semantic' && (
               <button
                 type="submit"
@@ -229,13 +235,14 @@ export default function Search() {
       </div>
 
       {/* Results */}
-      {isSearching && (
+      {(isSearching || isTyping) && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+          {isTyping && <span className="ml-3 text-gray-500">Typing...</span>}
         </div>
       )}
 
-      {!isSearching && hasSearched && (
+      {!isSearching && !isTyping && hasSearched && (
         <>
           <div className="text-sm text-gray-500 dark:text-gray-400">
             Found {results.length} result{results.length !== 1 ? 's' : ''} for "{query}"

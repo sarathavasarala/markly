@@ -13,11 +13,12 @@ export default function Dashboard() {
   const [topTags, setTopTags] = useState<{ tag: string; count: number }[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [isFiltering, setIsFiltering] = useState(false)
+  const [isLoadingTags, setIsLoadingTags] = useState(false)
   const [showAllTags, setShowAllTags] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const { bookmarksViewMode: viewMode, setBookmarksViewMode: setViewMode } = useUIStore()
-  const { updateBookmark } = useBookmarksStore()
+  const { updateBookmark, bookmarks: storeBookmarks } = useBookmarksStore()
   const { selectedFolderId, folders } = useFolderStore()
 
   const currentFolder = selectedFolderId
@@ -66,6 +67,7 @@ export default function Dashboard() {
   }, [selectedFolderId])
 
   const loadDashboardData = useCallback(async () => {
+    setIsLoadingTags(true)
     try {
       const [resurfaceRes, tagsRes] = await Promise.all([
         statsApi.getResurface(),
@@ -75,6 +77,8 @@ export default function Dashboard() {
       setTopTags(tagsRes.data.tags)
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
+    } finally {
+      setIsLoadingTags(false)
     }
   }, [selectedFolderId])
 
@@ -91,6 +95,21 @@ export default function Dashboard() {
       }
     }
   }, [selectedTags, selectedFolderId, loadBookmarks])
+
+  // Sync newly created bookmarks from store into local state (replaces page reload)
+  useEffect(() => {
+    if (storeBookmarks.length > 0) {
+      setRecentBookmarks(prev => {
+        const existingIds = new Set(prev.map(b => b.id))
+        const newBookmarks = storeBookmarks.filter(b => !existingIds.has(b.id))
+        if (newBookmarks.length > 0) {
+          // Prepend new bookmarks to the list
+          return [...newBookmarks, ...prev]
+        }
+        return prev
+      })
+    }
+  }, [storeBookmarks])
 
   const toggleTag = useCallback<(tag: string) => void>((tag: string) => {
     setSelectedTags(prev =>
@@ -121,12 +140,21 @@ export default function Dashboard() {
   if (!recentBookmarks) return null
 
   const renderHeader = () => {
-    let titleContent: React.ReactNode = `Your bookmarks (${recentBookmarks.length})`
+    // Show skeleton count during loading to prevent stale data flash
+    const countDisplay = isFiltering ? (
+      <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" />
+    ) : (
+      recentBookmarks.length
+    )
+
+    let titleContent: React.ReactNode = (
+      <span className="flex items-center gap-1">Your bookmarks ({countDisplay})</span>
+    )
 
     if (selectedTags.length > 0) {
       titleContent = (
         <span className="flex items-center gap-2">
-          Filtered results ({recentBookmarks.length})
+          Filtered results ({countDisplay})
           <button onClick={clearFilters} className="text-xs font-normal text-primary-600 hover:underline flex items-center gap-1">
             Clear filters <X className="w-3 h-3" />
           </button>
@@ -135,7 +163,7 @@ export default function Dashboard() {
     } else if (currentFolder) {
       titleContent = (
         <span className="flex items-center gap-2">
-          <FolderIcon className="w-5 h-5 text-primary-600" /> {currentFolder.name} ({recentBookmarks.length})
+          <FolderIcon className="w-5 h-5 text-primary-600" /> {currentFolder.name} ({countDisplay})
         </span>
       )
     }
@@ -179,25 +207,34 @@ export default function Dashboard() {
       <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400">Top Topics</h2>
-          {topTags.length > 8 && (
+          {!isLoadingTags && topTags.length > 8 && (
             <button onClick={() => setShowAllTags(!showAllTags)} className="text-xs font-medium text-primary-600 hover:text-primary-700">
               {showAllTags ? 'Show less' : `Show all ${topTags.length}`}
             </button>
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {topTags.slice(0, showAllTags ? undefined : 8).map(({ tag, count }) => (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${selectedTags.includes(tag)
-                ? 'bg-primary-600 border-primary-600 text-white shadow-md'
-                : 'bg-primary-50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-900/30 text-primary-700 dark:text-primary-400 hover:border-primary-300 dark:hover:border-primary-800'
-                }`}
-            >
-              #{tag} <span className={`ml-1 ${selectedTags.includes(tag) ? 'text-primary-200' : 'text-primary-400'}`}>{count}</span>
-            </button>
-          ))}
+          {isLoadingTags ? (
+            // Skeleton loader for topics
+            [1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="w-20 h-8 bg-gray-100 dark:bg-gray-800 rounded-full animate-pulse" />
+            ))
+          ) : topTags.length === 0 ? (
+            <p className="text-sm text-gray-400">No topics yet</p>
+          ) : (
+            topTags.slice(0, showAllTags ? undefined : 8).map(({ tag, count }) => (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${selectedTags.includes(tag)
+                  ? 'bg-primary-600 border-primary-600 text-white shadow-md'
+                  : 'bg-primary-50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-900/30 text-primary-700 dark:text-primary-400 hover:border-primary-300 dark:hover:border-primary-800'
+                  }`}
+              >
+                #{tag} <span className={`ml-1 ${selectedTags.includes(tag) ? 'text-primary-200' : 'text-primary-400'}`}>{count}</span>
+              </button>
+            ))
+          )}
         </div>
       </div>
 

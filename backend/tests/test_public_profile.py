@@ -188,25 +188,32 @@ class TestFolderAccessControl:
         """
         SCENARIO: Authenticated user lists folders
         EXPECTED: Only returns folders where user_id matches
-        
+
         This verifies the RLS-like behavior in the route.
         """
         headers = {"Authorization": f"Bearer {mock_auth['token']}"}
         mock_scoped_supabase = mock_auth["supabase"]
-        
+
         # Setup: Mock folder data
-        mock_folders = [{"id": "1", "name": "My Folder", "user_id": mock_auth["user"].id}]
+        mock_folders = [{"id": "folder-1", "name": "My Folder", "user_id": mock_auth["user"].id}]
         mock_scoped_supabase.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(data=mock_folders)
-        
+
+        # Setup: Mock bookmark count query (new behavior - list_folders now counts bookmarks per folder)
+        mock_count_result = MagicMock()
+        mock_count_result.count = 5
+        mock_scoped_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_count_result
+
         # Execute
         with patch('flask.g', MagicMock(user=mock_auth["user"], supabase=mock_scoped_supabase)):
             response = client.get('/api/folders', headers=headers)
-        
+
         # Verify
         assert response.status_code == 200
         data = response.get_json()
         assert len(data) == 1
         assert data[0]['name'] == "My Folder"
+        # Verify bookmark_count is included (new feature)
+        assert 'bookmark_count' in data[0]
 
 
 class TestVisibilityRules:

@@ -9,11 +9,28 @@ folders_bp = Blueprint("folders", __name__)
 @folders_bp.route("", methods=["GET"])
 @require_auth
 def list_folders():
-    """List all folders for the current user."""
+    """List all folders for the current user with bookmark counts."""
     try:
         supabase = g.supabase
+        # Get folders
         result = supabase.table("folders").select("*").eq("user_id", g.user.id).order("name").execute()
-        return jsonify(result.data)
+        folders = result.data or []
+
+        # Get bookmark counts per folder
+        if folders:
+            folder_ids = [f["id"] for f in folders]
+            count_map = {}
+            for folder_id in folder_ids:
+                count_result = supabase.table("bookmarks").select(
+                    "id", count="exact"
+                ).eq("user_id", g.user.id).eq("folder_id", folder_id).execute()
+                count_map[folder_id] = count_result.count or 0
+
+            # Merge counts into folder objects
+            for folder in folders:
+                folder["bookmark_count"] = count_map.get(folder["id"], 0)
+
+        return jsonify(folders)
     except Exception as e:
         logger.error(f"Failed to list folders: {str(e)}")
         return jsonify({"error": f"Failed to list folders: {str(e)}"}), 500
