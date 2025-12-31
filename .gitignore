@@ -27,3 +27,7 @@ frontend/.vite
 PRIVATE_DEPLOYMENT.md
 WEEKLY_DIGEST_VISION.md
 DATABASE_SETUP.md
+
+# Test environment (contains secrets)
+backend/.env.test
+frontend/.env.test
