@@ -75,14 +75,12 @@ def create_app():
             app.logger.error(f"Error looking up profile for {clean_username}: {e}")
 
         # Fallback values if profile lookup fails
-        display_name = clean_username
         first_name = clean_username
         count = 0
         image = f"https://ui-avatars.com/api/?name={clean_username}&background=6366f1&color=fff&size=512"
         
         if profile:
             full_name = profile.get('full_name') or clean_username
-            display_name = full_name
             # Extract first name for a friendlier title
             first_name = full_name.split()[0] if full_name else clean_username
             count = profile.get('bookmark_count') or 0

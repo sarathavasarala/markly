@@ -7,7 +7,7 @@ env_file = f".env.{env}"
 if os.path.exists(env_file):
     load_dotenv(env_file)
 else:
-    load_dotenv() # Fallback to .env
+    load_dotenv()  # Fallback to .env
 
 
 class Config:

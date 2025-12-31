@@ -19,9 +19,18 @@ def get_user_profile_by_username(username: str) -> dict | None:
         
         for user in user_list:
             # Handle both object and dict types
-            u_email = getattr(user, 'email', None) or user.get('email') if isinstance(user, dict) else getattr(user, 'email', None)
-            u_id = getattr(user, 'id', None) or user.get('id') if isinstance(user, dict) else getattr(user, 'id', None)
-            u_metadata = getattr(user, 'user_metadata', None) or user.get('user_metadata') if isinstance(user, dict) else getattr(user, 'user_metadata', None)
+            u_email = (
+                getattr(user, 'email', None) or user.get('email') 
+                if isinstance(user, dict) else getattr(user, 'email', None)
+            )
+            u_id = (
+                getattr(user, 'id', None) or user.get('id') 
+                if isinstance(user, dict) else getattr(user, 'id', None)
+            )
+            u_metadata = (
+                getattr(user, 'user_metadata', None) or user.get('user_metadata') 
+                if isinstance(user, dict) else getattr(user, 'user_metadata', None)
+            )
             
             if u_email and u_email.split('@')[0].lower() == username.lower():
                 # Also get bookmark count for this user
@@ -87,7 +96,8 @@ def get_public_bookmarks(username: str):
 
         # Build data query
         query = supabase.table('bookmarks') \
-            .select('id, url, original_title, clean_title, user_description, ai_summary, auto_tags, domain, favicon_url, created_at, is_public') \
+            .select('id, url, original_title, clean_title, user_description, ai_summary, '
+                    'auto_tags, domain, favicon_url, created_at, is_public') \
             .eq('user_id', user_id)
         
         # If not owner, only show public bookmarks
@@ -130,7 +140,9 @@ def get_public_bookmarks(username: str):
         })
     except Exception as e:
         logger.error(f"Error fetching public bookmarks for {username}: {str(e)}")
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+        return jsonify(
+            {'error': f'Internal server error: {str(e)}'}
+        ), 500
 
 
 @public_bp.route('/@<username>/subscribe', methods=['POST'])
@@ -147,7 +159,7 @@ def subscribe_to_curator(username: str):
     
     try:
         # Insert subscription
-        response = supabase.table('subscribers').insert({
+        supabase.table('subscribers').insert({
             'curator_username': username.lower(),
             'email': email
         }).execute()
@@ -226,7 +238,7 @@ def check_subscription(username: str):
             .execute()
             
         return jsonify({'is_subscribed': len(response.data) > 0})
-    except Exception as e:
+    except Exception:
         return jsonify({'is_subscribed': False})
 
 
@@ -246,7 +258,7 @@ def unsubscribe_from_curator(username: str):
                 user_resp = admin_client.auth.get_user(auth_header[7:])
                 if user_resp and user_resp.user:
                     email = user_resp.user.email.lower().strip()
-            except:
+            except Exception:
                 pass
 
     if not email:
@@ -317,8 +329,7 @@ def delete_account():
         # 4. Delete the user's own SUBSCRIPTIONS to others
         supabase.table('subscribers').delete().eq('email', user_email).execute()
         
-        # 5. Finally, delete the auth user (requires service role)
-        # Note: In a production app, you might want to sign them out first or do this via admin client
+        # Finally, delete the auth user (requires service role)
         supabase.auth.admin.delete_user(user_id)
         
         return jsonify({'success': True, 'message': 'Account and all data deleted'})
@@ -331,8 +342,6 @@ def delete_account():
 @require_auth
 def toggle_bookmark_visibility(bookmark_id: str):
     """Toggle a bookmark's public/private status."""
-    
-    user_id = g.user.id
     
     data = request.get_json()
     is_public = data.get('is_public', True)
@@ -350,5 +359,7 @@ def toggle_bookmark_visibility(bookmark_id: str):
         
         return jsonify({'success': True, 'is_public': is_public})
     except Exception as e:
-        logger.error(f"Error updating visibility for bookmark {bookmark_id}: {e}")
+        logger.error(
+            f"Error updating visibility for bookmark {bookmark_id}: {e}"
+        )
         return jsonify({'error': f'Failed to update visibility: {str(e)}'}), 500

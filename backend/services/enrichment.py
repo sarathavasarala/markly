@@ -2,7 +2,6 @@
 import logging
 import traceback
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 from typing import Optional
 
 from database import get_supabase
@@ -15,7 +14,12 @@ logger = logging.getLogger(__name__)
 _executor: Optional[ThreadPoolExecutor] = None
 
 
-def analyze_link(url: str, user_notes: Optional[str] = None, folders: Optional[list[str]] = None, use_nano_model: bool = False):
+def analyze_link(
+    url: str, 
+    user_notes: Optional[str] = None, 
+    folders: Optional[list[str]] = None, 
+    use_nano_model: bool = False
+):
     """
     Extract content from a URL and perform AI analysis synchronously.
     Returns a tuple of (extracted_data, enriched_data).
@@ -24,9 +28,11 @@ def analyze_link(url: str, user_notes: Optional[str] = None, folders: Optional[l
     
     # Step 1: Scrape
     try:
-        from services.content_extractor import ContentExtractor
         extracted = ContentExtractor.extract(url)
-        logger.debug(f"Extracted - Title: {extracted.get('title', 'None')}, Content length: {len(extracted.get('content', '') or '')}")
+        logger.debug(
+            f"Extracted - Title: {extracted.get('title', 'None')}, "
+            f"Content length: {len(extracted.get('content', '') or '')}"
+        )
     except Exception as scrape_error:
         logger.warning(f"Scraping failed: {scrape_error}. Proceeding with URL-only enrichment.")
         try:
@@ -162,7 +168,10 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
             "content_type": enriched.get("content_type"),
             "suggested_folder_name": enriched.get("suggested_folder"),
             "enrichment_status": "completed",
-            "enrichment_error": None if was_scrape_successful else "Scraping failed: content could not be extracted. Please review AI guessed metadata.",
+            "enrichment_error": None if was_scrape_successful else (
+                "Scraping failed: content could not be extracted. "
+                "Please review AI guessed metadata."
+            ),
         }
         
         logger.debug(f"[{bookmark_id}] Updating bookmark in database (scrape success: {was_scrape_successful})...")

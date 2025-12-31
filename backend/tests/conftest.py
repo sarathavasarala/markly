@@ -1,7 +1,7 @@
 import pytest
 import os
 from app import create_app
-from unittest.mock import MagicMock
+
 
 @pytest.fixture
 def app():

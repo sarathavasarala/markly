@@ -86,7 +86,10 @@ def _keyword_search(supabase, query: str, limit: int, offset: int,
     if query:
         like_query = f"%{query}%"
         base_query = base_query.or_(
-            f"clean_title.ilike.{like_query},ai_summary.ilike.{like_query},original_title.ilike.{like_query},auto_tags.cs.{{{query}}}"
+            f"clean_title.ilike.{like_query},"
+            f"ai_summary.ilike.{like_query},"
+            f"original_title.ilike.{like_query},"
+            f"auto_tags.cs.{{{query}}}"
         )
     
     result = base_query.order(

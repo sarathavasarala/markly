@@ -22,7 +22,7 @@ def require_auth(f):
             # Note: RLS might block this unless we use service role, 
             # so strict RLS testing requires disabling bypass
             g.user = {"id": "dev-user", "email": "dev@local"}
-            g.supabase = get_supabase() # Service role
+            g.supabase = get_supabase()  # Service role
             return f(*args, **kwargs)
         
         # Get token from Authorization header

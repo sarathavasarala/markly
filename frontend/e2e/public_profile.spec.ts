@@ -6,7 +6,7 @@ test('public profile loads bookmarks', async ({ page }) => {
     await page.goto('/@testuser');
 
     // Check title
-    await expect(page).toHaveTitle(/Reads on Markly/);
+    await expect(page).toHaveTitle(/Reading List - Markly/);
 
     // Check for some key elements
     const profileHeader = page.locator('h1');
@@ -19,9 +19,9 @@ test('public profile loads bookmarks', async ({ page }) => {
 test('viral loop subscribe section is present', async ({ page }) => {
     await page.goto('/@testuser');
 
-    const subscribeInput = page.getByPlaceholder(/your email/i);
+    const subscribeInput = page.getByPlaceholder(/enter email to join/i);
     await expect(subscribeInput).toBeVisible();
 
-    const subscribeButton = page.getByRole('button', { name: /get updates/i });
+    const subscribeButton = page.getByRole('button', { name: /keep me updated/i });
     await expect(subscribeButton).toBeVisible();
 });

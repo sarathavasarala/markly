@@ -165,15 +165,19 @@ def create_bookmark():
             # or allow the sys admin client to update it.
             # Async tasks run outside of requets context, so they generally USE ADMIN key.
             # That is acceptable for background tasks as long as they target by ID.
+
             def generate_async_embedding(bid, text):
                 try:
                     # Note: Async thread uses Admin Client (get_supabase)
                     # This is correct for background jobs
                     embedding = AzureOpenAIService.generate_embedding(text)
                     # We need to import get_supabase here since we removed it from top level
-                    from database import get_supabase 
-                    get_supabase().table("bookmarks").update({"embedding": embedding}).eq("id", bid).execute()
-                except: pass
+                    from database import get_supabase
+                    get_supabase().table("bookmarks").update(
+                        {"embedding": embedding}
+                    ).eq("id", bid).execute()    # Update embedding
+                except Exception:
+                    pass
             
             emb_text = " ".join(filter(None, [
                 bookmark_data["clean_title"],
@@ -418,7 +422,14 @@ def save_public_bookmark():
         admin_supabase = get_supabase()
         
         # 1. Fetch the source bookmark (must be public)
-        source = admin_supabase.table("bookmarks").select("*").eq("id", bookmark_id).eq("is_public", True).single().execute()
+        source = (
+            admin_supabase.table("bookmarks")
+            .select("*")
+            .eq("id", bookmark_id)
+            .eq("is_public", True)
+            .single()
+            .execute()
+        )
         
         if not source.data:
             return jsonify({"error": "Source bookmark not found or is not public"}), 404
