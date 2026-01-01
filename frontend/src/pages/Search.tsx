@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Search as SearchIcon, Loader2, Sparkles, X, Clock } from 'lucide-react'
 import { searchApi, Bookmark } from '../lib/api'
 import BookmarkCard from '../components/BookmarkCard'
+import MasonryGrid from '../components/MasonryGrid'
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -187,8 +188,8 @@ export default function Search() {
                   if (query) performSearch(query, 'keyword', tag)
                 }}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'keyword'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-300'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300'
                   }`}
               >
                 Keyword
@@ -203,8 +204,8 @@ export default function Search() {
                   if (query) performSearch(query, 'semantic', tag)
                 }}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'semantic'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-300'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300'
                   }`}
               >
                 <Sparkles className="w-4 h-4" />
@@ -261,16 +262,17 @@ export default function Search() {
               )}
             </div>
           ) : (
-            <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 space-y-4">
-              {results.map((bookmark) => (
-                <div key={bookmark.id} className="mb-4 break-inside-avoid">
-                  <BookmarkCard
-                    bookmark={bookmark}
-                    onDeleted={(id) => setResults((prev) => prev.filter((b) => b.id !== id))}
-                  />
-                </div>
-              ))}
-            </div>
+            <MasonryGrid
+              items={results}
+              renderItem={(bookmark) => (
+                <BookmarkCard
+                  bookmark={bookmark}
+                  onDeleted={(id) => setResults((prev) => prev.filter((b) => b.id !== id))}
+                />
+              )}
+              gap={16}
+              breakpoints={{ 0: 1, 640: 2, 1024: 3 }}
+            />
           )}
         </>
       )}

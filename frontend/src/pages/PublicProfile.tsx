@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/authStore'
 import SubscribersModal from '../components/SubscribersModal'
 import SaveToCollectionModal from '../components/SaveToCollectionModal'
 import BookmarkCard from '../components/BookmarkCard'
+import MasonryGrid from '../components/MasonryGrid'
 import { Bookmark } from '../lib/api'
 
 interface PublicProfileProps {
@@ -478,10 +479,10 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                         <p className="text-gray-500 font-medium">No bookmarks shared yet</p>
                     </div>
                 ) : (
-                    <div className="columns-1 sm:columns-2 xl:columns-3 2xl:columns-4 3xl:columns-5 gap-6 space-y-6 max-w-full">
-                        {bookmarks.map((bookmark) => (
+                    <MasonryGrid
+                        items={bookmarks}
+                        renderItem={(bookmark) => (
                             <BookmarkCard
-                                key={bookmark.id}
                                 bookmark={bookmark}
                                 isOwner={isOwner}
                                 isPublicView={!isOwner}
@@ -489,8 +490,9 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                 onSave={handleSaveBookmark}
                                 isSaving={savingBookmarkId === bookmark.id}
                             />
-                        ))}
-                    </div>
+                        )}
+                        breakpoints={{ 0: 1, 640: 2, 1024: 3, 1280: 4 }}
+                    />
                 )}
 
                 {/* Footer */}

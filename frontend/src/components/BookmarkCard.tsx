@@ -272,7 +272,7 @@ const BookmarkCard = memo(function BookmarkCard({
         {/* Tags - Refined lowercase style */}
         {bookmark.auto_tags && bookmark.auto_tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">
-            {bookmark.auto_tags.map((tag) => (
+            {bookmark.auto_tags.slice(0, 3).map((tag) => (
               <button
                 key={tag}
                 type="button"
@@ -285,6 +285,11 @@ const BookmarkCard = memo(function BookmarkCard({
                 {tag}
               </button>
             ))}
+            {bookmark.auto_tags.length > 3 && (
+              <span className="px-2 py-0.5 text-gray-400 dark:text-gray-500 text-[10px] font-medium lowercase">
+                + {bookmark.auto_tags.length - 3} more
+              </span>
+            )}
           </div>
         )}
 
