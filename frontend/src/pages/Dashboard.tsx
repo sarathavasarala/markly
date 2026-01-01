@@ -7,6 +7,7 @@ import { useUIStore, BookmarkViewMode } from '../stores/uiStore'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 import { X, Folder as FolderIcon } from 'lucide-react'
 import { useFolderStore } from '../stores/folderStore'
+import TopicsBox from '../components/TopicsBox'
 
 export default function Dashboard() {
   const [recentBookmarks, setRecentBookmarks] = useState<Bookmark[]>([])
@@ -15,7 +16,6 @@ export default function Dashboard() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [isFiltering, setIsFiltering] = useState(false)
   const [isLoadingTags, setIsLoadingTags] = useState(false)
-  const [showAllTags, setShowAllTags] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const { bookmarksViewMode: viewMode, setBookmarksViewMode: setViewMode } = useUIStore()
@@ -204,40 +204,13 @@ export default function Dashboard() {
     <div className="space-y-6">
       {renderHeader()}
 
-      {/* Topics Box */}
-      <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold tracking-wider text-gray-400">Topics</h2>
-          {!isLoadingTags && topTags.length > 8 && (
-            <button onClick={() => setShowAllTags(!showAllTags)} className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
-              {showAllTags ? 'Show less' : `Show all ${topTags.length}`}
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isLoadingTags ? (
-            // Skeleton loader for topics
-            [1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="w-20 h-8 bg-gray-100 dark:bg-gray-800 rounded-full animate-pulse" />
-            ))
-          ) : topTags.length === 0 ? (
-            <p className="text-sm text-gray-400">No topics yet</p>
-          ) : (
-            topTags.slice(0, showAllTags ? undefined : 8).map(({ tag, count }) => (
-              <button
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${selectedTags.includes(tag)
-                  ? 'bg-primary-600 border-primary-600 text-white shadow-md'
-                  : 'bg-primary-50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-900/30 text-primary-700 dark:text-primary-400 hover:border-primary-300 dark:hover:border-primary-800'
-                  }`}
-              >
-                #{tag} <span className={`ml-1 ${selectedTags.includes(tag) ? 'text-primary-200' : 'text-primary-400'}`}>{count}</span>
-              </button>
-            ))
-          )}
-        </div>
-      </div>
+      <TopicsBox
+        tags={topTags}
+        selectedTags={selectedTags}
+        isLoading={isLoadingTags}
+        onTagClick={toggleTag}
+        onClearFilters={clearFilters}
+      />
 
       {isFiltering ? (
         <MasonryGrid

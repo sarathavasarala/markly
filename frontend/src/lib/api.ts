@@ -172,6 +172,8 @@ export const statsApi = {
 export const publicApi = {
   listSubscribers: (username: string) =>
     api.get<{ subscribers: { email: string; subscribed_at: string }[] }>(`/public/@${username}/subscribers`),
+  getTags: (username: string, limit?: number) =>
+    api.get<{ tags: { tag: string; count: number }[] }>(`/public/@${username}/tags`, { params: { limit } }),
   unsubscribe: (username: string, email?: string) =>
     api.post(`/public/@${username}/unsubscribe`, { email }),
   checkSubscription: (username: string) =>
