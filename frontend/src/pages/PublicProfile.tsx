@@ -7,6 +7,7 @@ import SubscribersModal from '../components/SubscribersModal'
 import SaveToCollectionModal from '../components/SaveToCollectionModal'
 import BookmarkCard from '../components/BookmarkCard'
 import MasonryGrid from '../components/MasonryGrid'
+import TopicsBox from '../components/TopicsBox'
 import { Bookmark } from '../lib/api'
 
 interface PublicProfileProps {
@@ -15,7 +16,7 @@ interface PublicProfileProps {
 
 export default function PublicProfile({ username = 'sarath' }: PublicProfileProps) {
     const navigate = useNavigate()
-    const { user, isAuthenticated, token } = useAuthStore()
+    const { user, isAuthenticated, token, isLoading: isAuthLoading } = useAuthStore()
 
     const [email, setEmail] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -36,6 +37,9 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     const [saveSuccess, setSaveSuccess] = useState(false)
     const [savingBookmarkId, setSavingBookmarkId] = useState<string | null>(null)
     const [retryBookmark, setRetryBookmark] = useState<Bookmark | null>(null)
+    const [topTags, setTopTags] = useState<{ tag: string; count: number }[]>([])
+    const [selectedTags, setSelectedTags] = useState<string[]>([])
+    const [isLoadingTags, setIsLoadingTags] = useState(false)
 
     // Check if current user is the owner of this profile locally
     const currentUserUsername = user?.email?.split('@')[0]?.toLowerCase()
@@ -96,6 +100,38 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
             fetchBookmarks()
         }
     }, [username, token])
+
+    // Fetch tags
+    useEffect(() => {
+        const fetchTags = async () => {
+            if (!username) return
+            setIsLoadingTags(true)
+            try {
+                const response = await publicApi.getTags(username)
+                setTopTags(response.data.tags || [])
+            } catch (err) {
+                console.error('Error fetching tags:', err)
+            } finally {
+                setIsLoadingTags(false)
+            }
+        }
+        fetchTags()
+    }, [username])
+
+    const toggleTag = (tag: string) => {
+        setSelectedTags(prev =>
+            prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+        )
+    }
+
+    const clearFilters = () => {
+        setSelectedTags([])
+    }
+
+    // Filtered bookmarks
+    const filteredBookmarks = selectedTags.length > 0
+        ? bookmarks.filter(b => selectedTags.every(tag => b.auto_tags?.includes(tag)))
+        : bookmarks
 
     const handleSubscribe = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -295,204 +331,242 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
         }
     }, [username, fullName, firstName])
 
+    if (isAuthLoading) {
+        return (
+            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+            </div>
+        )
+    }
+
     return (
-        <div className={`${!isOwner ? 'dark min-h-screen bg-gray-950 px-6' : 'bg-transparent'} text-gray-900 dark:text-gray-200 selection:bg-primary-500/30 flex flex-col transition-colors duration-300`}>
-            {/* Background effects - Simplified for single surface look */}
+        <div className={`${!isOwner ? 'min-h-screen bg-gray-50' : 'bg-transparent'} text-gray-900 selection:bg-primary-500/30 flex flex-col transition-colors duration-300`}>
+            {/* Background effects */}
             {!isOwner && (
                 <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-primary-950/20 to-transparent" />
-                    <div className="absolute top-[10%] left-[10%] w-[500px] h-[500px] bg-primary-600/5 rounded-full blur-[128px]" />
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-primary-500/5 to-transparent" />
                 </div>
             )}
 
-            <div className={`relative z-10 flex-1 max-w-full lg:max-w-screen-2xl mx-auto ${!isOwner ? 'py-8 sm:py-16' : 'px-6 py-8 sm:py-16'} w-full`}>
-                {/* Top Right Menu for Owner */}
-                {isOwner && (
-                    <div className="absolute top-8 right-6 z-30">
-                        <button
-                            onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="p-2 text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-900/50 rounded-xl transition-all"
-                            title="More options"
-                        >
-                            <MoreVertical className="w-5 h-5" />
-                        </button>
-
-                        {isMenuOpen && (
-                            <>
-                                <div
-                                    className="fixed inset-0 z-10"
-                                    onClick={() => setIsMenuOpen(false)}
-                                />
-                                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl z-20 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
-                                    <div className="p-2">
-                                        <button
-                                            onClick={() => {
-                                                setIsMenuOpen(false)
-                                                handleDeleteAccount()
+            <div className={`relative z-10 flex-1 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 ${!isOwner ? 'py-4 sm:py-6' : 'py-4 sm:py-6'} w-full space-y-8 sm:space-y-10`}>
+                {/* Hero & Grid Unit */}
+                {isLoadingBookmarks ? (
+                    <div className="flex justify-center py-32">
+                        <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
+                    </div>
+                ) : (
+                    <>
+                        {/* Profile Header section */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
+                            {/* Profile Identity Section */}
+                            <div className="flex items-center gap-5 sm:gap-8">
+                                <div className="relative group shrink-0">
+                                    <div className="absolute -inset-1.5 bg-gradient-to-tr from-primary-500 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                                    {profileMetadata?.avatar_url ? (
+                                        <img
+                                            src={profileMetadata.avatar_url}
+                                            alt={fullName}
+                                            className="relative w-16 h-16 sm:w-20 sm:h-20 aspect-square rounded-2xl object-cover object-center border-2 border-white dark:border-gray-950 shadow-2xl transition-transform duration-500 group-hover:scale-[1.05]"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${fullName}&background=6366f1&color=fff&size=200`
                                             }}
-                                            className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-500/10 rounded-xl text-xs font-black uppercase tracking-widest transition-colors group"
-                                        >
-                                            <AlertTriangle className="w-4 h-4" />
-                                            <span>Delete Account</span>
-                                        </button>
+                                        />
+                                    ) : (
+                                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 aspect-square bg-gray-100 dark:bg-gray-900 rounded-2xl flex items-center justify-center border-2 border-white dark:border-gray-950 shadow-2xl">
+                                            <Mail className="w-8 h-8 sm:w-10 sm:h-10 text-primary-500" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-col">
+                                    <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-none mb-2">
+                                        {firstName}'s Reading List
+                                    </h1>
+                                    <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm font-bold uppercase tracking-[0.15em]">
+                                        Curated by <span className="text-gray-900 dark:text-white">{fullName}</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Integrated Stats & Notify Bar */}
+                            <div className={`${!isOwner ? 'bg-white border-gray-200 shadow-xl' : 'bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 shadow-2xl'} backdrop-blur-3xl rounded-[2rem] p-2 flex flex-col xl:flex-row items-stretch xl:items-center gap-4 xl:gap-0 relative`}>
+                                {/* High-Impact Stats */}
+                                <div className="flex items-center gap-6 sm:gap-10 px-6 py-2 xl:px-8">
+                                    <div className="flex flex-col">
+                                        <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white leading-none">{totalCount}</span>
+                                        <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Picks</span>
+                                    </div>
+                                    <div className="w-px h-10 bg-gray-100 dark:bg-gray-800 hidden sm:block" />
+                                    <div
+                                        className={`flex flex-col ${isOwner ? 'cursor-pointer hover:opacity-80 transition-all' : ''}`}
+                                        onClick={() => isOwner && setIsSubscribersModalOpen(true)}
+                                        title={isOwner ? "View your subscribers" : undefined}
+                                    >
+                                        <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white leading-none">{subscriberCount}</span>
+                                        <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Subscribers</span>
                                     </div>
                                 </div>
-                            </>
-                        )}
-                    </div>
-                )}
 
-                {/* Hero Curation Unit */}
-                {isLoadingBookmarks ? (
-                    <div className="flex justify-center py-20">
-                        <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center text-center mb-10 sm:mb-20">
-                        {/* Profile Identity Section */}
-                        <div className="flex flex-col items-center mb-8 sm:mb-10">
-                            <div className="relative group mb-6">
-                                <div className="absolute -inset-1.5 bg-gradient-to-tr from-primary-500 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-                                {profileMetadata?.avatar_url ? (
-                                    <img
-                                        src={profileMetadata.avatar_url}
-                                        alt={fullName}
-                                        className="relative w-20 h-20 sm:w-28 sm:h-28 aspect-square rounded-2xl object-cover object-center border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${fullName}&background=6366f1&color=fff&size=128`
-                                        }}
-                                    />
-                                ) : (
-                                    <div className="relative w-20 h-20 sm:w-28 sm:h-28 aspect-square bg-gray-100 dark:bg-gray-900 rounded-2xl flex items-center justify-center border-2 border-white dark:border-gray-950 shadow-xl dark:shadow-2xl">
-                                        <Mail className="w-10 h-10 sm:w-12 sm:h-12 text-primary-500" />
+                                {/* Integrated Action Area */}
+                                <div className="flex-1 flex items-center border-t xl:border-t-0 xl:border-l border-gray-100 dark:border-gray-800 pt-4 xl:pt-0 xl:pl-8 px-4 xl:px-6">
+                                    {isOwner ? (
+                                        <div className="flex items-center justify-between xl:justify-start gap-6 w-full">
+                                            <div className="flex flex-col gap-1 min-w-0">
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-500">Your Public Link</span>
+                                                <span className="text-sm font-medium text-gray-400 truncate max-w-[180px] sm:max-w-xs transition-colors hover:text-gray-300">
+                                                    {window.location.origin}/@{username}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 shrink-0">
+                                                <button
+                                                    onClick={handleCopyProfileLink}
+                                                    className="h-12 px-6 bg-gray-800 hover:bg-gray-700 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all flex items-center gap-3 active:scale-95 shadow-lg shadow-black/10 border border-gray-700/50"
+                                                >
+                                                    {isCopied ? (
+                                                        <>
+                                                            <Check className="w-4 h-4 text-green-400" />
+                                                            <span className="text-green-400">Copied</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Copy className="w-4 h-4 text-gray-400" />
+                                                            <span className="whitespace-nowrap">Copy Link</span>
+                                                        </>
+                                                    )}
+                                                </button>
+
+                                                <div className="relative">
+                                                    <button
+                                                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                                        className="p-3 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-2xl transition-all border border-transparent hover:border-gray-700/30"
+                                                    >
+                                                        <MoreVertical className="w-5 h-5" />
+                                                    </button>
+                                                    {isMenuOpen && (
+                                                        <>
+                                                            <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
+                                                            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl z-20 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
+                                                                <div className="p-2">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setIsMenuOpen(false)
+                                                                            handleDeleteAccount()
+                                                                        }}
+                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+                                                                    >
+                                                                        <AlertTriangle className="w-4 h-4" />
+                                                                        <span>Delete Account</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : !isSubscribed ? (
+                                        <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full py-2">
+                                            <div className="relative flex-1 group min-w-0">
+                                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                                    <Mail className="w-4 h-4 text-gray-500 group-focus-within:text-primary-500 transition-colors" />
+                                                </div>
+                                                <input
+                                                    type="email"
+                                                    value={email}
+                                                    onChange={(e) => setEmail(e.target.value)}
+                                                    placeholder="Enter email to join the list"
+                                                    className={`w-full xl:w-72 ${!isOwner ? 'bg-gray-100/50 border-gray-200 text-gray-900' : 'bg-gray-950/40 border-gray-800/80 text-white'} rounded-2xl py-3.5 pl-12 pr-4 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all font-medium`}
+                                                    required
+                                                />
+                                            </div>
+                                            <button
+                                                type="submit"
+                                                disabled={isLoading}
+                                                className="h-[52px] px-8 bg-primary-600 hover:bg-primary-500 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all shadow-xl shadow-primary-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
+                                            >
+                                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Keep me updated'}
+                                            </button>
+                                        </form>
+                                    ) : (
+                                        <div className="flex items-center justify-between sm:justify-start gap-8 text-green-400 w-full py-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center border border-green-500/20">
+                                                    <CheckCircle className="w-5 h-5" />
+                                                </div>
+                                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Subscribed</span>
+                                            </div>
+                                            <button
+                                                onClick={handleUnsubscribe}
+                                                className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-red-400 transition-colors py-2"
+                                            >
+                                                Unsubscribe
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            {error && <p className="absolute -bottom-8 left-0 text-red-400 text-[10px] font-black uppercase tracking-widest animate-pulse">{error}</p>}
+                        </div>
+
+                        <TopicsBox
+                            tags={topTags}
+                            selectedTags={selectedTags}
+                            isLoading={isLoadingTags}
+                            onTagClick={toggleTag}
+                            onClearFilters={clearFilters}
+                        />
+
+                        {/* Masonry Grid Section */}
+                        {profileNotFound ? (
+                            <div className="text-center py-20 bg-gray-900/20 rounded-3xl border border-dashed border-gray-800">
+                                <p className="text-gray-400 text-xl font-medium">Profile not found</p>
+                                <button onClick={() => navigate('/')} className="mt-4 text-primary-400 font-bold hover:underline">Go Home</button>
+                            </div>
+                        ) : bookmarks.length === 0 ? (
+                            <div className="text-center py-20 bg-gray-900/20 rounded-3xl border border-dashed border-gray-800">
+                                <p className="text-gray-500 font-medium">No bookmarks shared yet</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {selectedTags.length > 0 && (
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">
+                                            Results for {selectedTags.map(t => `#${t}`).join(', ')} ({filteredBookmarks.length})
+                                        </h2>
+                                        <button
+                                            onClick={clearFilters}
+                                            className="text-[10px] font-black uppercase tracking-widest text-primary-600 hover:text-primary-700 transition-colors"
+                                        >
+                                            Clear all filters
+                                        </button>
+                                    </div>
+                                )}
+                                <MasonryGrid
+                                    items={filteredBookmarks}
+                                    renderItem={(bookmark: Bookmark) => (
+                                        <BookmarkCard
+                                            key={bookmark.id}
+                                            bookmark={bookmark}
+                                            isOwner={isOwner}
+                                            isPublicView={!isOwner}
+                                            onVisibilityToggle={toggleBookmarkVisibility}
+                                            onSave={handleSaveBookmark}
+                                            onTagClick={toggleTag}
+                                            isSaving={savingBookmarkId === bookmark.id}
+                                        />
+                                    )}
+                                    breakpoints={{ 0: 1, 640: 2, 1024: 3, 1280: 4 }}
+                                />
+                                {filteredBookmarks.length === 0 && (
+                                    <div className="text-center py-20 bg-gray-50 dark:bg-gray-900/20 rounded-3xl border border-dashed border-gray-100 dark:border-gray-800">
+                                        <p className="text-gray-500 font-medium">No bookmarks match these topics</p>
+                                        <button onClick={clearFilters} className="mt-4 text-primary-600 font-bold hover:underline">Clear all filters</button>
                                     </div>
                                 )}
                             </div>
-
-                            <h1 className="text-3xl sm:text-6xl font-black text-gray-900 dark:text-white tracking-tight mb-4">
-                                {firstName}'s Reading List
-                            </h1>
-
-                            <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-base font-medium max-w-xl mx-auto leading-relaxed px-4">
-                                Curated by <span className="text-gray-900 dark:text-white font-bold">{fullName}</span>
-                            </p>
-                        </div>
-
-                        {/* Integrated Stats & Notify Bar */}
-                        <div className="w-full max-w-5xl bg-white dark:bg-gray-900/40 backdrop-blur-2xl border border-gray-200 dark:border-gray-800 rounded-2xl p-2 sm:p-2 sm:pl-8 shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center gap-4 sm:gap-10">
-                            {/* High-Impact Stats */}
-                            <div className="flex items-center justify-around sm:justify-start w-full sm:w-auto gap-6 sm:gap-10 py-4 sm:py-0 px-4 sm:px-0 border-b sm:border-b-0 border-gray-100 dark:border-gray-800/50">
-                                <div className="flex flex-col items-center sm:items-start min-w-[60px]">
-                                    <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-none">{totalCount}</span>
-                                    <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Picks</span>
-                                </div>
-                                <div className="w-px h-8 bg-gray-100 dark:bg-gray-800 hidden sm:block" />
-                                <div
-                                    className={`flex flex-col items-center sm:items-start min-w-[80px] ${isOwner ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-                                    onClick={() => isOwner && setIsSubscribersModalOpen(true)}
-                                    title={isOwner ? "View your subscribers" : undefined}
-                                >
-                                    <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white leading-none">{subscriberCount}</span>
-                                    <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Subscribers</span>
-                                </div>
-                            </div>
-
-                            {/* Integrated Action Area */}
-                            <div className="flex-1 w-full flex items-center sm:border-l border-gray-200 dark:border-gray-800/50">
-                                {isOwner ? (
-                                    <div className="flex-1 flex flex-col sm:flex-row items-center justify-between p-2 sm:p-1 sm:pl-8 gap-4 sm:gap-0">
-                                        <div className="flex flex-col items-center sm:items-start truncate w-full sm:w-auto">
-                                            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-primary-500 mb-0.5">Your Public Link</span>
-                                            <span className="text-xs sm:text-sm font-bold text-gray-400 truncate max-w-full">{window.location.origin}/@{username}</span>
-                                        </div>
-                                        <button
-                                            onClick={handleCopyProfileLink}
-                                            className="w-full sm:w-auto h-12 px-8 bg-gray-800 hover:bg-gray-700 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95"
-                                        >
-                                            {isCopied ? (
-                                                <>
-                                                    <Check className="w-4 h-4 text-green-400" />
-                                                    <span className="text-green-400">Copied</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Copy className="w-4 h-4" />
-                                                    <span>Copy Link</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                ) : !isSubscribed ? (
-                                    <form onSubmit={handleSubscribe} className="flex flex-1 flex-col sm:flex-row items-center p-1 w-full gap-2 sm:gap-3">
-                                        <div className="flex-1 flex items-center px-4 w-full bg-white dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 rounded-xl shadow-inner focus-within:ring-2 focus-within:ring-primary-500/30 focus-within:border-primary-500/50 transition-all">
-                                            <Mail className="w-4 h-4 text-gray-400 dark:text-gray-600 mr-3 shrink-0" />
-                                            <input
-                                                type="email"
-                                                value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
-                                                placeholder="Enter email to join the list"
-                                                className="w-full bg-transparent border-none text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-0 text-sm font-bold py-3.5"
-                                                required
-                                            />
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            disabled={isLoading}
-                                            className="w-full sm:w-auto h-12 px-8 bg-primary-600 hover:bg-primary-500 text-white font-black uppercase tracking-widest text-[10px] rounded-xl transition-all shadow-lg shadow-primary-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                                        >
-                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Keep me updated'}
-                                        </button>
-                                    </form>
-                                ) : (
-                                    <div className="flex-1 h-12 flex items-center justify-between px-8 text-green-400">
-                                        <div className="flex items-center gap-3">
-                                            <CheckCircle className="w-4 h-4" />
-                                            <span className="text-[11px] font-black uppercase tracking-widest">You're on the list!</span>
-                                        </div>
-                                        <button
-                                            onClick={handleUnsubscribe}
-                                            className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-red-400 transition-colors"
-                                        >
-                                            Unsubscribe
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {error && <p className="text-red-400 text-[10px] mt-4 font-black uppercase tracking-widest animate-pulse">{error}</p>}
-                    </div>
-                )}
-
-                {/* Masonry Grid */}
-                {isLoadingBookmarks ? (
-                    <div className="flex justify-center py-20">
-                        <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
-                    </div>
-                ) : profileNotFound ? (
-                    <div className="text-center py-20 bg-gray-900/20 rounded-3xl border border-dashed border-gray-800">
-                        <p className="text-gray-400 text-xl font-medium">Profile not found</p>
-                        <button onClick={() => navigate('/')} className="mt-4 text-primary-400 font-bold hover:underline">Go Home</button>
-                    </div>
-                ) : bookmarks.length === 0 ? (
-                    <div className="text-center py-20 bg-gray-900/20 rounded-3xl border border-dashed border-gray-800">
-                        <p className="text-gray-500 font-medium">No bookmarks shared yet</p>
-                    </div>
-                ) : (
-                    <MasonryGrid
-                        items={bookmarks}
-                        renderItem={(bookmark) => (
-                            <BookmarkCard
-                                bookmark={bookmark}
-                                isOwner={isOwner}
-                                isPublicView={!isOwner}
-                                onVisibilityToggle={toggleBookmarkVisibility}
-                                onSave={handleSaveBookmark}
-                                isSaving={savingBookmarkId === bookmark.id}
-                            />
                         )}
-                        breakpoints={{ 0: 1, 640: 2, 1024: 3, 1280: 4 }}
-                    />
+                    </>
                 )}
 
                 {/* Footer */}
@@ -516,7 +590,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
             {/* Error/Info Toast with Retry */}
             {error && (
                 <div className="fixed bottom-8 right-8 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                    <div className={`px-6 py-4 rounded-xl shadow-2xl border ${error.includes('already in your collection')
+                    <div className={`px-6 py-4 rounded-xl shadow-2xl border ${error?.includes('already in your collection')
                         ? 'bg-blue-600 border-blue-500'
                         : 'bg-red-600 border-red-500'
                         } text-white`}>

@@ -51,6 +51,53 @@ def get_user_profile_by_username(username: str) -> dict | None:
         return None
 
 
+@public_bp.route('/@<username>/tags', methods=['GET'])
+def get_public_tags(username: str):
+    """Get top public tags for a curator."""
+    profile = get_user_profile_by_username(username)
+    if not profile:
+        return jsonify({'error': 'User not found'}), 404
+        
+    user_id = profile['id']
+    limit = request.args.get("limit", 20, type=int)
+    limit = min(limit, 100)
+    
+    supabase = get_supabase()
+    
+    try:
+        # Get only public bookmarks for this user
+        result = supabase.table("bookmarks") \
+            .select("auto_tags") \
+            .eq("user_id", user_id) \
+            .eq("is_public", True) \
+            .execute()
+            
+        # Count tags
+        tag_counts = {}
+        for bookmark in result.data:
+            tags = bookmark.get("auto_tags") or []
+            for tag in tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        
+        # Sort by count
+        sorted_tags = sorted(
+            tag_counts.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:limit]
+        
+        tags = [
+            {"tag": tag, "count": count}
+            for tag, count in sorted_tags
+        ]
+        
+        return jsonify({"tags": tags})
+        
+    except Exception as e:
+        logger.error(f"Error fetching public tags for {username}: {str(e)}")
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+
 @public_bp.route('/@<username>/bookmarks', methods=['GET'])
 def get_public_bookmarks(username: str):
     """Get public bookmarks for a user's public profile."""

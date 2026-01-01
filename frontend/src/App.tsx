@@ -28,7 +28,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 // Handle /@username by catching :path and checking if it starts with @
 function ProfileOrRedirect() {
   const { path } = useParams<{ path: string }>()
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, isLoading } = useAuthStore()
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen bg-gray-950">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+    </div>
+  }
 
   // Check if this looks like a profile route (starts with @)
   if (path?.startsWith('@')) {
@@ -46,7 +52,12 @@ function ProfileOrRedirect() {
       )
     }
 
-    return <PublicProfile username={username} />
+    // Always wrap public profile in Layout, even for guests
+    return (
+      <Layout noPadding>
+        <PublicProfile username={username} />
+      </Layout>
+    )
   }
 
   // Not a profile route, redirect to home (which will handle auth)
