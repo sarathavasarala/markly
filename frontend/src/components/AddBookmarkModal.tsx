@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { X, Loader2, Sparkles, CheckCircle2, AlertCircle, Plus, AlertTriangle } from 'lucide-react'
+import { useState } from 'react'
+import { X, Loader2, Sparkles, CheckCircle2, AlertCircle, Plus } from 'lucide-react'
 import { bookmarksApi } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 
@@ -8,25 +8,6 @@ interface AddBookmarkModalProps {
   onClose: () => void
 }
 
-// Helper to detect root-level URLs (homepages without meaningful path)
-function isRootLevelUrl(urlString: string): boolean {
-  try {
-    const url = new URL(urlString)
-    // Check if path is empty, just "/", or common social roots
-    const path = url.pathname.replace(/\/+$/, '') // Remove trailing slashes
-    if (path === '' || path === '/') {
-      return true
-    }
-    // Some sites use short paths that are still essentially homepages
-    const rootPatterns = ['/home', '/index', '/index.html', '/index.php']
-    if (rootPatterns.includes(path.toLowerCase())) {
-      return true
-    }
-    return false
-  } catch {
-    return false
-  }
-}
 
 export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalProps) {
   const [url, setUrl] = useState('')
@@ -45,25 +26,6 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   const [isPublic, setIsPublic] = useState(true) // Default to public
 
   const createBookmark = useBookmarksStore((state) => state.createBookmark)
-
-  // Check if current URL is a root-level/homepage URL
-  const normalizedUrl = useMemo(() => {
-    let u = url.trim()
-    if (u && !u.startsWith('http://') && !u.startsWith('https://')) {
-      u = 'https://' + u
-    }
-    return u
-  }, [url])
-
-  const isHomepage = useMemo(() => {
-    if (!normalizedUrl) return false
-    try {
-      new URL(normalizedUrl)
-      return isRootLevelUrl(normalizedUrl)
-    } catch {
-      return false
-    }
-  }, [normalizedUrl])
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -87,19 +49,6 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
       return
     }
 
-    // For root-level URLs, skip AI analysis and save directly
-    if (isHomepage) {
-      setIsSubmitting(true)
-      try {
-        await createBookmark(finalUrl, description.trim() || undefined)
-        handleClose()
-        // No reload needed - Zustand store already updated the bookmark list
-      } catch (err: any) {
-        setError(err.response?.data?.error || 'Failed to save bookmark')
-        setIsSubmitting(false)
-      }
-      return
-    }
 
     setIsSubmitting(true)
     setStep('analyzing')
@@ -218,16 +167,6 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                 />
               </div>
 
-              {/* Homepage warning */}
-              {isHomepage && step === 'idle' && (
-                <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm rounded-xl border border-amber-100 dark:border-amber-900/30">
-                  <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold">This looks like a homepage</p>
-                    <p className="text-xs mt-1 opacity-80">Markly works best with specific articles. We'll save this without AI analysis.</p>
-                  </div>
-                </div>
-              )}
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Context / Notes (Optional)</label>
@@ -250,11 +189,6 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Analyzing...
-                  </>
-                ) : isHomepage ? (
-                  <>
-                    <Plus className="w-5 h-5" />
-                    Add Bookmark
                   </>
                 ) : (
                   <>
@@ -280,11 +214,11 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                 <div className="w-20 h-20 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-6 border border-gray-100 dark:border-gray-700">
                   <Sparkles className={`w-10 h-10 ${step === 'analyzing' ? 'text-primary-500 animate-pulse' : 'text-gray-300'}`} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Curator Mode</h3>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Analysis</h3>
                 <p className="text-gray-500 dark:text-gray-400 max-w-sm">
                   {step === 'analyzing'
                     ? "Our AI is extracting content and generating metadata for you to review."
-                    : "Once you analyze a link, your editable AI preview will appear here."}
+                    : "AI suggestions will appear here for you to review and edit."}
                 </p>
                 {step === 'analyzing' && (
                   <div className="mt-8 flex items-center gap-3 px-4 py-2 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-full text-sm font-medium">
