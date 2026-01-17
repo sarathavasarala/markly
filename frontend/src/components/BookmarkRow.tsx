@@ -1,4 +1,4 @@
-import { ExternalLink, MoreVertical, Trash2, Edit2, BookMarked, Folder as FolderIcon } from 'lucide-react'
+import { ExternalLink, MoreVertical, Trash2, Edit2, Folder as FolderIcon } from 'lucide-react'
 import MoveToFolderModal from './MoveToFolderModal'
 import { useState } from 'react'
 import { Bookmark } from '../lib/api'
