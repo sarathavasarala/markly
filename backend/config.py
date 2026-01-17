@@ -2,12 +2,14 @@
 import os
 from dotenv import load_dotenv
 
+base_dir = os.path.dirname(os.path.abspath(__file__))
 env = os.getenv("APP_ENV", "prod")
-env_file = f".env.{env}"
+env_file = os.path.join(base_dir, f".env.{env}")
+
 if os.path.exists(env_file):
-    load_dotenv(env_file)
+    load_dotenv(env_file, override=True)
 else:
-    load_dotenv()  # Fallback to .env
+    load_dotenv(os.path.join(base_dir, ".env"), override=True)
 
 
 class Config:

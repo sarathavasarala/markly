@@ -34,12 +34,18 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
     return (
         <div className="group flex items-center gap-4 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
             {/* Favicon */}
-            <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                {bookmark.favicon_url ? (
-                    <img src={bookmark.favicon_url} alt="" className="w-5 h-5 object-contain" />
-                ) : (
-                    <BookMarked className="w-4 h-4 text-gray-400" />
-                )}
+            <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <img
+                    src={bookmark.favicon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=64`}
+                    alt=""
+                    className="w-5 h-5 object-contain"
+                    onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        // BookMarked fallback is handled by assigning a default icon URL if Google also fails
+                        // or just sticking with Google. Google API is very reliable.
+                        target.src = `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=64`;
+                    }}
+                />
             </div>
 
             {/* Title & Domain */}

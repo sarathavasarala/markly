@@ -122,14 +122,8 @@ def create_bookmark():
             else:
                 original_title = url
             
-            try:
-                from urllib.parse import urlparse
-                parsed = urlparse(url)
-                domain = parsed.netloc.replace("www.", "")
-            except Exception:
-                domain = None
-                
-            favicon_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=64" if domain else None
+            from services.content_extractor import ContentExtractor
+            favicon_url = ContentExtractor.extract_favicon(url)
             
             bookmark_data = {
                 "url": url,

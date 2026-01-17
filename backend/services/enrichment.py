@@ -18,20 +18,20 @@ def analyze_link(
     url: str, 
     user_notes: Optional[str] = None, 
     folders: Optional[list[str]] = None, 
-    use_nano_model: bool = False
+    use_nano_model: bool = True  # Default to True for speed in preview
 ):
     """
     Extract content from a URL and perform AI analysis synchronously.
     Returns a tuple of (extracted_data, enriched_data).
     """
-    logger.info(f"Analyzing link: {url}")
+    logger.info(f"Analyzing link: {url} (nano={use_nano_model})")
     
-    # Step 1: Scrape
+    # Step 1: Scrape (now parallelized internally in ContentExtractor)
     try:
         extracted = ContentExtractor.extract(url)
         logger.debug(
             f"Extracted - Title: {extracted.get('title', 'None')}, "
-            f"Content length: {len(extracted.get('content', '') or '')}"
+            f"Favicon: {extracted.get('favicon_url')}"
         )
     except Exception as scrape_error:
         logger.warning(f"Scraping failed: {scrape_error}. Proceeding with URL-only enrichment.")
@@ -52,7 +52,7 @@ def analyze_link(
         }
     
     # Step 2: AI Enrichment
-    logger.info(f"Calling Azure OpenAI for analysis of {url}...")
+    logger.info(f"Calling Azure OpenAI ({'nano' if use_nano_model else 'default'}) for analysis of {url}...")
     enriched = AzureOpenAIService.enrich_bookmark(
         url=url,
         title=extracted.get("title") or url,

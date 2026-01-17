@@ -29,6 +29,8 @@ class ContentExtractor:
         - thumbnail_url: og:image or similar
         - domain: domain name
         """
+        import concurrent.futures
+        
         result = {
             "title": None,
             "description": None,
@@ -45,16 +47,33 @@ class ContentExtractor:
         except Exception:
             pass
         
-        # Try Jina Reader API first if available
-        if Config.JINA_READER_API_KEY:
-            jina_result = cls._extract_via_jina(url)
-            if jina_result.get("content"):
-                result.update(jina_result)
-                return result
-        
-        # Fallback to BeautifulSoup
-        bs_result = cls._extract_via_beautifulsoup(url)
-        result.update(bs_result)
+        # We run Jina and BeautifulSoup in parallel to speed things up
+        # BS often finishes faster and gives us the favicon/meta which Jina might miss
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = []
+            
+            # 1. Jina Reader API
+            if Config.JINA_READER_API_KEY:
+                futures.append(executor.submit(cls._extract_via_jina, url))
+            
+            # 2. BeautifulSoup Fallback/Complement
+            futures.append(executor.submit(cls._extract_via_beautifulsoup, url))
+            
+            # Collect results
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    extract_res = future.result()
+                    # Merge results, prioritizing Jina for content if it succeeds
+                    # but keeping BS data if Jina is empty
+                    for key, val in extract_res.items():
+                        if val and (not result.get(key) or key == "content"):
+                            result[key] = val
+                except Exception as e:
+                    print(f"Extraction task failed: {e}")
+
+        # Final fallback for favicon if still missing
+        if not result.get("favicon_url") and result.get("domain"):
+            result["favicon_url"] = f"https://www.google.com/s2/favicons?domain={result['domain']}&sz=64"
         
         return result
     
@@ -71,7 +90,6 @@ class ContentExtractor:
                 "Accept": "application/json",
             }
             
-            print(f"Calling Jina Reader for: {url}")
             response = requests.get(jina_url, headers=headers, timeout=cls.TIMEOUT)
             response.raise_for_status()
             
@@ -80,18 +98,10 @@ class ContentExtractor:
             # Jina API returns content nested inside a 'data' object
             data = raw_data.get("data", {}) if "data" in raw_data else raw_data
             
-            title = data.get("title")
-            description = data.get("description")
-            content = data.get("content", "")
-            
-            if not content and not title:
-                print(f"Jina returned empty data for {url}")
-                return {}
-
             return {
-                "title": title,
-                "description": description,
-                "content": content[:15000],  # Limit content size
+                "title": data.get("title"),
+                "description": data.get("description"),
+                "content": data.get("content", "")[:15000],
             }
             
         except Exception as e:
@@ -132,28 +142,42 @@ class ContentExtractor:
                 result["thumbnail_url"] = og_image.get("content")
             
             # Extract favicon
-            favicon = soup.find("link", rel=lambda x: x and "icon" in x.lower() if x else False)
-            if favicon:
-                favicon_href = favicon.get("href", "")
-                if favicon_href.startswith("http"):
-                    result["favicon_url"] = favicon_href
-                elif favicon_href.startswith("/"):
-                    parsed = urlparse(url)
-                    result["favicon_url"] = f"{parsed.scheme}://{parsed.netloc}{favicon_href}"
-            
-            # If no favicon found, try default location
-            if not result.get("favicon_url"):
-                parsed = urlparse(url)
-                result["favicon_url"] = f"{parsed.scheme}://{parsed.netloc}/favicon.ico"
+            result["favicon_url"] = cls.extract_favicon(url, soup)
             
             # Extract main content
             content = cls._extract_main_content(soup)
-            result["content"] = content[:15000] if content else None  # Limit size
+            result["content"] = content[:15000] if content else None
             
         except Exception as e:
             print(f"BeautifulSoup extraction failed for {url}: {e}")
         
         return result
+
+    @classmethod
+    def extract_favicon(cls, url: str, soup: Optional[BeautifulSoup] = None) -> Optional[str]:
+        """Discovery of favicon with multiple fallbacks."""
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.replace("www.", "")
+            
+            if soup:
+                favicon = soup.find("link", rel=lambda x: x and "icon" in x.lower() if x else False)
+                if favicon:
+                    href = favicon.get("href", "")
+                    if href.startswith("http"):
+                        return href
+                    if href.startswith("//"):
+                        return f"{parsed.scheme}:{href}"
+                    if href.startswith("/"):
+                        return f"{parsed.scheme}://{parsed.netloc}{href}"
+                    # Relative path
+                    return f"{parsed.scheme}://{parsed.netloc}/{href.lstrip('/')}"
+
+            # Try default /favicon.ico location check is slow, so we jump to Google API
+            # which is very reliable and fast for many sites
+            return f"https://www.google.com/s2/favicons?domain={domain}&sz=64"
+        except Exception:
+            return None
     
     @classmethod
     def _extract_main_content(cls, soup: BeautifulSoup) -> Optional[str]:

@@ -11,7 +11,6 @@ import {
   EyeOff,
   Plus,
   Check,
-  BookMarked,
   Folder as FolderIcon
 } from 'lucide-react'
 import { useState, memo } from 'react'
@@ -135,19 +134,18 @@ const BookmarkCard = memo(function BookmarkCard({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-center shrink-0 shadow-inner border border-gray-100 dark:border-gray-700">
-              {bookmark.favicon_url ? (
-                <img
-                  src={bookmark.favicon_url}
-                  alt=""
-                  className="w-6 h-6 object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=64`
-                  }}
-                />
-              ) : (
-                <BookMarked className="w-5 h-5 text-gray-400" />
-              )}
+            <div className="w-10 h-10 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-center shrink-0 shadow-inner border border-gray-100 dark:border-gray-700 overflow-hidden">
+              <img
+                src={bookmark.favicon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=64`}
+                alt=""
+                className="w-6 h-6 object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.includes('BookMarked')) {
+                    target.src = `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=64`;
+                  }
+                }}
+              />
             </div>
             <div className="min-w-0">
               <p className="text-gray-500 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest truncate">{bookmark.domain}</p>

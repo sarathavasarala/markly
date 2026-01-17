@@ -96,27 +96,28 @@ class AzureOpenAIService:
             content = f"{first_part}\n\n[... middle content truncated ...]\n\n{last_part}"
         
         prompt = f"""Analyze this bookmarked article and provide structured metadata.
+        If the content is missing or sparse, use the URL and title to infer the most likely metadata.
 
-    URL: {url}
-    Title: {title or 'Unknown'}
-    Content: {content or 'No content extracted'}
-    User Notes: {user_notes or 'None provided'}
-    Available Folders: {", ".join(folders) if folders else "None created yet"}
+        CONTEXT:
+        URL: {url}
+        Title: {title or 'Unknown'}
+        Content: {content or 'No content extracted'}
+        User Notes: {user_notes or 'None provided'}
+        Available Folders: {", ".join(folders) if folders else "None created yet"}
 
-    Return a JSON object with exactly these fields:
-    - clean_title: A clean, concise title (max 60 characters). If the original title is good, keep it.
-    - ai_summary: A single, information-dense summary no longer than 220 characters. 
-      Avoid filler and clichés. Use the most important facts only.
-    - auto_tags: An array of 3-5 relevant tags (lowercase, no spaces, use hyphens). 
-      Include technology names, concepts, and topics.
-    - intent_type: One of: "reference", "tutorial", "inspiration", "deep-dive", "tool"
-    - technical_level: One of: "beginner", "intermediate", "advanced", "general"
-    - content_type: One of: "article", "documentation", "video", "tool", "paper", "other"
-    - key_quotes: An array of 0-3 notable quotes from the content (short, impactful quotes only)
-    - suggested_folder: From the list of 'Available Folders', which one best fits this bookmark? 
-      If none fit well, return null. Return the exact name from the list.
+        TASK:
+        Provide a JSON object with strictly these fields:
+        1. "clean_title": A clean, concise title (max 60 chars). Remove clickbait or site names if redundant.
+        2. "ai_summary": A single, dense summary (max 220 chars). Focus on "What is this?" and "Why save it?". No fluff.
+        3. "auto_tags": Array (3-5 items). Lowercase, hyphenated (e.g. "ai-agents", "python-dev").
+        4. "intent_type": EXACTLY one of: ["reference", "tutorial", "inspiration", "deep-dive", "tool"]
+        5. "technical_level": EXACTLY one of: ["beginner", "intermediate", "advanced", "general"]
+        6. "content_type": EXACTLY one of: ["article", "documentation", "video", "tool", "paper", "other"]
+        7. "key_quotes": Array (0-3 short, impactful quotes). Leave empty if no specific quotes stand out.
+        8. "suggested_folder": EXACT NAME from 'Available Folders' or null if no fit.
 
-    Return ONLY valid JSON, no markdown formatting or explanation."""
+        OUTPUT FORMAT:
+        Return ONLY valid JSON. No markdown, no pre-amble, no code blocks."""
 
         deployment_name = (
             Config.AZURE_OPENAI_NANO_DEPLOYMENT_NAME
