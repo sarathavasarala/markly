@@ -340,11 +340,11 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     }
 
     return (
-        <div className={`${!isOwner ? 'min-h-screen bg-gray-50' : 'bg-transparent'} text-gray-900 selection:bg-primary-500/30 flex flex-col transition-colors duration-300`}>
+        <div className={`${!isOwner ? 'min-h-screen bg-gray-50 dark:bg-gray-950' : 'bg-transparent'} text-gray-900 dark:text-gray-100 selection:bg-primary-500/30 flex flex-col transition-colors duration-300`}>
             {/* Background effects */}
             {!isOwner && (
                 <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-primary-500/5 to-transparent" />
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-primary-500/5 to-transparent dark:from-primary-500/10" />
                 </div>
             )}
 
@@ -389,7 +389,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                             </div>
 
                             {/* Integrated Stats & Notify Bar */}
-                            <div className={`${!isOwner ? 'bg-white border-gray-200 shadow-xl' : 'bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 shadow-2xl'} backdrop-blur-3xl rounded-[2rem] p-2 flex flex-col xl:flex-row items-stretch xl:items-center gap-4 xl:gap-0 relative`}>
+                            <div className={`${!isOwner ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-xl' : 'bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 shadow-2xl'} backdrop-blur-3xl rounded-[2rem] p-2 flex flex-col xl:flex-row items-stretch xl:items-center gap-4 xl:gap-0 relative transition-colors`}>
                                 {/* High-Impact Stats */}
                                 <div className="flex items-center gap-6 sm:gap-10 px-6 py-2 xl:px-8">
                                     <div className="flex flex-col">
@@ -476,7 +476,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                                     value={email}
                                                     onChange={(e) => setEmail(e.target.value)}
                                                     placeholder="Enter email to join the list"
-                                                    className={`w-full xl:w-72 ${!isOwner ? 'bg-gray-100/50 border-gray-200 text-gray-900' : 'bg-gray-950/40 border-gray-800/80 text-white'} rounded-2xl py-3.5 pl-12 pr-4 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all font-medium`}
+                                                    className={`w-full xl:w-72 ${!isOwner ? 'bg-gray-100/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white' : 'bg-gray-950/40 border-gray-800/80 text-white'} rounded-2xl py-3.5 pl-12 pr-4 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all font-medium`}
                                                     required
                                                 />
                                             </div>
