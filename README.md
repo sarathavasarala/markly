@@ -1,4 +1,4 @@
-# Markly
+# markly
 
 AI-powered bookmark manager with semantic search. Saves links, extracts content, generates summaries and tags via LLM, and stores embeddings for meaning-based retrieval.
 
@@ -38,7 +38,7 @@ AI-powered bookmark manager with semantic search. Saves links, extracts content,
 
 ### 2. Environment Variables
 
-Markly uses `.env` files for configuration. By default, it looks for a `.env` file in both `frontend/` and `backend/` directories.
+markly uses `.env` files for configuration. By default, it looks for a `.env` file in both `frontend/` and `backend/` directories.
 
 1.  **Frontend**: Copy `frontend/.env.example` to `frontend/.env` and fill in your Supabase keys.
 2.  **Backend**: Copy `backend/.env.example` to `backend/.env` and fill in your Supabase and Azure OpenAI keys.

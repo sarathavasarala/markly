@@ -191,7 +191,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     }
 
     const handleDeleteAccount = async () => {
-        const confirmed = window.confirm("CRITICAL ACTION: This will permanently delete your Markly account, all your bookmarks, search history, and followers. This cannot be undone.\n\nAre you absolutely sure?")
+        const confirmed = window.confirm("CRITICAL ACTION: This will permanently delete your markly account, all your bookmarks, search history, and followers. This cannot be undone.\n\nAre you absolutely sure?")
         if (!confirmed) return
 
         const doubleConfirmed = window.prompt("To confirm, please type 'DELETE MY ACCOUNT' below:")
@@ -324,10 +324,10 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
     useEffect(() => {
         if (username) {
-            document.title = `${firstName}'s Reading List - Markly`
+            document.title = `${firstName}'s Reading List - markly`
         }
         return () => {
-            document.title = 'Markly - Never lose a great link again'
+            document.title = 'markly - Never lose a great link again'
         }
     }, [username, fullName, firstName])
 
@@ -572,7 +572,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                 {/* Footer */}
                 <div className="text-center mt-20 pt-10 border-t border-gray-100 dark:border-gray-800">
                     <a href="/" className="inline-flex items-center gap-2 text-gray-400 dark:text-gray-600 hover:text-primary-500 text-xs font-black uppercase tracking-[0.2em] transition-all">
-                        Powered by <Mail className="w-4 h-4 shrink-0" /> Markly
+                        Powered by <Mail className="w-4 h-4 shrink-0" /> markly
                     </a>
                 </div>
             </div>

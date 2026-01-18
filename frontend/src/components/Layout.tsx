@@ -55,17 +55,17 @@ export default function Layout({
     if (isAuthenticated) {
       const displayName = userName || userEmail.split('@')[0]
       if (displayName) {
-        document.title = `${displayName} - Markly`
+        document.title = `${displayName} - markly`
       } else {
-        document.title = 'Markly'
+        document.title = 'markly'
       }
       fetchFolders()
     } else {
-      document.title = 'Markly - Your smart bookmark library'
+      document.title = 'markly - Your smart bookmark library'
     }
 
     return () => {
-      document.title = 'Markly - Your smart bookmark library'
+      document.title = 'markly - Your smart bookmark library'
     }
   }, [userName, userEmail, fetchFolders, isAuthenticated])
 

@@ -15,7 +15,7 @@ export default function Login() {
   }, [isAuthenticated, navigate])
 
   useEffect(() => {
-    document.title = 'Markly - Never lose a great link again'
+    document.title = 'markly - Never lose a great link again'
   }, [])
 
   const handleLogin = async () => {
@@ -124,7 +124,7 @@ export default function Login() {
               <BookMarked className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-              Markly
+              markly
             </h1>
             <p className="text-gray-400 mt-2 font-medium text-lg">
               Never lose a great link again

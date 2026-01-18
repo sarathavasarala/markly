@@ -87,7 +87,7 @@ export default function SaveToCollectionModal({
                             </div>
 
                             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4 tracking-tight">
-                                Never lose this. Add it to Markly.
+                                Never lose this. Add it to markly.
                             </h2>
 
                             <p className="text-gray-400 text-base font-medium mb-10 leading-relaxed">

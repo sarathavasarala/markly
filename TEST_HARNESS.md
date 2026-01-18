@@ -1,6 +1,6 @@
-# Markly Test Harness
+# markly Test Harness
 
-This document outlines the testing infrastructure for Markly and provides instructions on how to run and verify key product scenarios.
+This document outlines the testing infrastructure for markly and provides instructions on how to run and verify key product scenarios.
 
 ## 🚀 Quick Start
 
@@ -24,7 +24,7 @@ We use a three-tier testing strategy:
 
 ## 🛡️ Critical Product Scenarios
 
-To ensure Markly remains robust for all users, we have specific tests for these four key scenarios:
+To ensure markly remains robust for all users, we have specific tests for these four key scenarios:
 
 ### 1. Data Isolation (RLS)
 **Goal**: No user can edit or delete another user's bookmarks.
