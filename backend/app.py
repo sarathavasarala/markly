@@ -52,7 +52,7 @@ def create_app():
     # Health check endpoint
     @app.route("/api/health")
     def health():
-        return {"status": "healthy", "service": "markly-api"}
+        return {"status": "healthy", "service": "markly-api", "deployed_via": "github-actions-test"}
 
     # --- Public Profile Injection Logic ---
     def serve_with_injection(username, full_path):
