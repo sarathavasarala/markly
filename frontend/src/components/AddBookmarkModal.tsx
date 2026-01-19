@@ -217,8 +217,8 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Analysis</h3>
                 <p className="text-gray-500 dark:text-gray-400 max-w-sm">
                   {step === 'analyzing'
-                    ? "Our AI is extracting content and generating metadata for you to review."
-                    : "AI suggestions will appear here for you to review and edit."}
+                    ? "markly is extracting content and generating metadata for you to review."
+                    : "Paste your link to get started. markly will recommend a description and tags based on the page content, which you can easily review and edit right here."}
                 </p>
                 {step === 'analyzing' && (
                   <div className="mt-8 flex items-center gap-3 px-4 py-2 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-full text-sm font-medium">
