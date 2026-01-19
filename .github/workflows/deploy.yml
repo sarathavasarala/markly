@@ -39,6 +39,7 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Restart Azure Web App
-        uses: azure/webapp-restart@v1
+        uses: azure/cli@v2
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          inlineScript: |
+            az webapp restart --name ${{ secrets.AZURE_WEBAPP_NAME }} --resource-group markly-rg
