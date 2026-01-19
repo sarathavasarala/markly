@@ -32,6 +32,8 @@ jobs:
             marklyregistry.azurecr.io/markly-app:latest
             marklyregistry.azurecr.io/markly-app:${{ github.sha }}
           platforms: linux/amd64
+          build-args: |
+            GIT_SHA=${{ github.sha }}
 
       - name: Log in to Azure
         uses: azure/login@v2
