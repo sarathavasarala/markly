@@ -10,7 +10,6 @@ AI-powered bookmark manager with semantic search. Saves links, extracts content,
 - Masonry card layout with tag filtering.
 - Public profiles (`/@username`) with shareable bookmark collections.
 - Email subscriptions for public profile updates.
-- Zen Reader mode for distraction-free reading.
 - Google OAuth via Supabase.
 - Per-user data isolation with Row Level Security (RLS).
 

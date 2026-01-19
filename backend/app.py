@@ -66,6 +66,22 @@ def create_app():
         with open(index_path, 'r') as f:
             html = f.read()
 
+        # --- Runtime Config Injection ---
+        # Inject Supabase keys from environment variables into window.MARKLY_CONFIG
+        config_script = f'''
+    <script>
+      window.MARKLY_CONFIG = {{
+        "VITE_SUPABASE_URL": "{os.environ.get('SUPABASE_URL', os.environ.get('VITE_SUPABASE_URL', ''))}",
+        "VITE_SUPABASE_ANON_KEY": "{os.environ.get('SUPABASE_ANON_KEY', os.environ.get('VITE_SUPABASE_ANON_KEY', ''))}"
+      }};
+    </script>
+'''
+        # Inject config right after <head>
+        html = re.sub(r'(<head[^>]*>)', r'\1' + config_script, html, flags=re.IGNORECASE)
+
+        if not clean_username:
+            return html
+
         # Try to get profile data
         profile = None
         try:
@@ -160,7 +176,8 @@ def create_app():
         elif clean_path.startswith('u/'):
             return serve_with_injection(clean_path[2:], request.path)
 
-        return send_from_directory(app.static_folder, 'index.html')
+        # For the general SPA route, we still want to inject the config
+        return serve_with_injection("", request.path)
 
     @app.errorhandler(404)
     def not_found(e):
