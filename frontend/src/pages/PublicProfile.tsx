@@ -575,7 +575,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                         Powered by <Mail className="w-4 h-4 shrink-0" /> markly
                     </a>
                     {isOwner && (
-                        <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-700 font-mono">v1.0.1</p>
+                        <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-700 font-mono">v-{__APP_VERSION__}</p>
                     )}
                 </div>
             </div>
