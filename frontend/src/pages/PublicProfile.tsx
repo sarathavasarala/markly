@@ -396,15 +396,19 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                         <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white leading-none">{totalCount}</span>
                                         <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Picks</span>
                                     </div>
-                                    <div className="w-px h-10 bg-gray-100 dark:bg-gray-800 hidden sm:block" />
-                                    <div
-                                        className={`flex flex-col ${isOwner ? 'cursor-pointer hover:opacity-80 transition-all' : ''}`}
-                                        onClick={() => isOwner && setIsSubscribersModalOpen(true)}
-                                        title={isOwner ? "View your subscribers" : undefined}
-                                    >
-                                        <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white leading-none">{subscriberCount}</span>
-                                        <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Subscribers</span>
-                                    </div>
+                                    {isOwner && (
+                                        <>
+                                            <div className="w-px h-10 bg-gray-100 dark:bg-gray-800 hidden sm:block" />
+                                            <div
+                                                className="flex flex-col cursor-pointer hover:opacity-80 transition-all"
+                                                onClick={() => setIsSubscribersModalOpen(true)}
+                                                title="View your subscribers"
+                                            >
+                                                <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white leading-none">{subscriberCount}</span>
+                                                <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Subscribers</span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* Integrated Action Area */}
