@@ -10,7 +10,7 @@ if (typeof process !== 'undefined') {
 
 // Alternatively, for Vitest's environment
 if (typeof globalThis !== 'undefined') {
-    // @ts-ignore
+    // @ts-expect-error - globalThis may not have vi_env property
     globalThis.vi_env = {
         VITE_SUPABASE_URL: 'https://test.supabase.co',
         VITE_SUPABASE_ANON_KEY: 'test-anon-key',

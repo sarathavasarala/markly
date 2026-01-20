@@ -178,4 +178,3 @@ def get_search_history():
         
     except Exception as e:
         return jsonify({"error": f"Failed to get search history: {str(e)}"}), 500
-

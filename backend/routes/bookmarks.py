@@ -453,8 +453,8 @@ def save_public_bookmark():
             "content_type": source_data["content_type"],
             "intent_type": source_data["intent_type"],
             "technical_level": source_data["technical_level"],
-            "enrichment_status": "completed", # It's already enriched
-            "is_public": True, # Default to public in new user's collection too
+            "enrichment_status": "completed",  # It's already enriched
+            "is_public": True,  # Default to public in new user's collection too
         }
         
         result = g.supabase.table("bookmarks").insert(new_bookmark_data).execute()
