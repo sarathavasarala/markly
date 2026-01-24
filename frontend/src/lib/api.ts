@@ -155,18 +155,11 @@ export const searchApi = {
 }
 
 // Stats API
-export interface ResurfaceSuggestion extends Bookmark {
-  resurface_reason: string
-}
-
 export const statsApi = {
   getTopTags: (limit?: number, folderId?: string | null) =>
     api.get<{ tags: { tag: string; count: number }[] }>('/stats/tags', {
       params: { limit, folder_id: folderId },
     }),
-
-  getResurface: () =>
-    api.get<{ suggestions: ResurfaceSuggestion[] }>('/stats/resurface'),
 }
 
 export const publicApi = {

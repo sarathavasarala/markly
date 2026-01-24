@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { statsApi, bookmarksApi, Bookmark, ResurfaceSuggestion } from '../lib/api'
+import { statsApi, bookmarksApi, Bookmark } from '../lib/api'
 import BookmarkCard from '../components/BookmarkCard'
 import BookmarkRow from '../components/BookmarkRow'
 import MasonryGrid from '../components/MasonryGrid'
@@ -11,7 +11,6 @@ import TopicsBox from '../components/TopicsBox'
 
 export default function Dashboard() {
   const [recentBookmarks, setRecentBookmarks] = useState<Bookmark[]>([])
-  const [resurfaceItems, setResurfaceItems] = useState<ResurfaceSuggestion[]>([])
   const [topTags, setTopTags] = useState<{ tag: string; count: number }[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [isFiltering, setIsFiltering] = useState(false)
@@ -67,25 +66,21 @@ export default function Dashboard() {
     }
   }, [selectedFolderId])
 
-  const loadDashboardData = useCallback(async () => {
+  const loadTopTags = useCallback(async () => {
     setIsLoadingTags(true)
     try {
-      const [resurfaceRes, tagsRes] = await Promise.all([
-        statsApi.getResurface(),
-        statsApi.getTopTags(20, selectedFolderId)
-      ])
-      setResurfaceItems(resurfaceRes.data.suggestions)
+      const tagsRes = await statsApi.getTopTags(20, selectedFolderId)
       setTopTags(tagsRes.data.tags)
     } catch (error) {
-      console.error('Failed to load dashboard data:', error)
+      console.error('Failed to load tags:', error)
     } finally {
       setIsLoadingTags(false)
     }
   }, [selectedFolderId])
 
   useEffect(() => {
-    loadDashboardData()
-  }, [loadDashboardData, selectedFolderId])
+    loadTopTags()
+  }, [loadTopTags, selectedFolderId])
 
   useEffect(() => {
     loadBookmarks(selectedTags, true)
@@ -124,9 +119,8 @@ export default function Dashboard() {
 
   const handleBookmarkDeleted = useCallback<(id: string) => void>((id: string) => {
     setRecentBookmarks(prev => prev.filter(b => b.id !== id))
-    setResurfaceItems(prev => prev.filter(b => b.id !== id))
-    loadDashboardData()
-  }, [loadDashboardData])
+    loadTopTags()
+  }, [loadTopTags])
 
   const toggleVisibility = useCallback(async (bookmark: Bookmark) => {
     try {
@@ -218,63 +212,39 @@ export default function Dashboard() {
           renderItem={() => <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />}
         />
       ) : (
-        <div className="space-y-8">
-          {/* Spotlight section (only on default view) */}
-          {resurfaceItems.length > 0 && selectedTags.length === 0 && !selectedFolderId && (
-            <div className="space-y-4">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-primary-600 rounded-full animate-pulse" /> Resurfacing
-              </h2>
-              <MasonryGrid
-                items={resurfaceItems}
-                renderItem={(item) => (
-                  <BookmarkCard
-                    bookmark={item}
-                    onDeleted={() => handleBookmarkDeleted(item.id)}
-                    onTagClick={toggleTag}
-                    onVisibilityToggle={() => toggleVisibility(item)}
-                  />
-                )}
-                breakpoints={{ 0: 1, 640: 2, 1024: 3 }}
-              />
+        <div className="space-y-4">
+          {recentBookmarks.length === 0 ? (
+            <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+              <p className="text-gray-500">No bookmarks found here yet.</p>
             </div>
+          ) : (
+            <>
+              {viewMode === 'cards' ? (
+                <MasonryGrid
+                  items={recentBookmarks}
+                  renderItem={(bookmark) => (
+                    <BookmarkCard
+                      bookmark={bookmark}
+                      onDeleted={() => handleBookmarkDeleted(bookmark.id)}
+                      onTagClick={toggleTag}
+                      onVisibilityToggle={() => toggleVisibility(bookmark)}
+                    />
+                  )}
+                />
+              ) : (
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                  {recentBookmarks.map(bookmark => (
+                    <BookmarkRow
+                      key={bookmark.id}
+                      bookmark={bookmark}
+                      onDeleted={() => handleBookmarkDeleted(bookmark.id)}
+                      onTagClick={toggleTag}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
-
-          {/* Main List */}
-          <div className="space-y-4">
-            {recentBookmarks.length === 0 ? (
-              <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
-                <p className="text-gray-500">No bookmarks found here yet.</p>
-              </div>
-            ) : (
-              <>
-                {viewMode === 'cards' ? (
-                  <MasonryGrid
-                    items={recentBookmarks}
-                    renderItem={(bookmark) => (
-                      <BookmarkCard
-                        bookmark={bookmark}
-                        onDeleted={() => handleBookmarkDeleted(bookmark.id)}
-                        onTagClick={toggleTag}
-                        onVisibilityToggle={() => toggleVisibility(bookmark)}
-                      />
-                    )}
-                  />
-                ) : (
-                  <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-                    {recentBookmarks.map(bookmark => (
-                      <BookmarkRow
-                        key={bookmark.id}
-                        bookmark={bookmark}
-                        onDeleted={() => handleBookmarkDeleted(bookmark.id)}
-                        onTagClick={toggleTag}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
         </div>
       )}
 
@@ -283,3 +253,4 @@ export default function Dashboard() {
     </div>
   )
 }
+

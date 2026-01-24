@@ -189,83 +189,10 @@ class AzureOpenAIService:
         
         return validated
     
-    @classmethod
-    def generate_resurface_suggestions(
-        cls, 
-        recent_bookmarks: list[dict], 
-        old_bookmarks: list[dict]
-    ) -> list[dict]:
-        """
-        Suggest old bookmarks that might be relevant based on recent activity.
-        
-        Returns list of bookmark IDs with reasons.
-        """
-        client = cls.get_chat_client()
-        
-        recent_summaries = [
-            {
-                "title": b.get("clean_title", ""),
-                "tags": b.get("auto_tags", []),
-                "summary": b.get("ai_summary", "")[:100],
-            }
-            for b in recent_bookmarks[:10]
-        ]
-        
-        old_summaries = [
-            {
-                "id": b["id"],
-                "title": b.get("clean_title", ""),
-                "tags": b.get("auto_tags", []),
-                "summary": b.get("ai_summary", "")[:100],
-            }
-            for b in old_bookmarks[:50]
-        ]
-        
-        prompt = f"""Based on the user's recent bookmarks, suggest older bookmarks they might want to revisit.
-
-Recent Bookmarks:
-{json.dumps(recent_summaries, indent=2)}
-
-Older Bookmarks to Consider:
-{json.dumps(old_summaries, indent=2)}
-
-Return a JSON object with a "suggestions" array. Each suggestion should have:
-- bookmark_id: The ID of the old bookmark to resurface
-- reason: A brief explanation of why this is relevant (1 sentence)
-
-Select 3-5 old bookmarks that relate to the recent topics or could be helpful given the user's current interests.
-
-Return ONLY valid JSON, no markdown formatting."""
-
-        response = client.chat.completions.create(
-            model=Config.AZURE_OPENAI_DEPLOYMENT_NAME,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful assistant that identifies relevant "
-                        "past bookmarks. Always respond with valid JSON only."
-                    )
-                },
-                {"role": "user", "content": prompt}
-            ],
-            max_completion_tokens=500,
-            response_format={"type": "json_object"},
-        )
-        
-        result_text = response.choices[0].message.content
-        
-        try:
-            result = json.loads(result_text)
-            suggestions = result.get("suggestions", [])
-        except json.JSONDecodeError:
-            suggestions = []
-        
-        return suggestions
-    
     @staticmethod
     def _validate_enum(value: str, allowed: list[str], default: str) -> str:
         """Validate that a value is in the allowed list."""
         if value and value.lower() in allowed:
             return value.lower()
         return default
+
