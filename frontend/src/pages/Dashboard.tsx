@@ -25,6 +25,8 @@ export default function Dashboard() {
   // Unfiled bookmarks for folders view
   const [unfiledBookmarks, setUnfiledBookmarks] = useState<Bookmark[]>([])
   const [isLoadingUnfiled, setIsLoadingUnfiled] = useState(false)
+  // All tag-filtered bookmarks for computing folder match counts
+  const [tagFilteredBookmarks, setTagFilteredBookmarks] = useState<Bookmark[]>([])
 
   const currentFolder = selectedFolderId
     ? folders.find(f => f.id === selectedFolderId)
@@ -91,14 +93,29 @@ export default function Dashboard() {
   useEffect(() => {
     if (viewMode === 'folders') {
       setIsLoadingUnfiled(true)
-      bookmarksApi.list({ folder_id: 'unfiled', per_page: 40 })
-        .then(res => setUnfiledBookmarks(res.data.bookmarks))
-        .catch(err => console.error('Failed to load unfiled bookmarks:', err))
-        .finally(() => setIsLoadingUnfiled(false))
+
+      // If tags are selected, fetch all bookmarks with those tags to compute folder counts
+      if (selectedTags.length > 0) {
+        bookmarksApi.list({ tag: selectedTags, per_page: 100 })
+          .then(res => {
+            setTagFilteredBookmarks(res.data.bookmarks)
+            // Filter for unfiled only
+            setUnfiledBookmarks(res.data.bookmarks.filter(b => !b.folder_id))
+          })
+          .catch(err => console.error('Failed to load filtered bookmarks:', err))
+          .finally(() => setIsLoadingUnfiled(false))
+      } else {
+        // No tags selected, just load unfiled bookmarks
+        setTagFilteredBookmarks([])
+        bookmarksApi.list({ folder_id: 'unfiled', per_page: 40 })
+          .then(res => setUnfiledBookmarks(res.data.bookmarks))
+          .catch(err => console.error('Failed to load unfiled bookmarks:', err))
+          .finally(() => setIsLoadingUnfiled(false))
+      }
       // Refresh folders to get updated counts
       fetchFolders()
     }
-  }, [viewMode, fetchFolders])
+  }, [viewMode, fetchFolders, selectedTags])
 
   useEffect(() => {
     loadBookmarks(selectedTags, true)
@@ -263,19 +280,28 @@ export default function Dashboard() {
         />
       ) : viewMode === 'folders' ? (
         (() => {
-          // Filter unfiled bookmarks by selected tags
-          const filteredUnfiled = selectedTags.length > 0
-            ? unfiledBookmarks.filter(b =>
-              selectedTags.every(tag => b.auto_tags?.includes(tag))
-            )
-            : unfiledBookmarks
+          // Compute folder match counts from tag-filtered bookmarks
+          const folderMatchCounts = new Map<string, number>()
+          if (selectedTags.length > 0) {
+            tagFilteredBookmarks.forEach(b => {
+              if (b.folder_id) {
+                folderMatchCounts.set(b.folder_id, (folderMatchCounts.get(b.folder_id) || 0) + 1)
+              }
+            })
+          }
 
-          // When filtering by tags, hide folder cards (we don't have per-folder tag data)
-          const showFolders = selectedTags.length === 0
+          // When filtering, only show folders that have matches
+          const foldersToShow = selectedTags.length > 0
+            ? folders.filter(f => folderMatchCounts.has(f.id))
+            : folders
 
           const items = [
-            ...(showFolders ? folders.map(f => ({ type: 'folder' as const, data: f })) : []),
-            ...filteredUnfiled.map(b => ({ type: 'bookmark' as const, data: b }))
+            ...foldersToShow.map(f => ({
+              type: 'folder' as const,
+              data: f,
+              matchCount: selectedTags.length > 0 ? folderMatchCounts.get(f.id) : undefined
+            })),
+            ...unfiledBookmarks.map(b => ({ type: 'bookmark' as const, data: b, matchCount: undefined }))
           ]
 
           if (items.length === 0) {
@@ -283,7 +309,7 @@ export default function Dashboard() {
               <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                 <p className="text-gray-500">
                   {selectedTags.length > 0
-                    ? 'No unfiled bookmarks match the selected tags.'
+                    ? 'No bookmarks match the selected tags.'
                     : 'No folders or bookmarks yet. Create a folder from the sidebar.'}
                 </p>
               </div>
@@ -298,6 +324,7 @@ export default function Dashboard() {
                   return (
                     <FolderCard
                       folder={item.data}
+                      matchCount={item.matchCount}
                       onClick={() => {
                         setSelectedFolderId(item.data.id)
                         setViewMode('cards')

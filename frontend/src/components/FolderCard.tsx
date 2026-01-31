@@ -4,9 +4,13 @@ import { Folder } from '../lib/api'
 interface FolderCardProps {
     folder: Folder
     onClick: () => void
+    matchCount?: number  // When filtering by tags, shows how many bookmarks match
 }
 
-export default function FolderCard({ folder, onClick }: FolderCardProps) {
+export default function FolderCard({ folder, onClick, matchCount }: FolderCardProps) {
+    const isFiltering = matchCount !== undefined
+    const totalCount = folder.bookmark_count || 0
+
     return (
         <div
             role="button"
@@ -33,12 +37,15 @@ export default function FolderCard({ folder, onClick }: FolderCardProps) {
                     <h3 className="font-semibold text-gray-900 dark:text-white truncate text-lg">
                         {folder.name}
                     </h3>
-                    {folder.bookmark_count !== undefined && folder.bookmark_count > 0 && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                            {folder.bookmark_count} {folder.bookmark_count === 1 ? 'bookmark' : 'bookmarks'}
+                    {isFiltering ? (
+                        <p className="text-sm text-primary-600 dark:text-primary-400 mt-0.5 font-medium">
+                            {matchCount} of {totalCount} match
                         </p>
-                    )}
-                    {(!folder.bookmark_count || folder.bookmark_count === 0) && (
+                    ) : totalCount > 0 ? (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                            {totalCount} {totalCount === 1 ? 'bookmark' : 'bookmarks'}
+                        </p>
+                    ) : (
                         <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
                             Empty folder
                         </p>
