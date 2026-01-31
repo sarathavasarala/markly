@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { Bookmark } from '../lib/api'
 
-export type BookmarkViewMode = 'cards' | 'list'
+export type BookmarkViewMode = 'cards' | 'list' | 'folders'
 export type Theme = 'light' | 'dark'
 
 const VIEW_STORAGE_KEY = 'markly_bookmarks_view_mode'
@@ -9,7 +9,7 @@ const THEME_STORAGE_KEY = 'markly_theme'
 
 const readInitialViewMode = (): BookmarkViewMode => {
   const raw = localStorage.getItem(VIEW_STORAGE_KEY)
-  return raw === 'list' || raw === 'cards' ? raw : 'cards'
+  return raw === 'list' || raw === 'cards' || raw === 'folders' ? raw : 'cards'
 }
 
 const readInitialTheme = (): Theme => {

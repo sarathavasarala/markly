@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { statsApi, bookmarksApi, Bookmark } from '../lib/api'
 import BookmarkCard from '../components/BookmarkCard'
 import BookmarkRow from '../components/BookmarkRow'
+import FolderCard from '../components/FolderCard'
 import MasonryGrid from '../components/MasonryGrid'
 import { useUIStore, BookmarkViewMode } from '../stores/uiStore'
 import { useBookmarksStore } from '../stores/bookmarksStore'
@@ -19,7 +20,11 @@ export default function Dashboard() {
 
   const { bookmarksViewMode: viewMode, setBookmarksViewMode: setViewMode } = useUIStore()
   const { updateBookmark, bookmarks: storeBookmarks } = useBookmarksStore()
-  const { selectedFolderId, folders } = useFolderStore()
+  const { selectedFolderId, folders, setSelectedFolderId, fetchFolders } = useFolderStore()
+
+  // Unfiled bookmarks for folders view
+  const [unfiledBookmarks, setUnfiledBookmarks] = useState<Bookmark[]>([])
+  const [isLoadingUnfiled, setIsLoadingUnfiled] = useState(false)
 
   const currentFolder = selectedFolderId
     ? folders.find(f => f.id === selectedFolderId)
@@ -82,6 +87,19 @@ export default function Dashboard() {
     loadTopTags()
   }, [loadTopTags, selectedFolderId])
 
+  // Load unfiled bookmarks when in folders view
+  useEffect(() => {
+    if (viewMode === 'folders') {
+      setIsLoadingUnfiled(true)
+      bookmarksApi.list({ folder_id: 'unfiled', per_page: 40 })
+        .then(res => setUnfiledBookmarks(res.data.bookmarks))
+        .catch(err => console.error('Failed to load unfiled bookmarks:', err))
+        .finally(() => setIsLoadingUnfiled(false))
+      // Refresh folders to get updated counts
+      fetchFolders()
+    }
+  }, [viewMode, fetchFolders])
+
   useEffect(() => {
     loadBookmarks(selectedTags, true)
     return () => {
@@ -142,11 +160,20 @@ export default function Dashboard() {
       recentBookmarks.length
     )
 
+    // Determine if we're inside a folder (not in folders view, but with a folder selected)
+    const isInsideFolder = currentFolder && viewMode !== 'folders'
+
     let titleContent: React.ReactNode = (
       <span className="flex items-center gap-1">Your bookmarks ({countDisplay})</span>
     )
 
-    if (selectedTags.length > 0) {
+    if (viewMode === 'folders') {
+      titleContent = (
+        <span className="flex items-center gap-2">
+          <FolderIcon className="w-5 h-5 text-primary-600" /> Folders
+        </span>
+      )
+    } else if (selectedTags.length > 0) {
       titleContent = (
         <span className="flex items-center gap-2">
           Filtered results ({countDisplay})
@@ -155,10 +182,23 @@ export default function Dashboard() {
           </button>
         </span>
       )
-    } else if (currentFolder) {
+    } else if (isInsideFolder) {
+      // Breadcrumb navigation when inside a folder
       titleContent = (
         <span className="flex items-center gap-2">
-          <FolderIcon className="w-5 h-5 text-primary-600" /> {currentFolder.name} ({countDisplay})
+          <button
+            onClick={() => {
+              setSelectedFolderId(null)
+              setViewMode('folders')
+            }}
+            className="flex items-center gap-1 text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+          >
+            <FolderIcon className="w-5 h-5" /> Folders
+          </button>
+          <span className="text-gray-400 dark:text-gray-500">›</span>
+          <span className="flex items-center gap-1">
+            {currentFolder.name} ({countDisplay})
+          </span>
         </span>
       )
     }
@@ -172,7 +212,7 @@ export default function Dashboard() {
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
             <button
               onClick={() => setViewMode('cards')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+              className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' || (isInsideFolder && viewMode !== 'list') ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
               title="Grid view"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -188,6 +228,16 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+            {/* Only show Folders toggle when NOT inside a folder */}
+            {!isInsideFolder && (
+              <button
+                onClick={() => setViewMode('folders' as BookmarkViewMode)}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'folders' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                title="Folders view"
+              >
+                <FolderIcon className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -206,45 +256,69 @@ export default function Dashboard() {
         onClearFilters={clearFilters}
       />
 
-      {isFiltering ? (
+      {isFiltering || (viewMode === 'folders' && isLoadingUnfiled) ? (
         <MasonryGrid
           items={[1, 2, 3, 4]}
           renderItem={() => <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />}
         />
-      ) : (
-        <div className="space-y-4">
-          {recentBookmarks.length === 0 ? (
-            <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
-              <p className="text-gray-500">No bookmarks found here yet.</p>
-            </div>
-          ) : (
-            <>
-              {viewMode === 'cards' ? (
-                <MasonryGrid
-                  items={recentBookmarks}
-                  renderItem={(bookmark) => (
-                    <BookmarkCard
-                      bookmark={bookmark}
-                      onDeleted={() => handleBookmarkDeleted(bookmark.id)}
-                      onTagClick={toggleTag}
-                      onVisibilityToggle={() => toggleVisibility(bookmark)}
-                    />
-                  )}
-                />
-              ) : (
-                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-                  {recentBookmarks.map(bookmark => (
-                    <BookmarkRow
-                      key={bookmark.id}
-                      bookmark={bookmark}
-                      onDeleted={() => handleBookmarkDeleted(bookmark.id)}
-                      onTagClick={toggleTag}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+      ) : viewMode === 'folders' ? (
+        folders.length === 0 && unfiledBookmarks.length === 0 ? (
+          <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+            <p className="text-gray-500">No folders or bookmarks yet. Create a folder from the sidebar.</p>
+          </div>
+        ) : (
+          <MasonryGrid
+            items={[...folders.map(f => ({ type: 'folder' as const, data: f })), ...unfiledBookmarks.map(b => ({ type: 'bookmark' as const, data: b }))]}
+            renderItem={(item) => {
+              if (item.type === 'folder') {
+                return (
+                  <FolderCard
+                    folder={item.data}
+                    onClick={() => {
+                      setSelectedFolderId(item.data.id)
+                      setViewMode('cards')
+                    }}
+                  />
+                )
+              } else {
+                return (
+                  <BookmarkCard
+                    bookmark={item.data}
+                    onDeleted={() => handleBookmarkDeleted(item.data.id)}
+                    onTagClick={toggleTag}
+                    onVisibilityToggle={() => toggleVisibility(item.data)}
+                  />
+                )
+              }
+            }}
+          />
+        )
+      ) : recentBookmarks.length === 0 ? (
+        <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+          <p className="text-gray-500">No bookmarks found here yet.</p>
+        </div>
+      ) : viewMode === 'cards' ? (
+        <MasonryGrid
+          items={recentBookmarks}
+          renderItem={(bookmark) => (
+            <BookmarkCard
+              bookmark={bookmark}
+              onDeleted={() => handleBookmarkDeleted(bookmark.id)}
+              onTagClick={toggleTag}
+              onVisibilityToggle={() => toggleVisibility(bookmark)}
+            />
           )}
+        />
+      ) : (
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+          {recentBookmarks.map(bookmark => (
+            <BookmarkRow
+              key={bookmark.id}
+              bookmark={bookmark}
+              onDeleted={() => handleBookmarkDeleted(bookmark.id)}
+              onTagClick={toggleTag}
+            />
+          ))}
         </div>
       )}
 
