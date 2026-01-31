@@ -185,10 +185,15 @@ export default function Dashboard() {
     )
 
     if (viewMode === 'folders') {
+      // Calculate total bookmark count for folders view: folder bookmarks + unfiled
+      const folderBookmarkCount = folders.reduce((sum, f) => sum + (f.bookmark_count || 0), 0)
+      const totalCount = isFiltering ? (
+        <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" />
+      ) : (
+        folderBookmarkCount + unfiledBookmarks.length
+      )
       titleContent = (
-        <span className="flex items-center gap-2">
-          <FolderIcon className="w-5 h-5 text-primary-600" /> Folders
-        </span>
+        <span className="flex items-center gap-1">Your bookmarks ({totalCount})</span>
       )
     } else if (selectedTags.length > 0) {
       titleContent = (
@@ -208,14 +213,12 @@ export default function Dashboard() {
               setSelectedFolderId(null)
               setViewMode('folders')
             }}
-            className="flex items-center gap-1 text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+            className="text-primary-600 hover:text-primary-700 hover:underline transition-colors"
           >
-            <FolderIcon className="w-5 h-5" /> Folders
+            Your bookmarks
           </button>
           <span className="text-gray-400 dark:text-gray-500">›</span>
-          <span className="flex items-center gap-1">
-            {currentFolder.name} ({countDisplay})
-          </span>
+          <span>{currentFolder.name}</span>
         </span>
       )
     }
@@ -227,6 +230,16 @@ export default function Dashboard() {
         </h1>
         <div className="flex items-center gap-2">
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+            {/* Only show Folders toggle when NOT inside a folder */}
+            {!isInsideFolder && (
+              <button
+                onClick={() => setViewMode('folders' as BookmarkViewMode)}
+                className={`p-1.5 rounded-md transition-all ${viewMode === 'folders' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                title="Folders view"
+              >
+                <FolderIcon className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => setViewMode('cards')}
               className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' || (isInsideFolder && viewMode !== 'list') ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
@@ -245,16 +258,6 @@ export default function Dashboard() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {/* Only show Folders toggle when NOT inside a folder */}
-            {!isInsideFolder && (
-              <button
-                onClick={() => setViewMode('folders' as BookmarkViewMode)}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'folders' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
-                title="Folders view"
-              >
-                <FolderIcon className="w-4 h-4" />
-              </button>
-            )}
           </div>
         </div>
       </div>

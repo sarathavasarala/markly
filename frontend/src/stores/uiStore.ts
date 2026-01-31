@@ -9,7 +9,7 @@ const THEME_STORAGE_KEY = 'markly_theme'
 
 const readInitialViewMode = (): BookmarkViewMode => {
   const raw = localStorage.getItem(VIEW_STORAGE_KEY)
-  return raw === 'list' || raw === 'cards' || raw === 'folders' ? raw : 'cards'
+  return raw === 'list' || raw === 'cards' || raw === 'folders' ? raw : 'folders'
 }
 
 const readInitialTheme = (): Theme => {

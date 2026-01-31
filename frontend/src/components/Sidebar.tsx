@@ -11,7 +11,7 @@ import { useUIStore } from '../stores/uiStore'
 
 export default function Sidebar() {
     const { folders, isLoading, selectedFolderId, setSelectedFolderId, createFolder, deleteFolder, updateFolder } = useFolderStore()
-    const { isSidebarOpen, setIsSidebarOpen } = useUIStore()
+    const { isSidebarOpen, setIsSidebarOpen, setBookmarksViewMode } = useUIStore()
     const [isCreating, setIsCreating] = useState(false)
     const [newFolderName, setNewFolderName] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -117,8 +117,16 @@ export default function Sidebar() {
                                             <div
                                                 role="button"
                                                 tabIndex={0}
-                                                onClick={() => setSelectedFolderId(folder.id)}
-                                                onKeyDown={(e) => e.key === 'Enter' && setSelectedFolderId(folder.id)}
+                                                onClick={() => {
+                                                    setSelectedFolderId(folder.id)
+                                                    setBookmarksViewMode('cards')
+                                                }}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        setSelectedFolderId(folder.id)
+                                                        setBookmarksViewMode('cards')
+                                                    }
+                                                }}
                                                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${selectedFolderId === folder.id
                                                     ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
                                                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
