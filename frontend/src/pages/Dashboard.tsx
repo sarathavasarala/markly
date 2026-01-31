@@ -262,37 +262,62 @@ export default function Dashboard() {
           renderItem={() => <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />}
         />
       ) : viewMode === 'folders' ? (
-        folders.length === 0 && unfiledBookmarks.length === 0 ? (
-          <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
-            <p className="text-gray-500">No folders or bookmarks yet. Create a folder from the sidebar.</p>
-          </div>
-        ) : (
-          <MasonryGrid
-            items={[...folders.map(f => ({ type: 'folder' as const, data: f })), ...unfiledBookmarks.map(b => ({ type: 'bookmark' as const, data: b }))]}
-            renderItem={(item) => {
-              if (item.type === 'folder') {
-                return (
-                  <FolderCard
-                    folder={item.data}
-                    onClick={() => {
-                      setSelectedFolderId(item.data.id)
-                      setViewMode('cards')
-                    }}
-                  />
-                )
-              } else {
-                return (
-                  <BookmarkCard
-                    bookmark={item.data}
-                    onDeleted={() => handleBookmarkDeleted(item.data.id)}
-                    onTagClick={toggleTag}
-                    onVisibilityToggle={() => toggleVisibility(item.data)}
-                  />
-                )
-              }
-            }}
-          />
-        )
+        (() => {
+          // Filter unfiled bookmarks by selected tags
+          const filteredUnfiled = selectedTags.length > 0
+            ? unfiledBookmarks.filter(b =>
+              selectedTags.every(tag => b.auto_tags?.includes(tag))
+            )
+            : unfiledBookmarks
+
+          // When filtering by tags, hide folder cards (we don't have per-folder tag data)
+          const showFolders = selectedTags.length === 0
+
+          const items = [
+            ...(showFolders ? folders.map(f => ({ type: 'folder' as const, data: f })) : []),
+            ...filteredUnfiled.map(b => ({ type: 'bookmark' as const, data: b }))
+          ]
+
+          if (items.length === 0) {
+            return (
+              <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+                <p className="text-gray-500">
+                  {selectedTags.length > 0
+                    ? 'No unfiled bookmarks match the selected tags.'
+                    : 'No folders or bookmarks yet. Create a folder from the sidebar.'}
+                </p>
+              </div>
+            )
+          }
+
+          return (
+            <MasonryGrid
+              items={items}
+              renderItem={(item) => {
+                if (item.type === 'folder') {
+                  return (
+                    <FolderCard
+                      folder={item.data}
+                      onClick={() => {
+                        setSelectedFolderId(item.data.id)
+                        setViewMode('cards')
+                      }}
+                    />
+                  )
+                } else {
+                  return (
+                    <BookmarkCard
+                      bookmark={item.data}
+                      onDeleted={() => handleBookmarkDeleted(item.data.id)}
+                      onTagClick={toggleTag}
+                      onVisibilityToggle={() => toggleVisibility(item.data)}
+                    />
+                  )
+                }
+              }}
+            />
+          )
+        })()
       ) : recentBookmarks.length === 0 ? (
         <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
           <p className="text-gray-500">No bookmarks found here yet.</p>
