@@ -6,10 +6,11 @@ import { useBookmarksStore } from '../stores/bookmarksStore'
 interface AddBookmarkModalProps {
   isOpen: boolean
   onClose: () => void
+  folderId?: string | null
 }
 
 
-export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalProps) {
+export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookmarkModalProps) {
   const [url, setUrl] = useState('')
   const [description, setDescription] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -25,7 +26,7 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
   const [enrichmentWarning, setEnrichmentWarning] = useState<string | null>(null)
   const [isPublic, setIsPublic] = useState(true) // Default to public
 
-  const createBookmark = useBookmarksStore((state) => state.createBookmark)
+  const createBookmark = useBookmarksStore((state: any) => state.createBookmark)
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -92,13 +93,14 @@ export default function AddBookmarkModal({ isOpen, onClose }: AddBookmarkModalPr
       await createBookmark(
         url,
         description.trim() || undefined,
-        undefined, // user_description is already in description.trim()
+        undefined,
         {
           ...previewData,
           clean_title: editTitle,
           ai_summary: editSummary,
           auto_tags: finalTags,
           is_public: isPublic,
+          folder_id: folderId,
         }
       )
       handleClose()

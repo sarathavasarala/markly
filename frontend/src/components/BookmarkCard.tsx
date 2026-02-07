@@ -120,11 +120,12 @@ const BookmarkCard = memo(function BookmarkCard({
       {bookmark.thumbnail_url && (
         <div className="h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
           <img
-            src={bookmark.thumbnail_url}
+            src={bookmark.thumbnail_url.replace(/^http:\/\//, 'https://')}
             alt=""
             className="w-full h-full object-cover"
             onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none'
+              const container = (e.target as HTMLImageElement).parentElement;
+              if (container) container.style.display = 'none';
             }}
           />
         </div>

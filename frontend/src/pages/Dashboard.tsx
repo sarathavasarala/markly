@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { statsApi, bookmarksApi, Bookmark } from '../lib/api'
 import BookmarkCard from '../components/BookmarkCard'
 import BookmarkRow from '../components/BookmarkRow'
@@ -11,67 +11,27 @@ import { useFolderStore } from '../stores/folderStore'
 import TopicsBox from '../components/TopicsBox'
 
 export default function Dashboard() {
-  const [recentBookmarks, setRecentBookmarks] = useState<Bookmark[]>([])
   const [topTags, setTopTags] = useState<{ tag: string; count: number }[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [isFiltering, setIsFiltering] = useState(false)
   const [isLoadingTags, setIsLoadingTags] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const { bookmarksViewMode: viewMode, setBookmarksViewMode: setViewMode } = useUIStore()
-  const { updateBookmark, bookmarks: storeBookmarks } = useBookmarksStore()
-  const { selectedFolderId, folders, setSelectedFolderId, fetchFolders } = useFolderStore()
+  const {
+    bookmarks,
+    total,
+    totalCount,
+    isLoading,
+    fetchBookmarks,
+    fetchTotalCount,
+    updateBookmark
+  } = useBookmarksStore()
 
-  // Unfiled bookmarks for folders view
-  const [unfiledBookmarks, setUnfiledBookmarks] = useState<Bookmark[]>([])
-  const [isLoadingUnfiled, setIsLoadingUnfiled] = useState(false)
-  // All tag-filtered bookmarks for computing folder match counts
-  const [tagFilteredBookmarks, setTagFilteredBookmarks] = useState<Bookmark[]>([])
+  const { selectedFolderId, folders, setSelectedFolderId, fetchFolders } = useFolderStore()
 
   const currentFolder = selectedFolderId
     ? folders.find(f => f.id === selectedFolderId)
     : null
-
-  const pollingRef = useRef<NodeJS.Timeout | null>(null)
-  const enrichingCountRef = useRef(0)
-
-
-  const loadBookmarks = useCallback(async (tags: string[] = [], showLoader = false) => {
-    if (showLoader) setIsFiltering(true)
-    try {
-      const res = await bookmarksApi.list({
-        tag: tags.length > 0 ? tags : undefined,
-        folder_id: selectedFolderId || undefined,
-        per_page: 40,
-      })
-
-      const bookmarks = res.data.bookmarks
-      setRecentBookmarks(bookmarks)
-
-      const enrichingCount = bookmarks.filter(
-        (b: Bookmark) => b.enrichment_status === 'pending' || b.enrichment_status === 'processing'
-      ).length
-
-      if (enrichingCountRef.current > 0 && enrichingCount === 0) {
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current)
-          pollingRef.current = null
-        }
-      }
-
-      if (enrichingCount > 0 && !pollingRef.current) {
-        pollingRef.current = setInterval(() => {
-          loadBookmarks(tags, false)
-        }, 5000)
-      }
-
-      enrichingCountRef.current = enrichingCount
-    } catch (error) {
-      console.error('Failed to load bookmarks:', error)
-    } finally {
-      setIsFiltering(false)
-    }
-  }, [selectedFolderId])
 
   const loadTopTags = useCallback(async () => {
     setIsLoadingTags(true)
@@ -89,58 +49,28 @@ export default function Dashboard() {
     loadTopTags()
   }, [loadTopTags, selectedFolderId])
 
-  // Load unfiled bookmarks when in folders view
+  // Initial load of total count and folders
   useEffect(() => {
-    if (viewMode === 'folders') {
-      setIsLoadingUnfiled(true)
+    fetchTotalCount()
+    fetchFolders()
+  }, [fetchTotalCount, fetchFolders])
 
-      // If tags are selected, fetch all bookmarks with those tags to compute folder counts
-      if (selectedTags.length > 0) {
-        bookmarksApi.list({ tag: selectedTags, per_page: 100 })
-          .then(res => {
-            setTagFilteredBookmarks(res.data.bookmarks)
-            // Filter for unfiled only
-            setUnfiledBookmarks(res.data.bookmarks.filter(b => !b.folder_id))
-          })
-          .catch(err => console.error('Failed to load filtered bookmarks:', err))
-          .finally(() => setIsLoadingUnfiled(false))
-      } else {
-        // No tags selected, just load unfiled bookmarks
-        setTagFilteredBookmarks([])
-        bookmarksApi.list({ folder_id: 'unfiled', per_page: 40 })
-          .then(res => setUnfiledBookmarks(res.data.bookmarks))
-          .catch(err => console.error('Failed to load unfiled bookmarks:', err))
-          .finally(() => setIsLoadingUnfiled(false))
-      }
-      // Refresh folders to get updated counts
-      fetchFolders()
-    }
-  }, [viewMode, fetchFolders, selectedTags])
-
+  // Centralized bookmark loading
   useEffect(() => {
-    loadBookmarks(selectedTags, true)
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
-        pollingRef.current = null
-      }
+    const params: Parameters<typeof bookmarksApi.list>[0] = {
+      tag: selectedTags.length > 0 ? selectedTags : undefined,
+      per_page: 40,
     }
-  }, [selectedTags, selectedFolderId, loadBookmarks])
 
-  // Sync newly created bookmarks from store into local state (replaces page reload)
-  useEffect(() => {
-    if (storeBookmarks.length > 0) {
-      setRecentBookmarks(prev => {
-        const existingIds = new Set(prev.map(b => b.id))
-        const newBookmarks = storeBookmarks.filter(b => !existingIds.has(b.id))
-        if (newBookmarks.length > 0) {
-          // Prepend new bookmarks to the list
-          return [...newBookmarks, ...prev]
-        }
-        return prev
-      })
+    if (viewMode === 'folders' && !selectedFolderId) {
+      // In folders view, we want to show 'unfiled' bookmarks in the list below folders
+      params.folder_id = 'unfiled'
+    } else if (selectedFolderId) {
+      params.folder_id = selectedFolderId
     }
-  }, [storeBookmarks])
+
+    fetchBookmarks(params)
+  }, [selectedTags, selectedFolderId, viewMode, fetchBookmarks])
 
   const toggleTag = useCallback<(tag: string) => void>((tag: string) => {
     setSelectedTags(prev =>
@@ -152,48 +82,37 @@ export default function Dashboard() {
     setSelectedTags([])
   }, [])
 
-  const handleBookmarkDeleted = useCallback<(id: string) => void>((id: string) => {
-    setRecentBookmarks(prev => prev.filter(b => b.id !== id))
+  const handleBookmarkDeleted = useCallback(() => {
     loadTopTags()
-  }, [loadTopTags])
+    fetchTotalCount()
+  }, [loadTopTags, fetchTotalCount])
 
   const toggleVisibility = useCallback(async (bookmark: Bookmark) => {
     try {
-      const newStatus = !bookmark.is_public
-      await updateBookmark(bookmark.id, { is_public: newStatus })
-      setRecentBookmarks(prev => prev.map(b => b.id === bookmark.id ? { ...b, is_public: newStatus } : b))
+      await updateBookmark(bookmark.id, { is_public: !bookmark.is_public })
     } catch (err) {
       console.error(err)
     }
   }, [updateBookmark])
 
-  if (!recentBookmarks) return null
-
   const renderHeader = () => {
     // Show skeleton count during loading to prevent stale data flash
-    const countDisplay = isFiltering ? (
+    const countDisplay = isLoading ? (
       <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" />
     ) : (
-      recentBookmarks.length
+      total
     )
 
     // Determine if we're inside a folder (not in folders view, but with a folder selected)
     const isInsideFolder = currentFolder && viewMode !== 'folders'
 
     let titleContent: React.ReactNode = (
-      <span className="flex items-center gap-1">Your bookmarks ({countDisplay})</span>
+      <span className="flex items-center gap-1">Your bookmarks ({isLoading ? <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" /> : totalCount})</span>
     )
 
     if (viewMode === 'folders') {
-      // Calculate total bookmark count for folders view: folder bookmarks + unfiled
-      const folderBookmarkCount = folders.reduce((sum, f) => sum + (f.bookmark_count || 0), 0)
-      const totalCount = isFiltering ? (
-        <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" />
-      ) : (
-        folderBookmarkCount + unfiledBookmarks.length
-      )
       titleContent = (
-        <span className="flex items-center gap-1">Your bookmarks ({totalCount})</span>
+        <span className="flex items-center gap-1">Your bookmarks ({isLoading ? <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" /> : totalCount})</span>
       )
     } else if (selectedTags.length > 0) {
       titleContent = (
@@ -230,7 +149,6 @@ export default function Dashboard() {
         </h1>
         <div className="flex items-center gap-2">
           <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-            {/* Only show Folders toggle when NOT inside a folder */}
             {!isInsideFolder && (
               <button
                 onClick={() => setViewMode('folders' as BookmarkViewMode)}
@@ -276,44 +194,27 @@ export default function Dashboard() {
         onClearFilters={clearFilters}
       />
 
-      {isFiltering || (viewMode === 'folders' && isLoadingUnfiled) ? (
+      {isLoading && bookmarks.length === 0 ? (
         <MasonryGrid
           items={[1, 2, 3, 4]}
           renderItem={() => <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />}
         />
-      ) : viewMode === 'folders' ? (
+      ) : viewMode === 'folders' && !selectedFolderId ? (
         (() => {
-          // Compute folder match counts from tag-filtered bookmarks
-          const folderMatchCounts = new Map<string, number>()
-          if (selectedTags.length > 0) {
-            tagFilteredBookmarks.forEach(b => {
-              if (b.folder_id) {
-                folderMatchCounts.set(b.folder_id, (folderMatchCounts.get(b.folder_id) || 0) + 1)
-              }
-            })
-          }
-
-          // When filtering, only show folders that have matches
-          const foldersToShow = selectedTags.length > 0
-            ? folders.filter(f => folderMatchCounts.has(f.id))
-            : folders
-
           const items = [
-            ...foldersToShow.map(f => ({
+            ...folders.map(f => ({
               type: 'folder' as const,
               data: f,
-              matchCount: selectedTags.length > 0 ? folderMatchCounts.get(f.id) : undefined
+              matchCount: undefined
             })),
-            ...unfiledBookmarks.map(b => ({ type: 'bookmark' as const, data: b, matchCount: undefined }))
+            ...bookmarks.map((b: Bookmark) => ({ type: 'bookmark' as const, data: b, matchCount: undefined }))
           ]
 
           if (items.length === 0) {
             return (
               <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                 <p className="text-gray-500">
-                  {selectedTags.length > 0
-                    ? 'No bookmarks match the selected tags.'
-                    : 'No folders or bookmarks yet. Create a folder from the sidebar.'}
+                  No folders or bookmarks yet. Create a folder from the sidebar.
                 </p>
               </div>
             )
@@ -327,7 +228,6 @@ export default function Dashboard() {
                   return (
                     <FolderCard
                       folder={item.data}
-                      matchCount={item.matchCount}
                       onClick={() => {
                         setSelectedFolderId(item.data.id)
                         setViewMode('cards')
@@ -338,7 +238,7 @@ export default function Dashboard() {
                   return (
                     <BookmarkCard
                       bookmark={item.data}
-                      onDeleted={() => handleBookmarkDeleted(item.data.id)}
+                      onDeleted={handleBookmarkDeleted}
                       onTagClick={toggleTag}
                       onVisibilityToggle={() => toggleVisibility(item.data)}
                     />
@@ -348,17 +248,17 @@ export default function Dashboard() {
             />
           )
         })()
-      ) : recentBookmarks.length === 0 ? (
+      ) : bookmarks.length === 0 ? (
         <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
           <p className="text-gray-500">No bookmarks found here yet.</p>
         </div>
       ) : viewMode === 'cards' ? (
         <MasonryGrid
-          items={recentBookmarks}
-          renderItem={(bookmark) => (
+          items={bookmarks}
+          renderItem={(bookmark: Bookmark) => (
             <BookmarkCard
               bookmark={bookmark}
-              onDeleted={() => handleBookmarkDeleted(bookmark.id)}
+              onDeleted={handleBookmarkDeleted}
               onTagClick={toggleTag}
               onVisibilityToggle={() => toggleVisibility(bookmark)}
             />
@@ -366,11 +266,11 @@ export default function Dashboard() {
         />
       ) : (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
-          {recentBookmarks.map(bookmark => (
+          {bookmarks.map((bookmark: Bookmark) => (
             <BookmarkRow
               key={bookmark.id}
               bookmark={bookmark}
-              onDeleted={() => handleBookmarkDeleted(bookmark.id)}
+              onDeleted={handleBookmarkDeleted}
               onTagClick={toggleTag}
             />
           ))}

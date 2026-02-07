@@ -32,7 +32,7 @@ export default function Layout({
     isAuthenticated: state.isAuthenticated
   }))
   const { theme, toggleTheme, editingBookmark, setEditingBookmark, isAddModalOpen, setIsAddModalOpen, isSidebarOpen, toggleSidebar } = useUIStore()
-  const { fetchFolders } = useFolderStore()
+  const { fetchFolders, selectedFolderId } = useFolderStore()
   const navigate = useNavigate()
 
   // Get user display info
@@ -215,6 +215,7 @@ export default function Layout({
           <AddBookmarkModal
             isOpen={isAddModalOpen}
             onClose={() => setIsAddModalOpen(false)}
+            folderId={selectedFolderId}
           />
           <EditBookmarkModal
             bookmark={editingBookmark}
