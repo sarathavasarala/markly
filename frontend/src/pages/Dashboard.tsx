@@ -201,16 +201,7 @@ export default function Dashboard() {
         />
       ) : viewMode === 'folders' && !selectedFolderId ? (
         (() => {
-          const items = [
-            ...folders.map(f => ({
-              type: 'folder' as const,
-              data: f,
-              matchCount: undefined
-            })),
-            ...bookmarks.map((b: Bookmark) => ({ type: 'bookmark' as const, data: b, matchCount: undefined }))
-          ]
-
-          if (items.length === 0) {
+          if (folders.length === 0 && bookmarks.length === 0) {
             return (
               <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                 <p className="text-gray-500">
@@ -221,31 +212,36 @@ export default function Dashboard() {
           }
 
           return (
-            <MasonryGrid
-              items={items}
-              renderItem={(item) => {
-                if (item.type === 'folder') {
-                  return (
+            <div className="space-y-6">
+              {folders.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {folders.map(f => (
                     <FolderCard
-                      folder={item.data}
+                      key={f.id}
+                      folder={f}
                       onClick={() => {
-                        setSelectedFolderId(item.data.id)
+                        setSelectedFolderId(f.id)
                         setViewMode('cards')
                       }}
                     />
-                  )
-                } else {
-                  return (
+                  ))}
+                </div>
+              )}
+              {bookmarks.length > 0 && (
+                <MasonryGrid
+                  items={bookmarks}
+                  renderItem={(b: Bookmark) => (
                     <BookmarkCard
-                      bookmark={item.data}
+                      key={b.id}
+                      bookmark={b}
                       onDeleted={handleBookmarkDeleted}
                       onTagClick={toggleTag}
-                      onVisibilityToggle={() => toggleVisibility(item.data)}
+                      onVisibilityToggle={() => toggleVisibility(b)}
                     />
-                  )
-                }
-              }}
-            />
+                  )}
+                />
+              )}
+            </div>
           )
         })()
       ) : bookmarks.length === 0 ? (
