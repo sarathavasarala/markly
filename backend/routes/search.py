@@ -124,15 +124,15 @@ def _semantic_search(supabase, query: str, limit: int,
         ids = [r.get("id") for r in results if r.get("id")]
         if ids:
             meta = supabase.table("bookmarks").select(
-                "id, created_at, updated_at, last_accessed_at"
+                "id, created_at, updated_at, last_accessed_at, is_public, folder_id"
             ).in_("id", ids).execute()
             meta_map = {m["id"]: m for m in meta.data}
             for r in results:
                 meta_row = meta_map.get(r.get("id"))
                 if meta_row:
                     # Only fill if missing to avoid overwriting
-                    for key in ("created_at", "updated_at", "last_accessed_at"):
-                        if not r.get(key):
+                    for key in ("created_at", "updated_at", "last_accessed_at", "is_public", "folder_id"):
+                        if r.get(key) is None:
                             r[key] = meta_row.get(key)
     except Exception:
         pass  # If hydration fails, continue without blocking search

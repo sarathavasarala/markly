@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search as SearchIcon, Loader2, Sparkles, X, Clock } from 'lucide-react'
+import { Search as SearchIcon, Loader2, X, Clock } from 'lucide-react'
 import { searchApi, Bookmark } from '../lib/api'
 import BookmarkCard from '../components/BookmarkCard'
 import MasonryGrid from '../components/MasonryGrid'
@@ -9,10 +9,8 @@ export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
   const initialTag = searchParams.get('tag') || ''
-  const initialMode = searchParams.get('mode') === 'semantic' ? 'semantic' : 'keyword'
   const [query, setQuery] = useState(initialQuery)
   const [tag, setTag] = useState(initialTag)
-  const [mode, setMode] = useState<'keyword' | 'semantic'>(initialMode)
   const [results, setResults] = useState<Bookmark[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
@@ -35,8 +33,8 @@ export default function Search() {
     }
   }
 
-  // Debounced keyword search
-  const performSearch = useCallback(async (searchQuery: string, searchMode: 'keyword' | 'semantic', searchTag?: string) => {
+  // Debounced search (now semantic only)
+  const performSearch = useCallback(async (searchQuery: string, searchTag?: string) => {
     if (!searchQuery.trim()) {
       setResults([])
       setHasSearched(false)
@@ -49,7 +47,7 @@ export default function Search() {
     try {
       const response = await searchApi.search({
         q: searchQuery,
-        mode: searchMode,
+        mode: 'semantic',
         limit: 30,
         tag: searchTag || undefined,
       })
@@ -65,15 +63,13 @@ export default function Search() {
   // Sync state with URL params (supports header search navigation)
   useEffect(() => {
     const paramQuery = searchParams.get('q') || ''
-    const paramMode = searchParams.get('mode') === 'semantic' ? 'semantic' : 'keyword'
     const paramTag = searchParams.get('tag') || ''
 
     setQuery(paramQuery)
     setTag(paramTag)
-    setMode(paramMode)
 
     if (paramQuery) {
-      performSearch(paramQuery, paramMode, paramTag)
+      performSearch(paramQuery, paramTag)
       setHasSearched(true)
     } else {
       setResults([])
@@ -81,42 +77,26 @@ export default function Search() {
     }
   }, [searchParams, performSearch])
 
-  // Handle search on Enter or mode change
+  // Handle search on Enter
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
-    const params: Record<string, string> = { q: query, mode }
+    const params: Record<string, string> = { q: query }
     if (tag) params.tag = tag
     setSearchParams(params)
-    performSearch(query, mode, tag)
+    performSearch(query, tag)
     setShowHistory(false)
   }
 
-  // Keyboard search for keyword mode
+  // Keyboard search logic removed for semantic search to save API calls
   useEffect(() => {
-    if (mode === 'keyword' && query.length >= 2) {
-      setIsTyping(true)
-      const timeoutId = setTimeout(() => {
-        setIsTyping(false)
-        const params: Record<string, string> = { q: query, mode }
-        if (tag) params.tag = tag
-        if (searchParams.get('q') !== query || searchParams.get('mode') !== mode || searchParams.get('tag') !== tag) {
-          setSearchParams(params)
-        }
-        performSearch(query, 'keyword', tag)
-      }, 300)
-      return () => {
-        clearTimeout(timeoutId)
-        setIsTyping(false)
-      }
-    } else {
-      setIsTyping(false)
-    }
-  }, [query, mode, performSearch, searchParams, setSearchParams, tag])
+    // We intentionally don't auto-search on typing for semantic search
+    setIsTyping(false)
+  }, [query])
 
   const handleHistoryClick = (historyQuery: string) => {
     setQuery(historyQuery)
     setShowHistory(false)
-    performSearch(historyQuery, mode, tag)
+    performSearch(historyQuery, tag)
   }
 
   const clearSearch = () => {
@@ -124,7 +104,7 @@ export default function Search() {
     setTag('')
     setResults([])
     setHasSearched(false)
-    setSearchParams(mode === 'semantic' ? { mode: 'semantic' } : {})
+    setSearchParams({})
   }
 
   return (
@@ -140,7 +120,7 @@ export default function Search() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setShowHistory(true)}
-              placeholder="Search by keyword or meaning..."
+              placeholder="Search by meaning..."
               className="w-full pl-12 pr-10 py-4 text-lg border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             {query && (
@@ -174,63 +154,15 @@ export default function Search() {
             </div>
           )}
 
-          {/* Search Mode Toggle */}
-          <div className="flex items-center gap-4 mt-4">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Mode:</span>
-            <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('keyword')
-                  const params: Record<string, string> = { q: query, mode: 'keyword' }
-                  if (tag) params.tag = tag
-                  setSearchParams(params)
-                  if (query) performSearch(query, 'keyword', tag)
-                }}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'keyword'
-                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-gray-300'
-                  }`}
-              >
-                Keyword
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('semantic')
-                  const params: Record<string, string> = { q: query, mode: 'semantic' }
-                  if (tag) params.tag = tag
-                  setSearchParams(params)
-                  if (query) performSearch(query, 'semantic', tag)
-                }}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${mode === 'semantic'
-                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-600 dark:text-gray-300'
-                  }`}
-              >
-                <Sparkles className="w-4 h-4" />
-                Semantic
-              </button>
-            </div>
-
-            {mode === 'semantic' && (
-              <button
-                type="submit"
-                disabled={!query.trim() || isSearching}
-                className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Search
-              </button>
-            )}
-          </div>
-
-          {/* Hints */}
-          <div className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-            {mode === 'keyword' ? (
-              <span>💡 Search titles, summaries, and tags as you type</span>
-            ) : (
-              <span>💡 Semantic search finds related content by meaning. Press Enter to search.</span>
-            )}
+          {/* Actions */}
+          <div className="flex items-center justify-end mt-4">
+            <button
+              type="submit"
+              disabled={!query.trim() || isSearching}
+              className="px-6 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Search
+            </button>
           </div>
         </form>
       </div>
@@ -255,11 +187,6 @@ export default function Search() {
               <p className="text-gray-500 dark:text-gray-400">
                 No bookmarks found matching your search
               </p>
-              {mode === 'keyword' && (
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                  Try using semantic search for better results
-                </p>
-              )}
             </div>
           ) : (
             <MasonryGrid
