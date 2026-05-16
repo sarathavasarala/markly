@@ -1,4 +1,6 @@
 """Azure OpenAI service for LLM and embeddings."""
+from __future__ import annotations
+
 import json
 from typing import Optional
 from openai import AzureOpenAI
@@ -195,4 +197,3 @@ class AzureOpenAIService:
         if value and value.lower() in allowed:
             return value.lower()
         return default
-

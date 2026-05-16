@@ -112,7 +112,7 @@ export default function SaveToCollectionModal({
                                     </div>
                                     <div>
                                         <h3 className="text-white font-bold mb-1">Searchable by topic</h3>
-                                        <p className="text-gray-400 text-sm">Ask "AI agent memory article" and find it. No need to remember the title.</p>
+                                        <p className="text-gray-400 text-sm">Use summaries and tags to find it later without remembering the exact title.</p>
                                     </div>
                                 </div>
 

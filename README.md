@@ -26,8 +26,8 @@ Ever bookmark something, then completely forget why? markly fixes that. Paste a 
 
 **Frontend:** React + TypeScript + Vite  
 **Backend:** Python Flask  
-**Database:** Supabase (PostgreSQL + pgvector)  
-**AI:** Azure OpenAI for embeddings and summaries  
+**Database:** SQLite owned by the Flask backend  
+**AI:** Azure OpenAI for summaries, tags, and optional stored embeddings  
 **Deployment:** Docker + Azure Web App
 
 ---
@@ -38,8 +38,8 @@ Ever bookmark something, then completely forget why? markly fixes that. Paste a 
 
 - Node.js 18+
 - Python 3.10+
-- Supabase project (for database)
 - Azure OpenAI access (for AI features)
+- Google OAuth credentials
 
 ### Setup
 
@@ -54,7 +54,7 @@ npm run setup
 # Configure environment
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
-# Add your Supabase and Azure OpenAI keys
+# Add your Azure OpenAI and Google OAuth settings
 
 # Start development servers
 npm start
@@ -64,7 +64,17 @@ This runs the backend on port 5050 and frontend on port 5173.
 
 ### Database
 
-Run `backend/schema.sql` in your Supabase SQL editor to create the tables.
+The Flask backend creates the SQLite schema automatically at `MARKLY_DB_PATH`.
+For local development this defaults to `backend/markly.db`. In Azure App
+Service, set it to a persistent path such as `/home/data/markly.db`.
+
+To migrate existing Supabase data once, set `SUPABASE_URL`,
+`SUPABASE_SERVICE_KEY`, and `MARKLY_DB_PATH`, then run:
+
+```bash
+cd backend
+../.venv/bin/python scripts/migrate_supabase_to_sqlite.py
+```
 
 ---
 
@@ -87,7 +97,7 @@ markly/
 ├── backend/           # Flask API
 │   ├── routes/        # API endpoints
 │   ├── services/      # AI enrichment, content extraction
-│   └── schema.sql     # Database schema
+│   └── database.py    # SQLite schema and helpers
 ├── frontend/          # React app
 │   ├── src/pages/     # Dashboard, Search, PublicProfile, Login
 │   └── src/components/# UI components
@@ -101,17 +111,19 @@ markly/
 ### Backend (`backend/.env`)
 
 ```
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_service_key
+MARKLY_DB_PATH=./markly.db
 AZURE_OPENAI_ENDPOINT=your_endpoint
-AZURE_OPENAI_KEY=your_key
+AZURE_OPENAI_API_KEY=your_key
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+ALLOWED_EMAILS=you@example.com,friend@example.com
+ENABLE_EMBEDDINGS=true
+ENABLE_SEMANTIC_SEARCH=false
 ```
 
 ### Frontend (`frontend/.env`)
 
 ```
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_anon_key
 VITE_API_URL=http://localhost:5050/api
 ```
 

@@ -19,9 +19,21 @@ class Config:
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev-secret-key-change-in-prod")
     DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     
-    # Supabase
-    SUPABASE_URL = os.getenv("SUPABASE_URL")
-    SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+    # SQLite database owned by the backend
+    MARKLY_DB_PATH = os.getenv(
+        "MARKLY_DB_PATH",
+        os.path.join(base_dir, "markly.db")
+    )
+    
+    # Auth
+    ALLOWED_EMAILS = os.getenv("ALLOWED_EMAILS", "")
+    GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+    OAUTH_REDIRECT_BASE_URL = os.getenv("OAUTH_REDIRECT_BASE_URL")
+    
+    # Feature flags
+    ENABLE_EMBEDDINGS = os.getenv("ENABLE_EMBEDDINGS", "true").lower() == "true"
+    ENABLE_SEMANTIC_SEARCH = os.getenv("ENABLE_SEMANTIC_SEARCH", "false").lower() == "true"
     
     # Azure OpenAI (all must come from environment)
     AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -36,7 +48,6 @@ class Config:
         "AZURE_OPENAI_EMBEDDING_API_VERSION", "2024-12-01-preview"
     )
     
-    # Auth
     SESSION_EXPIRY_DAYS = 365  # 1 year
     
     # Optional services
@@ -46,8 +57,6 @@ class Config:
     def validate(cls):
         """Validate required configuration."""
         required = [
-            ("SUPABASE_URL", cls.SUPABASE_URL),
-            ("SUPABASE_SERVICE_KEY", cls.SUPABASE_SERVICE_KEY),
             ("AZURE_OPENAI_ENDPOINT", cls.AZURE_OPENAI_ENDPOINT),
             ("AZURE_OPENAI_API_KEY", cls.AZURE_OPENAI_API_KEY),
         ]

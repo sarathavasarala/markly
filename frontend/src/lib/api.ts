@@ -4,6 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -12,22 +13,11 @@ const api = axios.create({
   }
 })
 
-// Add auth token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('markly_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
 // Handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('markly_token')
-      localStorage.removeItem('markly_expires')
       window.location.href = '/login'
     }
     return Promise.reject(error)
@@ -36,7 +26,25 @@ api.interceptors.response.use(
 
 export default api
 
-// Auth API removed - using Supabase Auth directly
+export interface AuthUser {
+  id: string
+  email: string
+  username: string
+  user_metadata?: {
+    full_name?: string | null
+    name?: string | null
+    avatar_url?: string | null
+    picture?: string | null
+  }
+}
+
+export const authApi = {
+  me: () => api.get<{ user: AuthUser | null; is_authenticated: boolean }>('/auth/me'),
+  logout: () => api.post<{ success: boolean }>('/auth/logout'),
+  loginWithGoogle: () => {
+    window.location.href = '/api/auth/google/login'
+  },
+}
 
 // Bookmarks API
 export interface Bookmark {

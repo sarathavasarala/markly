@@ -33,7 +33,7 @@ export default function Search() {
     }
   }
 
-  // Debounced search (now semantic only)
+  // Search uses keyword/FTS by default while semantic search is hidden.
   const performSearch = useCallback(async (searchQuery: string, searchTag?: string) => {
     if (!searchQuery.trim()) {
       setResults([])
@@ -47,7 +47,7 @@ export default function Search() {
     try {
       const response = await searchApi.search({
         q: searchQuery,
-        mode: 'semantic',
+        mode: 'keyword',
         limit: 30,
         tag: searchTag || undefined,
       })
@@ -87,9 +87,9 @@ export default function Search() {
     setShowHistory(false)
   }
 
-  // Keyboard search logic removed for semantic search to save API calls
+  // Keep search explicit to avoid noisy API calls while typing.
   useEffect(() => {
-    // We intentionally don't auto-search on typing for semantic search
+    // We intentionally don't auto-search on typing.
     setIsTyping(false)
   }, [query])
 
@@ -120,7 +120,7 @@ export default function Search() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setShowHistory(true)}
-              placeholder="Search by meaning..."
+              placeholder="Search bookmarks..."
               className="w-full pl-12 pr-10 py-4 text-lg border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
             {query && (

@@ -26,9 +26,9 @@ We use a three-tier testing strategy:
 
 To ensure markly remains robust for all users, we have specific tests for these four key scenarios:
 
-### 1. Data Isolation (RLS)
+### 1. Data Isolation
 **Goal**: No user can edit or delete another user's bookmarks.
-- **How we handle it**: We use Supabase Row Level Security (RLS) combined with dynamic user-scoped clients in the backend.
+- **How we handle it**: Backend-owned SQLite queries explicitly filter protected operations by the authenticated `user_id`.
 - **Verification**: `backend/tests/test_bookmarks.py` contains tests that attempt to access or modify data without a valid user token, verifying a `401` or `404` response.
 
 ### 2. Selective Saving from Public Profiles

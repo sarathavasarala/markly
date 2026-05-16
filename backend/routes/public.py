@@ -1,412 +1,307 @@
+"""Public profile and subscription routes."""
+from __future__ import annotations
+
 import logging
-from flask import Blueprint, jsonify, request, g
-from database import get_supabase
-from middleware.auth import require_auth
+
+from flask import Blueprint, g, jsonify, request
+
+from database import (
+    get_db,
+    get_user_by_username,
+    new_id,
+    row_to_dict,
+    utc_now,
+)
+from middleware.auth import current_user_optional, require_auth
 
 logger = logging.getLogger(__name__)
-public_bp = Blueprint('public', __name__)
+public_bp = Blueprint("public", __name__)
 
 
 def get_user_profile_by_username(username: str) -> dict | None:
-    """
-    Get user profile info from username.
-    """
-    supabase = get_supabase()
-    
-    try:
-        users = supabase.auth.admin.list_users()
-        user_list = users.users if hasattr(users, 'users') else users
-        
-        for user in user_list:
-            # Handle both object and dict types
-            u_email = (
-                getattr(user, 'email', None) or user.get('email') 
-                if isinstance(user, dict) else getattr(user, 'email', None)
-            )
-            u_id = (
-                getattr(user, 'id', None) or user.get('id') 
-                if isinstance(user, dict) else getattr(user, 'id', None)
-            )
-            u_metadata = (
-                getattr(user, 'user_metadata', None) or user.get('user_metadata') 
-                if isinstance(user, dict) else getattr(user, 'user_metadata', None)
-            )
-            
-            if u_email and u_email.split('@')[0].lower() == username.lower():
-                # Also get bookmark count for this user
-                count_res = supabase.table('bookmarks').select('id', count='exact') \
-                    .eq('user_id', u_id).eq('is_public', True).execute()
-                bookmark_count = count_res.count or 0
-                
-                return {
-                    'id': u_id,
-                    'email': u_email,
-                    'avatar_url': u_metadata.get('avatar_url') or u_metadata.get('picture') if u_metadata else None,
-                    'full_name': u_metadata.get('full_name') or u_metadata.get('name') if u_metadata else None,
-                    'bookmark_count': bookmark_count
-                }
+    """Get local user profile info from username."""
+    user = get_user_by_username(username)
+    if not user:
         return None
-    except Exception as e:
-        print(f"Error looking up user by username '{username}': {e}")
-        return None
+    count = get_db().execute(
+        "SELECT COUNT(*) AS count FROM bookmarks WHERE user_id = ? AND is_public = 1",
+        (user["id"],),
+    ).fetchone()["count"]
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "avatar_url": user.get("avatar_url"),
+        "full_name": user.get("full_name"),
+        "bookmark_count": count,
+    }
 
 
-@public_bp.route('/@<username>/tags', methods=['GET'])
+@public_bp.route("/@<username>/tags", methods=["GET"])
 def get_public_tags(username: str):
     """Get top public tags for a curator."""
     profile = get_user_profile_by_username(username)
     if not profile:
-        return jsonify({'error': 'User not found'}), 404
-        
-    user_id = profile['id']
-    limit = request.args.get("limit", 20, type=int)
-    limit = min(limit, 100)
-    
-    supabase = get_supabase()
-    
+        return jsonify({"error": "User not found"}), 404
+    limit = min(request.args.get("limit", 20, type=int), 100)
+
     try:
-        # Get only public bookmarks for this user
-        result = supabase.table("bookmarks") \
-            .select("auto_tags") \
-            .eq("user_id", user_id) \
-            .eq("is_public", True) \
-            .execute()
-            
-        # Count tags
+        rows = get_db().execute(
+            "SELECT auto_tags FROM bookmarks WHERE user_id = ? AND is_public = 1",
+            (profile["id"],),
+        ).fetchall()
         tag_counts = {}
-        for bookmark in result.data:
-            tags = bookmark.get("auto_tags") or []
-            for tag in tags:
+        for row in rows:
+            bookmark = row_to_dict(row)
+            for tag in bookmark.get("auto_tags") or []:
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
-        
-        # Sort by count
-        sorted_tags = sorted(
-            tag_counts.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:limit]
-        
         tags = [
             {"tag": tag, "count": count}
-            for tag, count in sorted_tags
+            for tag, count in sorted(tag_counts.items(), key=lambda item: item[1], reverse=True)[:limit]
         ]
-        
         return jsonify({"tags": tags})
-        
     except Exception as e:
         logger.error(f"Error fetching public tags for {username}: {str(e)}")
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 
-@public_bp.route('/@<username>/bookmarks', methods=['GET'])
+@public_bp.route("/@<username>/bookmarks", methods=["GET"])
 def get_public_bookmarks(username: str):
     """Get public bookmarks for a user's public profile."""
-    
     profile = get_user_profile_by_username(username)
     if not profile:
-        return jsonify({'error': 'User not found'}), 404
-    
-    user_id = profile['id']
-    supabase = get_supabase()
-    
-    # Check if the requester is the owner
-    is_owner = False
-    viewer_user_id = None
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header[7:]
-        try:
-            # Use a fresh client to verify this specific token
-            # to avoid any singleton state issues
-            from database import get_auth_client
-            auth_client = get_auth_client(token)
-            user_resp = auth_client.auth.get_user()
-            if user_resp and user_resp.user:
-                viewer_user_id = user_resp.user.id
-                if viewer_user_id == user_id:
-                    is_owner = True
-        except Exception as auth_err:
-            logger.debug(f"Auth check failed for public profile: {auth_err}")
-            pass
+        return jsonify({"error": "User not found"}), 404
+
+    viewer = current_user_optional()
+    is_owner = bool(viewer and viewer.id == profile["id"])
+    visibility_clause = "" if is_owner else "AND is_public = 1"
 
     try:
-        # Get total count of public bookmarks (or all if owner)
-        count_query = supabase.table('bookmarks') \
-            .select('id', count='exact') \
-            .eq('user_id', user_id)
-        
-        if not is_owner:
-            count_query = count_query.eq('is_public', True)
-            
-        count_res = count_query.execute()
-        total_count = count_res.count or 0
+        total_count = get_db().execute(
+            f"SELECT COUNT(*) AS count FROM bookmarks WHERE user_id = ? {visibility_clause}",
+            (profile["id"],),
+        ).fetchone()["count"]
+        rows = get_db().execute(
+            f"""
+            SELECT id, url, original_title, clean_title, user_description, ai_summary,
+                   auto_tags, domain, favicon_url, created_at, is_public
+            FROM bookmarks
+            WHERE user_id = ? {visibility_clause}
+            ORDER BY created_at DESC
+            LIMIT 100
+            """,
+            (profile["id"],),
+        ).fetchall()
+        bookmarks = [row_to_dict(row) for row in rows]
 
-        # Build data query
-        query = supabase.table('bookmarks') \
-            .select('id, url, original_title, clean_title, user_description, ai_summary, '
-                    'auto_tags, domain, favicon_url, created_at, is_public') \
-            .eq('user_id', user_id)
-        
-        # If not owner, only show public bookmarks
-        if not is_owner:
-            query = query.eq('is_public', True)
-            
-        result = query.order('created_at', desc=True) \
-            .limit(100) \
-            .execute()
-        
-        bookmarks = result.data or []
-        
-        # Check which bookmarks the viewer has already saved
-        if viewer_user_id and not is_owner:
-            # Get all URLs the viewer has saved
-            viewer_bookmarks = supabase.table('bookmarks') \
-                .select('url') \
-                .eq('user_id', viewer_user_id) \
-                .execute()
-            
-            viewer_urls = {b['url'] for b in (viewer_bookmarks.data or [])}
-            
-            # Mark bookmarks that are already saved
-            for bookmark in bookmarks:
-                bookmark['is_saved_by_viewer'] = bookmark['url'] in viewer_urls
-        else:
-            # Owner or unauthenticated - not saved
-            for bookmark in bookmarks:
-                bookmark['is_saved_by_viewer'] = False
-        
+        viewer_urls = set()
+        if viewer and not is_owner:
+            saved_rows = get_db().execute(
+                "SELECT url FROM bookmarks WHERE user_id = ?",
+                (viewer.id,),
+            ).fetchall()
+            viewer_urls = {row["url"] for row in saved_rows}
+
+        for bookmark in bookmarks:
+            bookmark["is_saved_by_viewer"] = bookmark["url"] in viewer_urls
+
         return jsonify({
-            'bookmarks': bookmarks,
-            'total_count': total_count,
-            'username': username,
-            'is_owner': is_owner,
-            'profile': {
-                'avatar_url': profile.get('avatar_url'),
-                'full_name': profile.get('full_name')
-            }
+            "bookmarks": bookmarks,
+            "total_count": total_count,
+            "username": username,
+            "is_owner": is_owner,
+            "profile": {
+                "avatar_url": profile.get("avatar_url"),
+                "full_name": profile.get("full_name"),
+            },
         })
     except Exception as e:
         logger.error(f"Error fetching public bookmarks for {username}: {str(e)}")
-        return jsonify(
-            {'error': f'Internal server error: {str(e)}'}
-        ), 500
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 
-@public_bp.route('/@<username>/subscribe', methods=['POST'])
+@public_bp.route("/@<username>/subscribe", methods=["POST"])
 def subscribe_to_curator(username: str):
     """Subscribe to a curator's digest."""
-    
-    data = request.get_json()
-    email = data.get('email', '').lower().strip()
-    
-    if not email or '@' not in email:
-        return jsonify({'error': 'Valid email required'}), 400
-    
-    supabase = get_supabase()
-    
+    data = request.get_json() or {}
+    email = data.get("email", "").lower().strip()
+    if not email or "@" not in email:
+        return jsonify({"error": "Valid email required"}), 400
+
+    conn = get_db()
     try:
-        # Insert subscription
-        supabase.table('subscribers').insert({
-            'curator_username': username.lower(),
-            'email': email
-        }).execute()
-        
-        return jsonify({'success': True, 'message': 'Subscribed successfully'})
+        conn.execute(
+            """
+            INSERT INTO subscribers (id, curator_username, email, subscribed_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (new_id(), username.lower(), email, utc_now()),
+        )
+        conn.commit()
+        return jsonify({"success": True, "message": "Subscribed successfully"})
     except Exception as e:
+        conn.rollback()
         error_msg = str(e)
-        if '23505' in error_msg:  # Unique constraint violation
-            return jsonify({'error': 'Already subscribed'}), 409
-        print(f"Subscribe error: {e}")
-        return jsonify({'error': 'Failed to subscribe'}), 500
+        if "UNIQUE" in error_msg.upper():
+            return jsonify({"error": "Already subscribed"}), 409
+        logger.error(f"Subscribe error: {e}")
+        return jsonify({"error": "Failed to subscribe"}), 500
 
 
-@public_bp.route('/@<username>/subscribers/count', methods=['GET'])
+@public_bp.route("/@<username>/subscribers/count", methods=["GET"])
 def get_subscriber_count(username: str):
-    """Get subscriber count for a curator (only visible to owner, but endpoint is public for now)."""
-    
-    supabase = get_supabase()
-    
+    """Get subscriber count for a curator."""
     try:
-        response = supabase.table('subscribers') \
-            .select('id', count='exact') \
-            .eq('curator_username', username.lower()) \
-            .is_('unsubscribed_at', 'null') \
-            .execute()
-        
-        return jsonify({'count': response.count or 0})
+        count = get_db().execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM subscribers
+            WHERE curator_username = ? AND unsubscribed_at IS NULL
+            """,
+            (username.lower(),),
+        ).fetchone()["count"]
+        return jsonify({"count": count})
     except Exception as e:
-        print(f"Error getting subscriber count: {e}")
-        return jsonify({'count': 0})
+        logger.error(f"Error getting subscriber count: {e}")
+        return jsonify({"count": 0})
 
 
-@public_bp.route('/@<username>/subscribers', methods=['GET'])
+def _is_profile_owner(username: str) -> bool:
+    user_email = getattr(g.user, "email", None)
+    if user_email and user_email.split("@")[0].lower() == username.lower():
+        return True
+    profile = get_user_profile_by_username(username)
+    return bool(profile and profile["id"] == g.user.id)
+
+
+@public_bp.route("/@<username>/subscribers", methods=["GET"])
 @require_auth
 def list_subscribers(username: str):
     """List subscribers for a curator (owner only)."""
-    user_email = getattr(g.user, 'email', None)
-    
-    # Simple owner check: email prefix must match username
-    if not user_email or user_email.split('@')[0].lower() != username.lower():
-        # As an extra safety, check if it's the same ID if we can't trust email prefix
-        profile = get_user_profile_by_username(username)
-        if not profile or profile['id'] != g.user.id:
-            return jsonify({'error': 'Unauthorized'}), 401
-            
+    if not _is_profile_owner(username):
+        return jsonify({"error": "Unauthorized"}), 401
     try:
-        supabase = get_supabase()
-        response = supabase.table('subscribers') \
-            .select('email, subscribed_at') \
-            .eq('curator_username', username.lower()) \
-            .is_('unsubscribed_at', 'null') \
-            .order('subscribed_at', desc=True) \
-            .execute()
-            
-        return jsonify({'subscribers': response.data or []})
+        rows = get_db().execute(
+            """
+            SELECT email, subscribed_at
+            FROM subscribers
+            WHERE curator_username = ? AND unsubscribed_at IS NULL
+            ORDER BY subscribed_at DESC
+            """,
+            (username.lower(),),
+        ).fetchall()
+        return jsonify({"subscribers": [dict(row) for row in rows]})
     except Exception as e:
         logger.error(f"Error listing subscribers for {username}: {str(e)}")
-        return jsonify({'error': f'Failed to list subscribers: {str(e)}'}), 500
+        return jsonify({"error": f"Failed to list subscribers: {str(e)}"}), 500
 
 
-@public_bp.route('/@<username>/subscription/check', methods=['GET'])
+@public_bp.route("/@<username>/subscription/check", methods=["GET"])
 @require_auth
 def check_subscription(username: str):
     """Check if the current user is subscribed to this curator."""
-    user_email = getattr(g.user, 'email', None)
+    user_email = getattr(g.user, "email", None)
     if not user_email:
-        return jsonify({'is_subscribed': False})
-        
-    supabase = get_supabase()
-    try:
-        response = supabase.table('subscribers') \
-            .select('id') \
-            .eq('curator_username', username.lower()) \
-            .eq('email', user_email.lower()) \
-            .is_('unsubscribed_at', 'null') \
-            .execute()
-            
-        return jsonify({'is_subscribed': len(response.data) > 0})
-    except Exception:
-        return jsonify({'is_subscribed': False})
+        return jsonify({"is_subscribed": False})
+    row = get_db().execute(
+        """
+        SELECT id FROM subscribers
+        WHERE curator_username = ? AND email = ? AND unsubscribed_at IS NULL
+        """,
+        (username.lower(), user_email.lower()),
+    ).fetchone()
+    return jsonify({"is_subscribed": bool(row)})
 
 
-@public_bp.route('/@<username>/unsubscribe', methods=['POST'])
+@public_bp.route("/@<username>/unsubscribe", methods=["POST"])
 def unsubscribe_from_curator(username: str):
     """Unsubscribe from a curator's digest."""
     data = request.get_json() or {}
-    email = data.get('email', '').lower().strip()
-    
-    # If not provided in body, try to get from logged-in user
+    email = data.get("email", "").lower().strip()
     if not email:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            try:
-                from database import get_supabase
-                admin_client = get_supabase()
-                user_resp = admin_client.auth.get_user(auth_header[7:])
-                if user_resp and user_resp.user:
-                    email = user_resp.user.email.lower().strip()
-            except Exception:
-                pass
+        viewer = current_user_optional()
+        email = getattr(viewer, "email", "").lower().strip() if viewer else ""
+    if not email:
+        return jsonify({"error": "Email required to unsubscribe"}), 400
 
-    if not email:
-        return jsonify({'error': 'Email required to unsubscribe'}), 400
-        
-    supabase = get_supabase()
+    conn = get_db()
     try:
-        # We perform a soft delete by setting unsubscribed_at
-        supabase.table('subscribers') \
-            .update({'unsubscribed_at': 'now()'}) \
-            .eq('curator_username', username.lower()) \
-            .eq('email', email) \
-            .execute()
-            
-        return jsonify({'success': True})
+        conn.execute(
+            """
+            UPDATE subscribers
+            SET unsubscribed_at = ?
+            WHERE curator_username = ? AND email = ?
+            """,
+            (utc_now(), username.lower(), email),
+        )
+        conn.commit()
+        return jsonify({"success": True})
     except Exception as e:
+        conn.rollback()
         logger.error(f"Unsubscribe error: {e}")
-        return jsonify({'error': 'Failed to unsubscribe'}), 500
+        return jsonify({"error": "Failed to unsubscribe"}), 500
 
 
-@public_bp.route('/@<username>/subscribers/<subscriber_email>', methods=['DELETE'])
+@public_bp.route("/@<username>/subscribers/<subscriber_email>", methods=["DELETE"])
 @require_auth
 def delete_subscriber(username: str, subscriber_email: str):
     """Delete a subscriber from your list (owner only)."""
-    user_email = getattr(g.user, 'email', None)
-    
-    # Verify owner
-    if not user_email or user_email.split('@')[0].lower() != username.lower():
-        profile = get_user_profile_by_username(username)
-        if not profile or profile['id'] != g.user.id:
-            return jsonify({'error': 'Unauthorized'}), 401
-            
+    if not _is_profile_owner(username):
+        return jsonify({"error": "Unauthorized"}), 401
+    conn = get_db()
     try:
-        supabase = get_supabase()
-        # Hard delete because the curator doesn't want them anymore
-        supabase.table('subscribers') \
-            .delete() \
-            .eq('curator_username', username.lower()) \
-            .eq('email', subscriber_email.lower()) \
-            .execute()
-            
-        return jsonify({'success': True})
+        conn.execute(
+            "DELETE FROM subscribers WHERE curator_username = ? AND email = ?",
+            (username.lower(), subscriber_email.lower()),
+        )
+        conn.commit()
+        return jsonify({"success": True})
     except Exception as e:
+        conn.rollback()
         logger.error(f"Error deleting subscriber {subscriber_email}: {e}")
-        return jsonify({'error': 'Failed to delete subscriber'}), 500
+        return jsonify({"error": "Failed to delete subscriber"}), 500
 
 
-@public_bp.route('/account', methods=['DELETE'])
+@public_bp.route("/account", methods=["DELETE"])
 @require_auth
 def delete_account():
     """Completely delete the user's account and all data."""
     user_id = g.user.id
     user_email = g.user.email
-    username = user_email.split('@')[0].lower()
-    
+    username = user_email.split("@")[0].lower()
+    conn = get_db()
     try:
-        supabase = get_supabase()
-        
-        # 1. Delete all bookmarks (RLS might handle this, but being explicit)
-        supabase.table('bookmarks').delete().eq('user_id', user_id).execute()
-        
-        # 2. Delete all search history
-        supabase.table('search_history').delete().eq('user_id', user_id).execute()
-        
-        # 3. Delete all people SUBSCRIBED TO the user
-        supabase.table('subscribers').delete().eq('curator_username', username).execute()
-        
-        # 4. Delete the user's own SUBSCRIPTIONS to others
-        supabase.table('subscribers').delete().eq('email', user_email).execute()
-        
-        # Finally, delete the auth user (requires service role)
-        supabase.auth.admin.delete_user(user_id)
-        
-        return jsonify({'success': True, 'message': 'Account and all data deleted'})
+        conn.execute("DELETE FROM subscribers WHERE curator_username = ?", (username,))
+        conn.execute("DELETE FROM subscribers WHERE email = ?", (user_email,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        return jsonify({"success": True, "message": "Account and all data deleted"})
     except Exception as e:
+        conn.rollback()
         logger.error(f"Error deleting account for {user_id}: {e}")
-        return jsonify({'error': f'Failed to delete account: {str(e)}'}), 500
+        return jsonify({"error": f"Failed to delete account: {str(e)}"}), 500
 
 
-@public_bp.route('/bookmarks/<bookmark_id>/visibility', methods=['PATCH'])
+@public_bp.route("/bookmarks/<bookmark_id>/visibility", methods=["PATCH"])
 @require_auth
 def toggle_bookmark_visibility(bookmark_id: str):
     """Toggle a bookmark's public/private status."""
-    
-    data = request.get_json()
-    is_public = data.get('is_public', True)
-    
-    # Use the user-scoped supabase client from g.supabase
-    # which has the correct JWT and respects RLS
+    data = request.get_json() or {}
+    is_public = bool(data.get("is_public", True))
+    conn = get_db()
     try:
-        response = g.supabase.table('bookmarks') \
-            .update({'is_public': is_public}) \
-            .eq('id', bookmark_id) \
-            .execute()
-        
-        if not response.data:
-            return jsonify({'error': 'Bookmark not found or access denied'}), 404
-        
-        return jsonify({'success': True, 'is_public': is_public})
-    except Exception as e:
-        logger.error(
-            f"Error updating visibility for bookmark {bookmark_id}: {e}"
+        cursor = conn.execute(
+            """
+            UPDATE bookmarks
+            SET is_public = ?, updated_at = ?
+            WHERE id = ? AND user_id = ?
+            """,
+            (1 if is_public else 0, utc_now(), bookmark_id, g.user.id),
         )
-        return jsonify({'error': f'Failed to update visibility: {str(e)}'}), 500
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Bookmark not found or access denied"}), 404
+        conn.commit()
+        return jsonify({"success": True, "is_public": is_public})
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error updating visibility for bookmark {bookmark_id}: {e}")
+        return jsonify({"error": f"Failed to update visibility: {str(e)}"}), 500

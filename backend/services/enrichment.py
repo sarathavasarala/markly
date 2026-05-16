@@ -1,32 +1,30 @@
 """Bookmark enrichment service."""
+from __future__ import annotations
+
 import logging
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
-from database import get_supabase
+from config import Config
+from database import db_session, refresh_bookmark_fts, row_to_dict, serialize_value, utc_now
 from services.content_extractor import ContentExtractor
 from services.openai_service import AzureOpenAIService
 
 logger = logging.getLogger(__name__)
 
-# Thread pool for background enrichment
 _executor: Optional[ThreadPoolExecutor] = None
 
 
 def analyze_link(
-    url: str, 
-    user_notes: Optional[str] = None, 
-    folders: Optional[list[str]] = None, 
-    use_nano_model: bool = True  # Default to True for speed in preview
+    url: str,
+    user_notes: Optional[str] = None,
+    folders: Optional[list[str]] = None,
+    use_nano_model: bool = True,
 ):
-    """
-    Extract content from a URL and perform AI analysis synchronously.
-    Returns a tuple of (extracted_data, enriched_data).
-    """
+    """Extract content from a URL and perform AI analysis synchronously."""
     logger.info(f"Analyzing link: {url} (nano={use_nano_model})")
-    
-    # Step 1: Scrape (now parallelized internally in ContentExtractor)
+
     try:
         extracted = ContentExtractor.extract(url)
         logger.debug(
@@ -41,7 +39,7 @@ def analyze_link(
             domain = parsed.netloc.replace("www.", "")
         except Exception:
             domain = None
-            
+
         extracted = {
             "title": url,
             "content": None,
@@ -50,8 +48,7 @@ def analyze_link(
             "thumbnail_url": None,
             "domain": domain,
         }
-    
-    # Step 2: AI Enrichment
+
     logger.info(f"Calling Azure OpenAI ({'nano' if use_nano_model else 'default'}) for analysis of {url}...")
     enriched = AzureOpenAIService.enrich_bookmark(
         url=url,
@@ -61,12 +58,11 @@ def analyze_link(
         folders=folders,
         use_nano_model=use_nano_model,
     )
-    
+
     return extracted, enriched
 
 
 def get_executor() -> ThreadPoolExecutor:
-    """Get or create thread pool executor."""
     global _executor
     if _executor is None:
         _executor = ThreadPoolExecutor(max_workers=3)
@@ -75,51 +71,60 @@ def get_executor() -> ThreadPoolExecutor:
 
 def enrich_bookmark_async(bookmark_id: str, *, use_nano_model: bool = False):
     """Submit bookmark enrichment to background thread."""
-    executor = get_executor()
-    executor.submit(_enrich_bookmark, bookmark_id, use_nano_model)
+    get_executor().submit(_enrich_bookmark, bookmark_id, use_nano_model)
+
+
+def generate_embedding_async(bookmark_id: str, bookmark: dict):
+    """Generate and store an embedding without blocking the request."""
+    if not Config.ENABLE_EMBEDDINGS:
+        return
+    get_executor().submit(_generate_embedding, bookmark_id, bookmark)
+
+
+def _generate_embedding(bookmark_id: str, bookmark: dict):
+    try:
+        text = " ".join(filter(None, [
+            bookmark.get("clean_title", ""),
+            bookmark.get("ai_summary", ""),
+            " ".join(bookmark.get("auto_tags") or []),
+            bookmark.get("raw_notes", ""),
+        ]))
+        if not text.strip():
+            return
+        embedding = AzureOpenAIService.generate_embedding(text)
+        with db_session() as conn:
+            conn.execute(
+                "UPDATE bookmarks SET embedding = ?, updated_at = ? WHERE id = ?",
+                (serialize_value(embedding), utc_now(), bookmark_id),
+            )
+    except Exception as e:
+        logger.warning(f"[{bookmark_id}] Embedding generation failed (non-fatal): {e}")
 
 
 def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
-    """
-    Enrich a bookmark with extracted content and AI analysis.
-    
-    This runs in a background thread.
-    Embedding generation is deferred - only done if LLM enrichment succeeds.
-    """
+    """Enrich a bookmark with extracted content and AI analysis."""
     logger.info(f"Starting enrichment for bookmark {bookmark_id}")
-    supabase = get_supabase()
-    
-    try:
-        # Update status to processing
-        logger.debug(f"[{bookmark_id}] Setting status to 'processing'")
-        supabase.table("bookmarks").update({
-            "enrichment_status": "processing"
-        }).eq("id", bookmark_id).execute()
 
-        # Fetch bookmark
-        result = supabase.table("bookmarks").select("*").eq(
-            "id", bookmark_id
-        ).single().execute()
-        
-        if not result.data:
-            raise ValueError(f"Bookmark {bookmark_id} not found")
-        
-        bookmark = result.data
+    try:
+        with db_session() as conn:
+            conn.execute(
+                "UPDATE bookmarks SET enrichment_status = ?, updated_at = ? WHERE id = ?",
+                ("processing", utc_now(), bookmark_id),
+            )
+            bookmark_row = conn.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
+            if not bookmark_row:
+                raise ValueError(f"Bookmark {bookmark_id} not found")
+            bookmark = row_to_dict(bookmark_row)
+
         url = bookmark["url"]
         user_description = bookmark.get("user_description")
         user_id = bookmark.get("user_id")
-        
-        # Fetch user's folders for suggestion
-        folders_list = []
-        try:
-            folders_res = supabase.table("folders").select("name").eq("user_id", user_id).execute()
-            folders_list = [f["name"] for f in folders_res.data]
-        except Exception as fe:
-            logger.warning(f"Could not fetch folders for AI suggestion: {fe}")
-        
-        # Step 1 & 2: Get content and enrich with LLM
+
+        with db_session() as conn:
+            folders_rows = conn.execute("SELECT name FROM folders WHERE user_id = ?", (user_id,)).fetchall()
+            folders_list = [row["name"] for row in folders_rows]
+
         if user_description:
-            # User provided description - skip scraping (useful for JS-heavy sites)
             logger.info(f"[{bookmark_id}] Using user-provided description (skipping scrape)")
             extracted = {
                 "title": bookmark.get("original_title"),
@@ -129,8 +134,6 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
                 "thumbnail_url": None,
                 "domain": bookmark.get("domain"),
             }
-            # Call AI service directly with user-provided content
-            logger.info(f"[{bookmark_id}] Calling Azure OpenAI for enrichment with user description...")
             enriched = AzureOpenAIService.enrich_bookmark(
                 url=url,
                 title=extracted.get("title") or bookmark.get("original_title"),
@@ -139,20 +142,15 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
                 folders=folders_list,
                 use_nano_model=use_nano_model,
             )
-            logger.info(f"[{bookmark_id}] AI enrichment complete - Tags: {enriched.get('auto_tags', [])}")
         else:
-            # Normal flow - scrape and analyze
             extracted, enriched = analyze_link(
                 url=url,
                 user_notes=bookmark.get("raw_notes"),
                 folders=folders_list,
-                use_nano_model=use_nano_model
+                use_nano_model=use_nano_model,
             )
-            logger.info(f"[{bookmark_id}] AI enrichment complete - Tags: {enriched.get('auto_tags', [])}")
-        
-        # Step 3: Update bookmark with enriched data (no embedding yet)
+
         was_scrape_successful = bool(extracted.get("content"))
-        
         update_data = {
             "domain": extracted.get("domain") or bookmark.get("domain"),
             "original_title": extracted.get("title") or bookmark.get("original_title"),
@@ -161,8 +159,8 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
             "content_extract": (extracted.get("content") or "")[:50000],
             "clean_title": enriched.get("clean_title"),
             "ai_summary": enriched.get("ai_summary"),
-            "auto_tags": enriched.get("auto_tags", []),
-            "key_quotes": enriched.get("key_quotes", []),
+            "auto_tags": serialize_value(enriched.get("auto_tags", [])),
+            "key_quotes": serialize_value(enriched.get("key_quotes", [])),
             "intent_type": enriched.get("intent_type"),
             "technical_level": enriched.get("technical_level"),
             "content_type": enriched.get("content_type"),
@@ -172,60 +170,48 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
                 "Scraping failed: content could not be extracted. "
                 "Please review AI guessed metadata."
             ),
+            "updated_at": utc_now(),
         }
-        
-        logger.debug(f"[{bookmark_id}] Updating bookmark in database (scrape success: {was_scrape_successful})...")
-        supabase.table("bookmarks").update(update_data).eq("id", bookmark_id).execute()
-        
-        logger.info(f"[{bookmark_id}] Enrichment complete")
-        
-        # Step 4: Generate embedding in a separate try-catch (non-blocking)
-        # This allows the bookmark to be "completed" even if embedding fails
-        try:
-            embedding_text = " ".join(filter(None, [
-                enriched.get("clean_title", ""),
-                enriched.get("ai_summary", ""),
-                " ".join(enriched.get("auto_tags", [])),
-                bookmark.get("raw_notes", ""),
-            ]))
-            
-            if embedding_text.strip():
-                logger.debug(f"[{bookmark_id}] Generating embedding...")
-                embedding = AzureOpenAIService.generate_embedding(embedding_text)
-                supabase.table("bookmarks").update({
-                    "embedding": embedding
-                }).eq("id", bookmark_id).execute()
-                logger.debug(f"[{bookmark_id}] Embedding saved")
-        except Exception as e:
-            # Log but don't fail the enrichment
-            logger.warning(f"[{bookmark_id}] Embedding generation failed (non-fatal): {e}")
-        
+
+        assignments = ", ".join(f"{key} = ?" for key in update_data)
+        with db_session() as conn:
+            conn.execute(
+                f"UPDATE bookmarks SET {assignments} WHERE id = ?",
+                tuple(update_data.values()) + (bookmark_id,),
+            )
+            refresh_bookmark_fts(conn, bookmark_id)
+
+        enriched_bookmark = {**bookmark, **enriched}
+        generate_embedding_async(bookmark_id, enriched_bookmark)
         logger.info(f"Finished enrichment for bookmark {bookmark_id}")
 
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.error(f"Failed to enrich bookmark {bookmark_id}: {error_msg}")
         logger.debug(traceback.format_exc())
-        
-        # Update status to failed
         try:
-            supabase.table("bookmarks").update({
-                "enrichment_status": "failed",
-                "enrichment_error": error_msg[:500],
-            }).eq("id", bookmark_id).execute()
+            with db_session() as conn:
+                conn.execute(
+                    """
+                    UPDATE bookmarks
+                    SET enrichment_status = ?, enrichment_error = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    ("failed", error_msg[:500], utc_now(), bookmark_id),
+                )
         except Exception:
-            pass
+            logger.exception("Failed to persist enrichment failure")
 
 
 def retry_failed_enrichment(bookmark_id: str):
     """Retry enrichment for a failed bookmark."""
-    supabase = get_supabase()
-    
-    # Reset status to pending
-    supabase.table("bookmarks").update({
-        "enrichment_status": "pending",
-        "enrichment_error": None,
-    }).eq("id", bookmark_id).execute()
-    
-    # Trigger enrichment
+    with db_session() as conn:
+        conn.execute(
+            """
+            UPDATE bookmarks
+            SET enrichment_status = ?, enrichment_error = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            ("pending", None, utc_now(), bookmark_id),
+        )
     enrich_bookmark_async(bookmark_id)

@@ -1,12 +1,14 @@
 """Flask application factory."""
 import logging
 import os
+from datetime import timedelta
 from flask import Flask, send_from_directory, request
 from flask_cors import CORS
 from flask_compress import Compress
 import re
 
 from config import Config
+from database import close_db, initialize_database
 
 
 def create_app():
@@ -16,6 +18,7 @@ def create_app():
     static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
     app = Flask(__name__, static_folder=static_dir, static_url_path='/')
     app.config.from_object(Config)
+    app.permanent_session_lifetime = timedelta(days=Config.SESSION_EXPIRY_DAYS)
     
     # Silence noisy loggers
     logging.getLogger('httpx').setLevel(logging.WARNING)
@@ -35,14 +38,18 @@ def create_app():
         Config.validate()
     except ValueError as e:
         app.logger.warning(f"Configuration warning: {e}")
+    initialize_database()
+    app.teardown_appcontext(close_db)
     
     # Register blueprints
+    from routes.auth import auth_bp
     from routes.bookmarks import bookmarks_bp
     from routes.search import search_bp
     from routes.stats import stats_bp
     from routes.public import public_bp
     from routes.folders import folders_bp
     
+    app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(bookmarks_bp, url_prefix="/api/bookmarks")
     app.register_blueprint(search_bp, url_prefix="/api/search")
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
@@ -65,19 +72,6 @@ def create_app():
 
         with open(index_path, 'r') as f:
             html = f.read()
-
-        # --- Runtime Config Injection ---
-        # Inject Supabase keys from environment variables into window.MARKLY_CONFIG
-        config_script = f'''
-    <script>
-      window.MARKLY_CONFIG = {{
-        "VITE_SUPABASE_URL": "{os.environ.get('SUPABASE_URL', os.environ.get('VITE_SUPABASE_URL', ''))}",
-        "VITE_SUPABASE_ANON_KEY": "{os.environ.get('SUPABASE_ANON_KEY', os.environ.get('VITE_SUPABASE_ANON_KEY', ''))}"
-      }};
-    </script>
-'''
-        # Inject config right after <head>
-        html = re.sub(r'(<head[^>]*>)', r'\1' + config_script, html, flags=re.IGNORECASE)
 
         if not clean_username:
             return html

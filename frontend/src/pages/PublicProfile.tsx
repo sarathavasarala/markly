@@ -16,7 +16,7 @@ interface PublicProfileProps {
 
 export default function PublicProfile({ username = 'sarath' }: PublicProfileProps) {
     const navigate = useNavigate()
-    const { user, isAuthenticated, token, isLoading: isAuthLoading } = useAuthStore()
+    const { user, isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
 
     const [email, setEmail] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -71,13 +71,8 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
         const fetchBookmarks = async () => {
             setIsLoadingBookmarks(true)
             try {
-                const headers: Record<string, string> = {}
-                if (token) {
-                    headers['Authorization'] = `Bearer ${token}`
-                }
-
                 const response = await fetch(`/api/public/@${username}/bookmarks`, {
-                    headers
+                    credentials: 'include'
                 })
                 if (response.ok) {
                     const data = await response.json()
@@ -99,7 +94,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
         if (username) {
             fetchBookmarks()
         }
-    }, [username, token])
+    }, [username])
 
     // Fetch tags
     useEffect(() => {
@@ -199,7 +194,6 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
         setIsLoading(true)
         try {
-            const { bookmarksApi } = await import('../lib/api')
             await bookmarksApi.deleteAccount()
             const { logout } = useAuthStore.getState()
             logout()
@@ -233,9 +227,9 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
         try {
             const response = await fetch(`/api/public/bookmarks/${bookmark.id}/visibility`, {
                 method: 'PATCH',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ is_public: !bookmark.is_public })
             })

@@ -1,39 +1,39 @@
 """Folder routes."""
+from __future__ import annotations
+
 import logging
-from flask import Blueprint, request, jsonify, g
+import sqlite3
+
+from flask import Blueprint, g, jsonify, request
+
+from database import get_db, new_id, row_to_dict, rows_to_dicts, utc_now
 from middleware.auth import require_auth
 
 logger = logging.getLogger(__name__)
 folders_bp = Blueprint("folders", __name__)
+
 
 @folders_bp.route("", methods=["GET"])
 @require_auth
 def list_folders():
     """List all folders for the current user with bookmark counts."""
     try:
-        supabase = g.supabase
-        # Get folders
-        result = supabase.table("folders").select("*").eq("user_id", g.user.id).order("name").execute()
-        folders = result.data or []
-
-        # Get bookmark counts per folder
-        if folders:
-            folder_ids = [f["id"] for f in folders]
-            count_map = {}
-            for folder_id in folder_ids:
-                count_result = supabase.table("bookmarks").select(
-                    "id", count="exact"
-                ).eq("user_id", g.user.id).eq("folder_id", folder_id).execute()
-                count_map[folder_id] = count_result.count or 0
-
-            # Merge counts into folder objects
-            for folder in folders:
-                folder["bookmark_count"] = count_map.get(folder["id"], 0)
-
-        return jsonify(folders)
+        rows = get_db().execute(
+            """
+            SELECT f.*, COUNT(b.id) AS bookmark_count
+            FROM folders f
+            LEFT JOIN bookmarks b ON b.folder_id = f.id AND b.user_id = f.user_id
+            WHERE f.user_id = ?
+            GROUP BY f.id
+            ORDER BY f.name
+            """,
+            (g.user.id,),
+        ).fetchall()
+        return jsonify(rows_to_dicts(rows))
     except Exception as e:
         logger.error(f"Failed to list folders: {str(e)}")
         return jsonify({"error": f"Failed to list folders: {str(e)}"}), 500
+
 
 @folders_bp.route("", methods=["POST"])
 @require_auth
@@ -42,26 +42,40 @@ def create_folder():
     data = request.get_json()
     if not data or "name" not in data:
         return jsonify({"error": "Folder name is required"}), 400
-    
+
+    conn = get_db()
+    now = utc_now()
+    folder_id = new_id()
     try:
-        supabase = g.supabase
-        folder_data = {
-            "name": data["name"].strip(),
-            "icon": data.get("icon"),
-            "color": data.get("color"),
-            "user_id": g.user.id
-        }
-        
-        result = supabase.table("folders").insert(folder_data).execute()
-        if not result.data:
-            return jsonify({"error": "Failed to create folder"}), 500
-            
-        return jsonify(result.data[0]), 201
-    except Exception as e:
+        conn.execute(
+            """
+            INSERT INTO folders (id, user_id, name, icon, color, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                folder_id,
+                g.user.id,
+                data["name"].strip(),
+                data.get("icon"),
+                data.get("color"),
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM folders WHERE id = ?", (folder_id,)).fetchone()
+        return jsonify(row_to_dict(row)), 201
+    except sqlite3.IntegrityError as e:
+        conn.rollback()
         logger.error(f"Failed to create folder: {str(e)}")
-        if "duplicate key" in str(e).lower():
+        if "UNIQUE" in str(e).upper():
             return jsonify({"error": "A folder with this name already exists"}), 409
         return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Failed to create folder: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
 @folders_bp.route("/<folder_id>", methods=["PATCH"])
 @require_auth
@@ -70,37 +84,50 @@ def update_folder(folder_id: str):
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
-        
+
     allowed_fields = ["name", "icon", "color"]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
-    
     if not update_data:
         return jsonify({"error": "No valid fields to update"}), 400
-        
+
+    update_data["updated_at"] = utc_now()
+    assignments = ", ".join(f"{key} = ?" for key in update_data)
+    conn = get_db()
     try:
-        supabase = g.supabase
-        result = supabase.table("folders").update(update_data).eq("id", folder_id).eq("user_id", g.user.id).execute()
-        
-        if not result.data:
+        conn.execute(
+            f"UPDATE folders SET {assignments} WHERE id = ? AND user_id = ?",
+            tuple(update_data.values()) + (folder_id, g.user.id),
+        )
+        row = conn.execute(
+            "SELECT * FROM folders WHERE id = ? AND user_id = ?",
+            (folder_id, g.user.id),
+        ).fetchone()
+        if not row:
             return jsonify({"error": "Folder not found"}), 404
-            
-        return jsonify(result.data[0])
+        conn.commit()
+        return jsonify(row_to_dict(row))
     except Exception as e:
+        conn.rollback()
         logger.error(f"Failed to update folder: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 @folders_bp.route("/<folder_id>", methods=["DELETE"])
 @require_auth
 def delete_folder(folder_id: str):
-    """Delete a folder. Associated bookmarks will have folder_id set to NULL due to ON DELETE SET NULL."""
+    """Delete a folder and leave its bookmarks unfiled."""
+    conn = get_db()
     try:
-        supabase = g.supabase
-        result = supabase.table("folders").delete().eq("id", folder_id).eq("user_id", g.user.id).execute()
-        
-        if not result.data:
+        row = conn.execute(
+            "SELECT id FROM folders WHERE id = ? AND user_id = ?",
+            (folder_id, g.user.id),
+        ).fetchone()
+        if not row:
             return jsonify({"error": "Folder not found"}), 404
-            
+        conn.execute("DELETE FROM folders WHERE id = ? AND user_id = ?", (folder_id, g.user.id))
+        conn.commit()
         return jsonify({"message": "Folder deleted successfully"})
     except Exception as e:
+        conn.rollback()
         logger.error(f"Failed to delete folder: {str(e)}")
         return jsonify({"error": str(e)}), 500
