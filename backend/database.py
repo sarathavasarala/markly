@@ -40,7 +40,9 @@ def _connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
-    conn.execute("PRAGMA journal_mode = WAL")
+    # Azure App Service persists /home on network-backed storage where WAL can
+    # hang during startup. DELETE is safer for this small single-instance app.
+    conn.execute(f"PRAGMA journal_mode = {Config.SQLITE_JOURNAL_MODE}")
     return conn
 
 

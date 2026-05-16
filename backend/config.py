@@ -24,6 +24,7 @@ class Config:
         "MARKLY_DB_PATH",
         os.path.join(base_dir, "markly.db")
     )
+    SQLITE_JOURNAL_MODE = os.getenv("SQLITE_JOURNAL_MODE", "DELETE")
     
     # Auth
     ALLOWED_EMAILS = os.getenv("ALLOWED_EMAILS", "")
