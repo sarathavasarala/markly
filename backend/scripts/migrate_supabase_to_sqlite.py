@@ -111,7 +111,7 @@ def _insert_rows(conn, table_name: str, rows: list[dict[str, Any]]):
         )
 
 
-def main():
+def migrate():
     initialize_database()
     from database import db_session, refresh_bookmark_fts  # noqa: E402
 
@@ -130,12 +130,24 @@ def main():
         for bookmark in bookmarks:
             refresh_bookmark_fts(conn, bookmark["id"])
 
-    print(f"Migrated to {Config.MARKLY_DB_PATH}:")
-    print(f"- users: {len(users)}")
-    print(f"- folders: {len(folders)}")
-    print(f"- bookmarks: {len(bookmarks)}")
-    print(f"- search_history: {len(search_history)}")
-    print(f"- subscribers: {len(subscribers)}")
+    return {
+        "db_path": Config.MARKLY_DB_PATH,
+        "users": len(users),
+        "folders": len(folders),
+        "bookmarks": len(bookmarks),
+        "search_history": len(search_history),
+        "subscribers": len(subscribers),
+    }
+
+
+def main():
+    result = migrate()
+    print(f"Migrated to {result['db_path']}:")
+    print(f"- users: {result['users']}")
+    print(f"- folders: {result['folders']}")
+    print(f"- bookmarks: {result['bookmarks']}")
+    print(f"- search_history: {result['search_history']}")
+    print(f"- subscribers: {result['subscribers']}")
 
 
 if __name__ == "__main__":

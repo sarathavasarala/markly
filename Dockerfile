@@ -33,6 +33,6 @@ ENV FLASK_APP=app.py
 # Use 0.0.0.0 to bind to all interfaces within the container
 ENV PORT=8000
 
-# Run with Gunicorn
-# 4 workers is a reasonable starting point; adjust based on SKU
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8000", "app:create_app()"]
+# Run with a single worker plus threads. This fits small Azure App Service SKUs
+# better than multiple heavy Python worker processes.
+CMD ["gunicorn", "-w", "1", "--threads", "4", "--timeout", "120", "-b", "0.0.0.0:8000", "app:create_app()"]
