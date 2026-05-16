@@ -327,184 +327,153 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
     if (isAuthLoading) {
         return (
-            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+            <div className="min-h-screen bg-[#eef1ee] dark:bg-[#0b0d11] flex items-center justify-center">
+                <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
             </div>
         )
     }
 
     return (
-        <div className={`${!isOwner ? 'min-h-screen bg-gray-50 dark:bg-gray-950' : 'bg-transparent'} text-gray-900 dark:text-gray-100 selection:bg-primary-500/30 flex flex-col transition-colors duration-300`}>
-            {/* Background effects */}
-            {!isOwner && (
-                <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-primary-500/5 to-transparent dark:from-primary-500/10" />
-                </div>
-            )}
-
-            <div className={`relative z-10 flex-1 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 ${!isOwner ? 'py-4 sm:py-6' : 'py-4 sm:py-6'} w-full space-y-8 sm:space-y-10`}>
+        <div className={`${!isOwner ? 'min-h-screen bg-[#eef1ee] dark:bg-[#0b0d11]' : 'bg-transparent'} text-slate-950 dark:text-slate-100 selection:bg-indigo-500/20 flex flex-col transition-colors duration-300`}>
+            <div className={`relative z-10 flex-1 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 w-full space-y-8`}>
                 {/* Hero & Grid Unit */}
                 {isLoadingBookmarks ? (
                     <div className="flex justify-center py-32">
-                        <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
+                        <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
                     </div>
                 ) : (
                     <>
-                        {/* Profile Header section */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
-                            {/* Profile Identity Section */}
-                            <div className="flex items-center gap-5 sm:gap-8">
-                                <div className="relative group shrink-0">
-                                    <div className="absolute -inset-1.5 bg-gradient-to-tr from-primary-500 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                        {/* Profile header */}
+                        <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 px-6 py-6 sm:px-8 sm:py-7 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                            <div className="flex items-center gap-5 sm:gap-6 min-w-0">
+                                <div className="shrink-0">
                                     {profileMetadata?.avatar_url ? (
                                         <img
                                             src={profileMetadata.avatar_url}
                                             alt={fullName}
-                                            className="relative w-16 h-16 sm:w-20 sm:h-20 aspect-square rounded-2xl object-cover object-center border-2 border-white dark:border-gray-950 shadow-2xl transition-transform duration-500 group-hover:scale-[1.05]"
+                                            className="w-16 h-16 sm:w-20 sm:h-20 aspect-square rounded-2xl object-cover object-center ring-1 ring-slate-200 dark:ring-slate-800"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${fullName}&background=6366f1&color=fff&size=200`
+                                                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${fullName}&background=0f172a&color=fff&size=200`
                                             }}
                                         />
                                     ) : (
-                                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 aspect-square bg-gray-100 dark:bg-gray-900 rounded-2xl flex items-center justify-center border-2 border-white dark:border-gray-950 shadow-2xl">
-                                            <Mail className="w-8 h-8 sm:w-10 sm:h-10 text-primary-500" />
+                                        <div className="w-16 h-16 sm:w-20 sm:h-20 aspect-square rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400">
+                                            <Mail className="w-7 h-7" />
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="flex flex-col">
-                                    <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-none mb-2">
-                                        {firstName}'s Reading List
+                                <div className="min-w-0">
+                                    <h1 className="font-display text-3xl sm:text-4xl text-slate-950 dark:text-slate-50 leading-tight">
+                                        {firstName}'s reading list
                                     </h1>
-                                    <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm font-bold uppercase tracking-[0.15em]">
-                                        Curated by <span className="text-gray-900 dark:text-white">{fullName}</span>
+                                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                                        Curated by <span className="text-slate-900 dark:text-slate-100">{fullName}</span>
                                     </p>
-                                </div>
-                            </div>
-
-                            {/* Integrated Stats & Notify Bar */}
-                            <div className={`${!isOwner ? 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-xl' : 'bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-800 shadow-2xl'} backdrop-blur-3xl rounded-[2rem] p-2 flex flex-col xl:flex-row items-stretch xl:items-center gap-4 xl:gap-0 relative transition-colors`}>
-                                {/* High-Impact Stats */}
-                                <div className="flex items-center gap-6 sm:gap-10 px-6 py-2 xl:px-8">
-                                    <div className="flex flex-col">
-                                        <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white leading-none">{totalCount}</span>
-                                        <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Picks</span>
-                                    </div>
-                                    {isOwner && (
-                                        <>
-                                            <div className="w-px h-10 bg-gray-100 dark:bg-gray-800 hidden sm:block" />
-                                            <div
-                                                className="flex flex-col cursor-pointer hover:opacity-80 transition-all"
+                                    <div className="mt-3 flex items-center gap-5 text-sm text-slate-500 dark:text-slate-400">
+                                        <span><span className="font-medium text-slate-900 dark:text-slate-100">{totalCount}</span> picks</span>
+                                        {isOwner && (
+                                            <button
                                                 onClick={() => setIsSubscribersModalOpen(true)}
+                                                className="hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
                                                 title="View your subscribers"
                                             >
-                                                <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white leading-none">{subscriberCount}</span>
-                                                <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500 font-black mt-2">Subscribers</span>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* Integrated Action Area */}
-                                <div className="flex-1 flex items-center border-t xl:border-t-0 xl:border-l border-gray-100 dark:border-gray-800 pt-4 xl:pt-0 xl:pl-8 px-4 xl:px-6">
-                                    {isOwner ? (
-                                        <div className="flex items-center justify-between xl:justify-start gap-6 w-full">
-                                            <div className="flex flex-col gap-1 min-w-0">
-                                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary-500">Your Public Link</span>
-                                                <span className="text-sm font-medium text-gray-400 truncate max-w-[180px] sm:max-w-xs transition-colors hover:text-gray-300">
-                                                    {window.location.origin}/@{username}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 shrink-0">
-                                                <button
-                                                    onClick={handleCopyProfileLink}
-                                                    className="h-12 px-6 bg-gray-800 hover:bg-gray-700 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all flex items-center gap-3 active:scale-95 shadow-lg shadow-black/10 border border-gray-700/50"
-                                                >
-                                                    {isCopied ? (
-                                                        <>
-                                                            <Check className="w-4 h-4 text-green-400" />
-                                                            <span className="text-green-400">Copied</span>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Copy className="w-4 h-4 text-gray-400" />
-                                                            <span className="whitespace-nowrap">Copy Link</span>
-                                                        </>
-                                                    )}
-                                                </button>
-
-                                                <div className="relative">
-                                                    <button
-                                                        onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                                        className="p-3 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800/50 rounded-2xl transition-all border border-transparent hover:border-gray-700/30"
-                                                    >
-                                                        <MoreVertical className="w-5 h-5" />
-                                                    </button>
-                                                    {isMenuOpen && (
-                                                        <>
-                                                            <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
-                                                            <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl z-20 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
-                                                                <div className="p-2">
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setIsMenuOpen(false)
-                                                                            handleDeleteAccount()
-                                                                        }}
-                                                                        className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
-                                                                    >
-                                                                        <AlertTriangle className="w-4 h-4" />
-                                                                        <span>Delete Account</span>
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : !isSubscribed ? (
-                                        <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full py-2">
-                                            <div className="relative flex-1 group min-w-0">
-                                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                                                    <Mail className="w-4 h-4 text-gray-500 group-focus-within:text-primary-500 transition-colors" />
-                                                </div>
-                                                <input
-                                                    type="email"
-                                                    value={email}
-                                                    onChange={(e) => setEmail(e.target.value)}
-                                                    placeholder="Enter email to join the list"
-                                                    className={`w-full xl:w-72 ${!isOwner ? 'bg-gray-100/50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white' : 'bg-gray-950/40 border-gray-800/80 text-white'} rounded-2xl py-3.5 pl-12 pr-4 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all font-medium`}
-                                                    required
-                                                />
-                                            </div>
-                                            <button
-                                                type="submit"
-                                                disabled={isLoading}
-                                                className="h-[52px] px-8 bg-primary-600 hover:bg-primary-500 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all shadow-xl shadow-primary-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
-                                            >
-                                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Keep me updated'}
+                                                <span className="font-medium text-slate-900 dark:text-slate-100">{subscriberCount}</span> subscribers
                                             </button>
-                                        </form>
-                                    ) : (
-                                        <div className="flex items-center justify-between sm:justify-start gap-8 text-green-400 w-full py-2">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center border border-green-500/20">
-                                                    <CheckCircle className="w-5 h-5" />
-                                                </div>
-                                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Subscribed</span>
-                                            </div>
-                                            <button
-                                                onClick={handleUnsubscribe}
-                                                className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-red-400 transition-colors py-2"
-                                            >
-                                                Unsubscribe
-                                            </button>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                            {error && <p className="absolute -bottom-8 left-0 text-red-400 text-[10px] font-black uppercase tracking-widest animate-pulse">{error}</p>}
+
+                            <div className="flex flex-col gap-3 md:items-end shrink-0">
+                                {isOwner ? (
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 ring-1 ring-slate-200 text-sm text-slate-600 truncate max-w-xs dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-300">
+                                            <span className="truncate">{window.location.origin}/@{username}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={handleCopyProfileLink}
+                                                className="px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white transition-colors flex items-center gap-2"
+                                            >
+                                                {isCopied ? (
+                                                    <>
+                                                        <Check className="w-4 h-4" />
+                                                        Copied
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Copy className="w-4 h-4" />
+                                                        Copy link
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                                    className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+                                                >
+                                                    <MoreVertical className="w-5 h-5" />
+                                                </button>
+                                                {isMenuOpen && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
+                                                        <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-white shadow-card ring-1 ring-slate-200/70 dark:bg-slate-900 dark:ring-slate-800 z-20 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
+                                                            <div className="p-1.5">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setIsMenuOpen(false)
+                                                                        handleDeleteAccount()
+                                                                    }}
+                                                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20 transition-colors"
+                                                                >
+                                                                    <AlertTriangle className="w-4 h-4" />
+                                                                    Delete account
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : !isSubscribed ? (
+                                    <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                                        <div className="relative flex-1 sm:w-72 group">
+                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-300 transition-colors" />
+                                            <input
+                                                type="email"
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                placeholder="Your email"
+                                                className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white/80 ring-1 ring-slate-200 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+                                                required
+                                            />
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={isLoading}
+                                            className="px-5 py-2.5 rounded-full bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Subscribe'}
+                                        </button>
+                                    </form>
+                                ) : (
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-sm">
+                                            <CheckCircle className="w-4 h-4" />
+                                            Subscribed
+                                        </div>
+                                        <button
+                                            onClick={handleUnsubscribe}
+                                            className="text-sm text-slate-500 hover:text-rose-600 transition-colors"
+                                        >
+                                            Unsubscribe
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <TopicsBox
@@ -517,26 +486,26 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
                         {/* Masonry Grid Section */}
                         {profileNotFound ? (
-                            <div className="text-center py-20 bg-gray-900/20 rounded-3xl border border-dashed border-gray-800">
-                                <p className="text-gray-400 text-xl font-medium">Profile not found</p>
-                                <button onClick={() => navigate('/')} className="mt-4 text-primary-400 font-bold hover:underline">Go Home</button>
+                            <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 py-16 text-center">
+                                <p className="font-display text-xl text-slate-950 dark:text-slate-50">Profile not found</p>
+                                <button onClick={() => navigate('/')} className="mt-3 text-sm text-indigo-700 dark:text-indigo-300 hover:underline">Go home</button>
                             </div>
                         ) : bookmarks.length === 0 ? (
-                            <div className="text-center py-20 bg-gray-900/20 rounded-3xl border border-dashed border-gray-800">
-                                <p className="text-gray-500 font-medium">No bookmarks shared yet</p>
+                            <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 py-16 text-center">
+                                <p className="text-sm text-slate-500 dark:text-slate-400">No bookmarks shared yet</p>
                             </div>
                         ) : (
-                            <div className="space-y-6">
+                            <div className="space-y-5">
                                 {selectedTags.length > 0 && (
                                     <div className="flex items-center justify-between">
-                                        <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">
-                                            Results for {selectedTags.map(t => `#${t}`).join(', ')} ({filteredBookmarks.length})
+                                        <h2 className="text-sm text-slate-500 dark:text-slate-400">
+                                            Filtering by {selectedTags.map(t => `#${t}`).join(', ')} · {filteredBookmarks.length} {filteredBookmarks.length === 1 ? 'result' : 'results'}
                                         </h2>
                                         <button
                                             onClick={clearFilters}
-                                            className="text-[10px] font-black uppercase tracking-widest text-primary-600 hover:text-primary-700 transition-colors"
+                                            className="text-sm text-indigo-700 hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-200 transition-colors"
                                         >
-                                            Clear all filters
+                                            Clear filters
                                         </button>
                                     </div>
                                 )}
@@ -557,9 +526,9 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                     breakpoints={{ 0: 1, 640: 2, 1024: 3, 1280: 4 }}
                                 />
                                 {filteredBookmarks.length === 0 && (
-                                    <div className="text-center py-20 bg-gray-50 dark:bg-gray-900/20 rounded-3xl border border-dashed border-gray-100 dark:border-gray-800">
-                                        <p className="text-gray-500 font-medium">No bookmarks match these topics</p>
-                                        <button onClick={clearFilters} className="mt-4 text-primary-600 font-bold hover:underline">Clear all filters</button>
+                                    <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 py-16 text-center">
+                                        <p className="text-sm text-slate-500 dark:text-slate-400">No bookmarks match these topics</p>
+                                        <button onClick={clearFilters} className="mt-3 text-sm text-indigo-700 dark:text-indigo-300 hover:underline">Clear filters</button>
                                     </div>
                                 )}
                             </div>
@@ -568,38 +537,38 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                 )}
 
                 {/* Footer */}
-                <div className="text-center mt-20 pt-10 border-t border-gray-100 dark:border-gray-800">
-                    <a href="/" className="inline-flex items-center gap-2 text-gray-400 dark:text-gray-600 hover:text-primary-500 text-xs font-black uppercase tracking-[0.2em] transition-all">
-                        Powered by <Mail className="w-4 h-4 shrink-0" /> markly
+                <div className="text-center mt-16 pt-8 border-t border-slate-200/70 dark:border-slate-800/70">
+                    <a href="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors">
+                        Made with <span className="font-display text-base text-slate-900 dark:text-slate-100">markly</span>
                     </a>
                 </div>
             </div>
 
             {/* Success Toast */}
             {saveSuccess && (
-                <div className="fixed bottom-8 right-8 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                    <div className="bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border border-green-500">
-                        <CheckCircle className="w-5 h-5" />
-                        <span className="font-bold">Saved to your collection</span>
+                <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <div className="px-5 py-3 rounded-full bg-slate-900 text-white text-sm shadow-card-hover flex items-center gap-2 dark:bg-slate-100 dark:text-slate-950">
+                        <CheckCircle className="w-4 h-4" />
+                        Saved to your library
                     </div>
                 </div>
             )}
 
             {/* Error/Info Toast with Retry */}
             {error && (
-                <div className="fixed bottom-8 right-8 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                    <div className={`px-6 py-4 rounded-xl shadow-2xl border ${error?.includes('already in your collection')
-                        ? 'bg-blue-600 border-blue-500'
-                        : 'bg-red-600 border-red-500'
-                        } text-white`}>
-                        <div className="flex items-start gap-3">
-                            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                    <div className={`px-5 py-3 rounded-2xl shadow-card-hover text-sm ${error?.includes('already in your collection')
+                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950'
+                        : 'bg-rose-600 text-white'
+                        }`}>
+                        <div className="flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                             <div className="flex-1">
-                                <p className="font-bold mb-2">{error}</p>
+                                <p>{error}</p>
                                 {retryBookmark && (
                                     <button
                                         onClick={handleRetry}
-                                        className="w-full px-4 py-2 bg-white text-red-600 rounded-lg font-bold text-sm hover:bg-gray-100 transition-colors"
+                                        className="mt-2 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-xs font-medium transition-colors"
                                     >
                                         Retry
                                     </button>

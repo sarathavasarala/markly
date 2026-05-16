@@ -35,7 +35,6 @@ export default function Layout({
   const { fetchFolders, selectedFolderId } = useFolderStore()
   const navigate = useNavigate()
 
-  // Get user display info
   const userEmail = user?.email || ''
   const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || ''
   const userAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || ''
@@ -50,44 +49,41 @@ export default function Layout({
     }
   }
 
-  // Update document title post-login
   useEffect(() => {
     if (isAuthenticated) {
       const displayName = userName || userEmail.split('@')[0]
       if (displayName) {
-        document.title = `${displayName} - markly`
+        document.title = `${displayName} — markly`
       } else {
         document.title = 'markly'
       }
       fetchFolders()
     } else {
-      document.title = 'markly - Your smart bookmark library'
+      document.title = 'markly — Your bookmark library'
     }
 
     return () => {
-      document.title = 'markly - Your smart bookmark library'
+      document.title = 'markly — Your bookmark library'
     }
   }, [userName, userEmail, fetchFolders, isAuthenticated])
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
-      {/* Header */}
-      <header className={`fixed top-0 left-0 right-0 z-50 ${isAuthenticated ? 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800' : 'bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-800'}`}>
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10">
-          <div className={`flex items-center justify-between ${isAuthenticated ? 'h-16' : 'h-20'} gap-4`}>
-            {/* Logo */}
+    <div className="min-h-screen bg-[#eef1ee] text-slate-950 transition-colors duration-300 dark:bg-[#0b0d11] dark:text-slate-100">
+      <header className="fixed left-0 right-0 top-0 z-50 border-b border-slate-200/70 bg-[#eef1ee]/80 backdrop-blur-md dark:border-slate-800/80 dark:bg-[#0b0d11]/80">
+        <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-10">
+          <div className={`flex items-center justify-between gap-4 ${isAuthenticated ? 'h-16' : 'h-20'}`}>
             <div className="flex items-center gap-3">
               {isAuthenticated && (
                 <button
                   onClick={toggleSidebar}
-                  className="p-2 -ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="-ml-2 rounded-lg p-2 text-slate-500 transition-colors hover:bg-white/70 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                 >
-                  <Menu className="w-5 h-5" />
+                  <Menu className="h-5 w-5" />
                 </button>
               )}
-              <Link to="/" className={`flex items-center gap-3 flex-shrink-0 ${!isAuthenticated ? '-ml-1' : ''}`}>
-                <BookMarked className={`${isAuthenticated ? 'w-7 h-7' : 'w-8 h-8'} text-primary-600`} />
-                <span className={`${isAuthenticated ? 'text-lg sm:block hidden' : 'text-2xl'} font-black text-gray-900 dark:text-white tracking-tight`}>
+              <Link to="/" className={`flex flex-shrink-0 items-center gap-2 ${!isAuthenticated ? '-ml-1' : ''}`}>
+                <BookMarked className={`${isAuthenticated ? 'h-6 w-6' : 'h-7 w-7'} text-slate-900 dark:text-slate-100`} />
+                <span className={`${isAuthenticated ? 'hidden text-xl sm:block' : 'text-2xl'} font-display font-normal tracking-tight text-slate-950 dark:text-slate-50`}>
                   markly
                 </span>
               </Link>
@@ -95,62 +91,60 @@ export default function Layout({
 
             {isAuthenticated ? (
               <>
-                {/* Mobile Search Toggle */}
-                <div className="sm:hidden flex-1 flex justify-end">
+                {/* Mobile search toggle */}
+                <div className="flex flex-1 justify-end sm:hidden">
                   {isSearchOpen ? (
-                    <form onSubmit={handleSearch} className="absolute inset-x-0 top-0 h-16 bg-white dark:bg-gray-900 flex items-center px-4 z-50">
-                      <Search className="w-5 h-5 text-gray-400 mr-2" />
+                    <form onSubmit={handleSearch} className="absolute inset-x-0 top-0 z-50 flex h-16 items-center bg-[#eef1ee] px-4 dark:bg-[#0b0d11]">
+                      <Search className="mr-2 h-5 w-5 text-slate-400" />
                       <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search bookmarks..."
                         autoFocus
-                        className="flex-1 bg-transparent border-none focus:ring-0 text-gray-900 dark:text-white placeholder-gray-400"
+                        className="flex-1 border-none bg-transparent text-slate-900 placeholder-slate-400 focus:ring-0 dark:text-white"
                       />
                       <button
                         type="button"
                         onClick={() => setIsSearchOpen(false)}
-                        className="p-2 ml-2 text-gray-500"
+                        className="ml-2 p-2 text-slate-500"
                       >
-                        <X className="w-5 h-5" />
+                        <X className="h-5 w-5" />
                       </button>
                     </form>
                   ) : (
                     <button
                       onClick={() => setIsSearchOpen(true)}
-                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-slate-100"
                     >
-                      <Search className="w-5 h-5" />
+                      <Search className="h-5 w-5" />
                     </button>
                   )}
                 </div>
 
-                {/* Desktop Search Bar */}
-                <form onSubmit={handleSearch} className="hidden sm:block flex-1 max-w-2xl px-4 lg:px-8">
+                {/* Desktop search */}
+                <form onSubmit={handleSearch} className="hidden max-w-2xl flex-1 px-4 sm:block lg:px-8">
                   <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search your bookmarks..."
-                      className="w-full pl-12 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-full bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-700 transition-colors"
+                      className="w-full rounded-full border border-slate-200 bg-white px-12 py-2 text-sm text-slate-900 placeholder-slate-400 transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-900/40"
                     />
                   </div>
                 </form>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex flex-shrink-0 items-center gap-2">
                   <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-full hover:bg-primary-700 transition-colors font-medium"
+                    className="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 active:scale-95 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="h-4 w-4" />
                     <span className="hidden sm:inline">Add</span>
                   </button>
 
-                  {/* User Avatar/Initials */}
                   <div className="relative group">
                     <Link
                       to={`/@${userEmail.split('@')[0]}`}
@@ -161,10 +155,10 @@ export default function Layout({
                         <img
                           src={userAvatar}
                           alt={userName || userEmail}
-                          className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700 cursor-pointer hover:border-primary-500 transition-colors"
+                          className="h-8 w-8 cursor-pointer rounded-full border border-slate-200 transition-colors hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500"
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-medium cursor-pointer hover:bg-primary-500 transition-colors">
+                        <div className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white transition-colors hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950">
                           {userInitials}
                         </div>
                       )}
@@ -173,16 +167,16 @@ export default function Layout({
 
                   <button
                     onClick={toggleTheme}
-                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    className="p-2 text-slate-500 transition-colors hover:text-slate-900 dark:hover:text-slate-100"
                   >
-                    {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                    {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
                   </button>
 
                   <button
                     onClick={logout}
-                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="p-2 text-slate-500 transition-colors hover:text-slate-900 dark:hover:text-slate-100"
                   >
-                    <LogOut className="w-5 h-5" />
+                    <LogOut className="h-5 w-5" />
                   </button>
                 </div>
               </>
@@ -190,9 +184,9 @@ export default function Layout({
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => navigate('/login')}
-                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-gray-700/50 shadow-lg shadow-black/20"
+                  className="rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
                 >
-                  Sign In
+                  Sign in
                 </button>
               </div>
             )}
@@ -200,11 +194,10 @@ export default function Layout({
         </div>
       </header>
 
-      {/* Main Content */}
       <div className={`flex ${isAuthenticated ? 'pt-16' : 'pt-24'}`}>
         {isAuthenticated && !noPadding && <Sidebar />}
-        <main className={`flex-1 w-full transition-all duration-300 ${noPadding ? '' : `${isSidebarOpen && isAuthenticated ? 'lg:pl-64' : ''}`}`}>
-          <div className={noPadding ? '' : "max-w-screen-2xl mx-auto pt-6 pb-8 px-4 sm:px-6 lg:px-10 w-full overflow-hidden"}>
+        <main className={`w-full flex-1 transition-all duration-300 ${noPadding ? '' : `${isSidebarOpen && isAuthenticated ? 'lg:pl-64' : ''}`}`}>
+          <div className={noPadding ? '' : 'mx-auto w-full max-w-screen-2xl overflow-hidden px-4 pb-8 pt-6 sm:px-6 lg:px-10'}>
             {children || <Outlet />}
           </div>
         </main>

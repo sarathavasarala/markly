@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Search from './pages/Search'
 import PublicProfile from './pages/PublicProfile'
+import CardRedesignMock from './pages/CardRedesignMock'
 import { useEffect } from 'react'
 
 import { useUIStore } from './stores/uiStore'
@@ -77,6 +78,7 @@ function App() {
     <Routes>
       {/* Public routes - no auth required */}
       <Route path="/login" element={<Login />} />
+      <Route path="/card-redesign" element={<CardRedesignMock />} />
 
       {/* Protected routes - must come before the catch-all */}
       <Route

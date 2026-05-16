@@ -98,7 +98,7 @@ export default function Dashboard() {
   const renderHeader = () => {
     // Show skeleton count during loading to prevent stale data flash
     const countDisplay = isLoading ? (
-      <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" />
+      <span className="inline-block w-6 h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded animate-pulse align-middle" />
     ) : (
       total
     )
@@ -107,18 +107,18 @@ export default function Dashboard() {
     const isInsideFolder = currentFolder && viewMode !== 'folders'
 
     let titleContent: React.ReactNode = (
-      <span className="flex items-center gap-1">Your bookmarks ({isLoading ? <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" /> : totalCount})</span>
+      <span className="flex items-center gap-1">Your bookmarks ({isLoading ? <span className="inline-block w-6 h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded animate-pulse align-middle" /> : totalCount})</span>
     )
 
     if (viewMode === 'folders') {
       titleContent = (
-        <span className="flex items-center gap-1">Your bookmarks ({isLoading ? <span className="inline-block w-6 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse align-middle" /> : totalCount})</span>
+        <span className="flex items-center gap-1">Your bookmarks ({isLoading ? <span className="inline-block w-6 h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded animate-pulse align-middle" /> : totalCount})</span>
       )
     } else if (selectedTags.length > 0) {
       titleContent = (
         <span className="flex items-center gap-2">
           Filtered results ({countDisplay})
-          <button onClick={clearFilters} className="text-xs font-normal text-primary-600 hover:underline flex items-center gap-1">
+          <button onClick={clearFilters} className="text-xs font-medium text-indigo-700 hover:underline flex items-center gap-1 dark:text-indigo-300">
             Clear filters <X className="w-3 h-3" />
           </button>
         </span>
@@ -132,47 +132,47 @@ export default function Dashboard() {
               setSelectedFolderId(null)
               setViewMode('folders')
             }}
-            className="text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+            className="text-slate-500 transition-colors hover:text-indigo-700 dark:text-slate-400 dark:hover:text-indigo-300"
           >
             Your bookmarks
           </button>
-          <span className="text-gray-400 dark:text-gray-500">›</span>
+          <span className="text-slate-400 dark:text-slate-500">›</span>
           <span>{currentFolder.name}</span>
         </span>
       )
     }
 
     return (
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-normal text-slate-950 sm:text-3xl dark:text-slate-50">
           {titleContent}
         </h1>
         <div className="flex items-center gap-2">
-          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+          <div className="flex rounded-full border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900">
             {!isInsideFolder && (
               <button
                 onClick={() => setViewMode('folders' as BookmarkViewMode)}
-                className={`p-1.5 rounded-md transition-all ${viewMode === 'folders' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                className={`rounded-full p-1.5 transition-all ${viewMode === 'folders' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
                 title="Folders view"
               >
-                <FolderIcon className="w-4 h-4" />
+                <FolderIcon className="h-4 w-4" />
               </button>
             )}
             <button
               onClick={() => setViewMode('cards')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'cards' || (isInsideFolder && viewMode !== 'list') ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+              className={`rounded-full p-1.5 transition-all ${viewMode === 'cards' || (isInsideFolder && viewMode !== 'list') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
               title="Grid view"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
               </svg>
             </button>
             <button
               onClick={() => setViewMode('list' as BookmarkViewMode)}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-700 shadow-sm text-primary-600 dark:text-primary-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+              className={`rounded-full p-1.5 transition-all ${viewMode === 'list' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
               title="List view"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -197,14 +197,14 @@ export default function Dashboard() {
       {isLoading && bookmarks.length === 0 ? (
         <MasonryGrid
           items={[1, 2, 3, 4]}
-          renderItem={() => <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />}
+          renderItem={() => <div className="h-64 rounded-card bg-slate-200/70 animate-pulse dark:bg-slate-800/70" />}
         />
       ) : viewMode === 'folders' && !selectedFolderId ? (
         (() => {
           if (folders.length === 0 && bookmarks.length === 0) {
             return (
-              <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
-                <p className="text-gray-500">
+              <div className="text-center py-20 rounded-card border border-dashed border-slate-300 bg-white/40 dark:border-slate-700 dark:bg-slate-900/40">
+                <p className="text-slate-500 dark:text-slate-400">
                   No folders or bookmarks yet. Create a folder from the sidebar.
                 </p>
               </div>
@@ -245,8 +245,8 @@ export default function Dashboard() {
           )
         })()
       ) : bookmarks.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
-          <p className="text-gray-500">No bookmarks found here yet.</p>
+        <div className="rounded-card border border-dashed border-slate-300 bg-white/40 py-20 text-center dark:border-slate-700 dark:bg-slate-900/40">
+          <p className="text-slate-500 dark:text-slate-400">No bookmarks found here yet.</p>
         </div>
       ) : viewMode === 'cards' ? (
         <MasonryGrid
@@ -261,7 +261,7 @@ export default function Dashboard() {
           )}
         />
       ) : (
-        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+        <div className="overflow-hidden rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5">
           {bookmarks.map((bookmark: Bookmark) => (
             <BookmarkRow
               key={bookmark.id}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Loader2, Sparkles, CheckCircle2, AlertCircle, Plus } from 'lucide-react'
+import { X, Loader2, AlertCircle, Plus, ArrowRight } from 'lucide-react'
 import { bookmarksApi } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 
@@ -17,14 +17,13 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
   const [error, setError] = useState('')
   const [step, setStep] = useState<'idle' | 'analyzing' | 'curating' | 'failed'>('idle')
 
-  // Curator state
   const [editTitle, setEditTitle] = useState('')
   const [editSummary, setEditSummary] = useState('')
   const [editTags, setEditTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
   const [previewData, setPreviewData] = useState<any>(null)
   const [enrichmentWarning, setEnrichmentWarning] = useState<string | null>(null)
-  const [isPublic, setIsPublic] = useState(true) // Default to public
+  const [isPublic, setIsPublic] = useState(true)
 
   const createBookmark = useBookmarksStore((state: any) => state.createBookmark)
 
@@ -50,7 +49,6 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
       return
     }
 
-
     setIsSubmitting(true)
     setStep('analyzing')
 
@@ -64,7 +62,7 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
       setEditTags(data.auto_tags || [])
 
       if (!data.scrape_success) {
-        setEnrichmentWarning('Scraping failed: content could not be extracted. Please review AI guessed metadata.')
+        setEnrichmentWarning('Couldn’t fully read the page. Review the metadata below before saving.')
       }
 
       setStep('curating')
@@ -81,7 +79,6 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
     setIsSubmitting(true)
     setError('')
 
-    // Auto-flush current tag input if not empty
     const finalTags = [...editTags]
     const tag = newTag.trim().toLowerCase().replace(/\s+/g, '-')
     if (tag && !finalTags.includes(tag)) {
@@ -89,7 +86,6 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
     }
 
     try {
-      // Create the bookmark with ALL the curated data
       await createBookmark(
         url,
         description.trim() || undefined,
@@ -104,9 +100,8 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
         }
       )
       handleClose()
-      // No reload needed - Zustand store already updated the bookmark list
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to save to collection')
+      setError(err.response?.data?.error || 'Failed to save to your library')
       setIsSubmitting(false)
     }
   }
@@ -141,43 +136,44 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
 
   if (!isOpen) return null
 
+  const labelClass = "block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2"
+  const inputClass = "w-full px-4 py-3 rounded-2xl bg-white/80 ring-1 ring-slate-200 text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={handleClose} />
+      <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity" onClick={handleClose} />
 
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative w-full max-w-5xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+        <div className="relative w-full max-w-4xl rounded-card bg-surface-light shadow-card-hover ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 overflow-hidden flex flex-col md:flex-row min-h-[480px]">
 
-          {/* Left Pane - Input */}
-          <div className="w-full md:w-5/12 p-8 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20">
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Capture</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Paste a link and add optional context for the AI.</p>
+          <div className="w-full md:w-5/12 p-7 sm:p-8 md:border-r border-slate-200/70 dark:border-slate-800/70">
+            <div className="mb-6">
+              <h2 className="font-display text-3xl text-slate-950 dark:text-slate-50 leading-tight">Save a link</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Paste a URL. We'll fetch a title, summary, and topics for you to review.</p>
             </div>
 
-            <form onSubmit={handleAnalyze} className="space-y-6">
+            <form onSubmit={handleAnalyze} className="space-y-5">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Direct Link</label>
+                <label className={labelClass}>Link</label>
                 <input
                   type="text"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="Paste article, blog, or newsletter link..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all shadow-sm"
+                  placeholder="https://…"
+                  className={inputClass}
                   disabled={step !== 'idle'}
                   autoFocus
                 />
               </div>
 
-
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Context / Notes (Optional)</label>
+                <label className={labelClass}>Notes (optional)</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What is this about? Paste related text or your own thoughts..."
-                  rows={6}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none shadow-sm"
+                  placeholder="Why does this matter to you?"
+                  rows={5}
+                  className={`${inputClass} resize-none`}
                   disabled={step !== 'idle'}
                 />
               </div>
@@ -185,94 +181,88 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
               <button
                 type="submit"
                 disabled={step !== 'idle' || !url.trim()}
-                className="w-full flex items-center justify-center gap-2 py-4 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-primary-500/20 active:scale-[0.98]"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-full bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white transition-colors disabled:opacity-50"
               >
                 {step === 'analyzing' ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Analyzing...
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Reading…
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-5 h-5" />
-                    Analyze Link
+                    Analyze link
+                    <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
 
               {error && (
-                <div className="flex items-start gap-2 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-xl border border-red-100 dark:border-red-900/30">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <div className="flex items-start gap-2 px-4 py-3 rounded-2xl bg-rose-50 text-rose-700 text-sm dark:bg-rose-900/20 dark:text-rose-300">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   {error}
                 </div>
               )}
             </form>
           </div>
 
-          {/* Right Pane - Curator */}
-          <div className="w-full md:w-7/12 p-8 flex flex-col bg-white dark:bg-gray-900">
+          <div className="w-full md:w-7/12 p-7 sm:p-8 flex flex-col">
             {step === 'idle' || step === 'analyzing' ? (
-              <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center p-8">
-                <div className="w-20 h-20 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-6 border border-gray-100 dark:border-gray-700">
-                  <Sparkles className={`w-10 h-10 ${step === 'analyzing' ? 'text-primary-500 animate-pulse' : 'text-gray-300'}`} />
+              <div className="hidden md:flex flex-1 flex-col items-center justify-center text-center">
+                <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-5">
+                  {step === 'analyzing' ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Plus className="w-6 h-6" />
+                  )}
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Analysis</h3>
-                <p className="text-gray-500 dark:text-gray-400 max-w-sm">
+                <h3 className="font-display text-2xl text-slate-950 dark:text-slate-50 mb-2">
+                  {step === 'analyzing' ? 'Reading the page…' : 'Preview appears here'}
+                </h3>
+                <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   {step === 'analyzing'
-                    ? "markly is extracting content and generating metadata for you to review."
-                    : "Paste your link to get started. markly will recommend a description and tags based on the page content, which you can easily review and edit right here."}
+                    ? "We're extracting the title, a short summary, and a few topic suggestions."
+                    : "Once you paste a link and analyze it, you'll get a draft to review and edit before saving."}
                 </p>
-                {step === 'analyzing' && (
-                  <div className="mt-8 flex items-center gap-3 px-4 py-2 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 rounded-full text-sm font-medium">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Reading current page...
-                  </div>
-                )}
               </div>
             ) : (
               <div className="flex-1 flex flex-col">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Curate</h2>
-                  <div className="flex items-center gap-2 px-3 py-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg text-sm font-bold border border-green-100 dark:border-green-900/30">
-                    <CheckCircle2 className="w-4 h-4" /> Ready
-                  </div>
-                </div>
+                <h2 className="font-display text-2xl text-slate-950 dark:text-slate-50 mb-5">Review</h2>
 
                 {enrichmentWarning && (
-                  <div className="mb-6 flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm rounded-xl border border-amber-100 dark:border-amber-900/30">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  <div className="mb-5 flex items-start gap-2 px-4 py-3 rounded-2xl bg-amber-50 text-amber-800 text-sm dark:bg-amber-900/20 dark:text-amber-300">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                     <p>{enrichmentWarning}</p>
                   </div>
                 )}
 
-                <div className="space-y-6 flex-1">
+                <div className="space-y-4 flex-1">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Clean Title</label>
+                    <label className={labelClass}>Title</label>
                     <input
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all font-medium"
+                      className={inputClass}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">AI Summary</label>
+                    <label className={labelClass}>Summary</label>
                     <textarea
                       value={editSummary}
                       onChange={(e) => setEditSummary(e.target.value)}
                       rows={4}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none text-sm leading-relaxed"
+                      className={`${inputClass} resize-none text-sm leading-relaxed`}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Tags / Topics</label>
-                    <div className="flex flex-wrap gap-2 mb-3">
+                    <label className={labelClass}>Topics</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
                       {editTags.map(tag => (
-                        <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full text-xs font-bold border border-primary-100 dark:border-primary-800/50 group">
+                        <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium lowercase bg-white text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
                           {tag}
-                          <button onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
+                          <button onClick={() => removeTag(tag)} className="text-slate-400 hover:text-rose-500 transition-colors">
                             <X className="w-3 h-3" />
                           </button>
                         </span>
@@ -283,77 +273,70 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
                         type="text"
                         value={newTag}
                         onChange={(e) => setNewTag(e.target.value)}
-                        placeholder="Add a custom tag..."
-                        className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Add a topic…"
+                        className={`${inputClass} py-2.5 text-sm`}
                       />
                       <button
                         type="submit"
-                        className="p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors"
+                        className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-500 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 transition-colors"
                       >
-                        <Plus className="w-5 h-5" />
+                        <Plus className="w-4 h-4" />
                       </button>
                     </form>
-                    <div className="mt-6">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Visibility</label>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Visibility</label>
+                    <div className="inline-flex rounded-full bg-slate-100/70 ring-1 ring-slate-200/70 p-1 dark:bg-slate-800/60 dark:ring-slate-700/70">
                       <button
-                        onClick={() => setIsPublic(!isPublic)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${isPublic
-                          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-100 dark:border-green-900/30'
-                          : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-gray-700'
+                        onClick={() => setIsPublic(true)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${isPublic
+                          ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950'
+                          : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'
                           }`}
                       >
-                        {isPublic ? (
-                          <>
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            Public (Shared to profile)
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-2 h-2 rounded-full bg-gray-400" />
-                            Private (Only you)
-                          </>
-                        )}
+                        Public
+                      </button>
+                      <button
+                        onClick={() => setIsPublic(false)}
+                        className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${!isPublic
+                          ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950'
+                          : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'
+                          }`}
+                      >
+                        Private
                       </button>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-8 flex gap-4 pt-6 border-t border-gray-100 dark:border-gray-800">
+                <div className="mt-6 flex gap-3 pt-5 border-t border-slate-200/70 dark:border-slate-800/70">
                   <button
                     onClick={handleClose}
-                    className="flex-1 px-6 py-4 text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                    className="flex-1 py-3 rounded-full text-sm font-medium text-slate-600 hover:bg-slate-100/70 dark:text-slate-300 dark:hover:bg-slate-800/60 transition-colors"
                   >
                     Discard
                   </button>
                   <button
                     onClick={handleFinish}
                     disabled={isSubmitting}
-                    className="flex-[2] px-6 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl font-bold transition-all shadow-xl hover:shadow-gray-500/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-[2] py-3 rounded-full text-sm font-medium bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    {isSubmitting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-5 h-5" />
-                        Add to Collection
-                      </>
-                    )}
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save to library'}
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Close button - top right */}
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors z-10"
+            className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors z-10"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
       </div>
     </div>
   )
 }
-

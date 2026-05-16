@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: light dark;
@@ -14,12 +14,12 @@
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-[#eef1ee] text-slate-950;
   min-height: 100vh;
 }
 
 .dark body {
-  @apply bg-gray-900 text-gray-100;
+  @apply bg-[#0b0d11] text-slate-100;
 }
 
 /* Custom scrollbar */
@@ -29,25 +29,21 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100;
-}
-
-.dark ::-webkit-scrollbar-track {
-  @apply bg-gray-800;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded-full;
+  @apply bg-slate-300/70 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400;
+  @apply bg-slate-400;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  @apply bg-gray-600;
+  @apply bg-slate-700;
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-500;
+  @apply bg-slate-600;
 }

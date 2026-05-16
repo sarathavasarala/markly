@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X, Loader2, CheckCircle2, AlertCircle, Folder as FolderIcon, Sparkles } from 'lucide-react'
+import { X, Loader2, AlertCircle, Folder as FolderIcon } from 'lucide-react'
 import { Bookmark } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 import { useFolderStore } from '../stores/folderStore'
@@ -73,71 +73,59 @@ export default function EditBookmarkModal({ bookmark, onClose }: EditBookmarkMod
 
     if (!bookmark) return null
 
+    const labelClass = "block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2"
+    const inputClass = "w-full px-4 py-3 rounded-2xl bg-white/80 ring-1 ring-slate-200 text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
             <div className="flex min-h-full items-center justify-center p-4">
-                <div className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden p-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Bookmark</h2>
-                        <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                            <X className="w-6 h-6" />
+                <div className="relative w-full max-w-2xl rounded-card bg-surface-light shadow-card-hover ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 overflow-hidden p-7 sm:p-8">
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="font-display text-2xl text-slate-950 dark:text-slate-50">Edit bookmark</h2>
+                        <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors">
+                            <X className="w-5 h-5" />
                         </button>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-5">
                         <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Title</label>
-                            <input
-                                type="text"
-                                value={editTitle}
-                                onChange={(e) => setEditTitle(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all font-medium"
-                            />
+                            <label className={labelClass}>Title</label>
+                            <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className={inputClass} />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Summary</label>
-                            <textarea
-                                value={editSummary}
-                                onChange={(e) => setEditSummary(e.target.value)}
-                                rows={4}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none text-sm leading-relaxed"
-                            ></textarea>
+                            <label className={labelClass}>Summary</label>
+                            <textarea value={editSummary} onChange={(e) => setEditSummary(e.target.value)} rows={4} className={`${inputClass} resize-none text-sm leading-relaxed`} />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Folder</label>
+                            <label className={labelClass}>Folder</label>
                             <div className="relative">
                                 <select
                                     value={editFolderId || ''}
                                     onChange={(e) => setEditFolderId(e.target.value || null)}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all appearance-none font-medium"
+                                    className={`${inputClass} appearance-none pr-12`}
                                 >
-                                    <option value="">No Folder (Unfiled)</option>
+                                    <option value="">No folder (unfiled)</option>
                                     {folders.map(f => (
                                         <option key={f.id} value={f.id}>{f.name}</option>
                                     ))}
                                 </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                    <FolderIcon className="w-5 h-5" />
-                                </div>
+                                <FolderIcon className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4 text-slate-400" />
                             </div>
 
                             {!editFolderId && bookmark.suggested_folder_name && (
-                                <div className="mt-3 p-3 bg-primary-50/50 dark:bg-primary-900/10 border border-primary-100 dark:border-primary-900/20 rounded-xl flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-sm">
-                                        <Sparkles className="w-4 h-4 text-primary-500" />
-                                        <span className="text-gray-600 dark:text-gray-300">
-                                            AI suggests: <span className="font-bold text-primary-700 dark:text-primary-400">{bookmark.suggested_folder_name}</span>
-                                        </span>
-                                    </div>
+                                <div className="mt-2.5 px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 flex items-center justify-between text-sm">
+                                    <span className="text-slate-600 dark:text-slate-300">
+                                        Suggested: <span className="text-slate-900 dark:text-slate-100">{bookmark.suggested_folder_name}</span>
+                                    </span>
                                     <button
                                         onClick={() => {
                                             const suggested = folders.find(f => f.name === bookmark.suggested_folder_name)
                                             if (suggested) setEditFolderId(suggested.id)
                                         }}
-                                        className="text-xs font-bold text-primary-600 hover:text-primary-700 underline"
+                                        className="text-xs font-medium text-indigo-700 hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-200"
                                     >
                                         Apply
                                     </button>
@@ -146,12 +134,12 @@ export default function EditBookmarkModal({ bookmark, onClose }: EditBookmarkMod
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Tags / Topics</label>
+                            <label className={labelClass}>Topics</label>
                             <div className="flex flex-wrap gap-2 mb-3">
                                 {editTags.map(tag => (
-                                    <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full text-xs font-bold border border-primary-100 dark:border-primary-800/50">
+                                    <span key={tag} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium lowercase bg-white text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
                                         {tag}
-                                        <button onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">
+                                        <button onClick={() => removeTag(tag)} className="text-slate-400 hover:text-rose-500 transition-colors">
                                             <X className="w-3 h-3" />
                                         </button>
                                     </span>
@@ -162,30 +150,30 @@ export default function EditBookmarkModal({ bookmark, onClose }: EditBookmarkMod
                                     type="text"
                                     value={newTag}
                                     onChange={(e) => setNewTag(e.target.value)}
-                                    placeholder="Add a custom tag..."
-                                    className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                                    placeholder="Add a topic…"
+                                    className={`${inputClass} py-2.5`}
                                 />
                             </form>
                         </div>
                     </div>
 
                     {error && (
-                        <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-xl border border-red-100 dark:border-red-900/30 flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5" />
+                        <div className="mt-5 px-4 py-3 rounded-2xl bg-rose-50 text-rose-700 text-sm flex items-center gap-2 dark:bg-rose-900/20 dark:text-rose-300">
+                            <AlertCircle className="w-4 h-4" />
                             {error}
                         </div>
                     )}
 
-                    <div className="mt-8 flex gap-4 pt-6 border-t border-gray-100 dark:border-gray-800">
-                        <button onClick={onClose} className="flex-1 px-6 py-4 text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-colors">
+                    <div className="mt-7 flex gap-3 pt-5 border-t border-slate-200/70 dark:border-slate-800/70">
+                        <button onClick={onClose} className="flex-1 py-3 rounded-full text-sm font-medium text-slate-600 hover:bg-slate-100/70 dark:text-slate-300 dark:hover:bg-slate-800/60 transition-colors">
                             Cancel
                         </button>
                         <button
                             onClick={handleFinish}
                             disabled={isSubmitting}
-                            className="flex-[2] py-4 bg-primary-600 text-white rounded-xl font-bold transition-all shadow-xl hover:shadow-primary-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                            className="flex-[2] py-3 rounded-full text-sm font-medium bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><CheckCircle2 className="w-5 h-5" /> Save Changes</>}
+                            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save changes'}
                         </button>
                     </div>
                 </div>

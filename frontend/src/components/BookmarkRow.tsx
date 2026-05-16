@@ -32,44 +32,42 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
     }
 
     return (
-        <div className="group flex items-center gap-4 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+        <div className="group flex items-center gap-4 border-b border-slate-200/70 px-4 py-3 transition-colors hover:bg-white/60 dark:border-slate-800/80 dark:hover:bg-slate-900/60">
             {/* Favicon */}
-            <div className="w-8 h-8 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-inner dark:border-slate-700 dark:bg-slate-800">
                 <img
                     src={bookmark.favicon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=64`}
                     alt=""
-                    className="w-5 h-5 object-contain"
+                    className="h-4 w-4 object-contain"
                     onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        // BookMarked fallback is handled by assigning a default icon URL if Google also fails
-                        // or just sticking with Google. Google API is very reliable.
                         target.src = `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=64`;
                     }}
                 />
             </div>
 
             {/* Title & Domain */}
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2">
                     <a
                         href={bookmark.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm font-semibold text-gray-900 dark:text-white truncate hover:text-primary-600 transition-colors"
+                        className="truncate font-display text-base font-normal text-slate-950 transition-colors hover:text-indigo-700 dark:text-slate-50 dark:hover:text-indigo-300"
                     >
                         {title}
                     </a>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">{bookmark.domain}</span>
+                    <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{bookmark.domain}</span>
                 </div>
             </div>
 
             {/* Tags */}
-            <div className="hidden md:flex items-center gap-2 max-w-[30%] overflow-hidden">
+            <div className="hidden max-w-[30%] items-center gap-1.5 overflow-hidden md:flex">
                 {bookmark.auto_tags?.slice(0, 3).map(tag => (
                     <button
                         key={tag}
                         onClick={() => onTagClick?.(tag)}
-                        className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] font-medium lowercase rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 hover:text-primary-600 transition-colors"
+                        className="rounded-full bg-white px-2.5 py-1 text-xs font-medium lowercase text-slate-500 ring-1 ring-slate-200 transition-all hover:text-slate-800 hover:ring-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700 dark:hover:text-slate-200"
                     >
                         {tag}
                     </button>
@@ -77,7 +75,7 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
             </div>
 
             {/* Date */}
-            <div className="hidden sm:block text-[10px] font-bold text-gray-400 w-16 text-right">
+            <div className="hidden w-16 text-right text-xs text-slate-400 dark:text-slate-500 sm:block">
                 {date}
             </div>
 
@@ -85,32 +83,32 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
             <div className="relative">
                 <button
                     onClick={() => setShowMenu(!showMenu)}
-                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-white dark:hover:bg-gray-700 shadow-sm transition-all"
+                    className="rounded-full p-2 text-slate-400 opacity-0 transition-all hover:bg-white hover:text-slate-700 group-hover:opacity-100 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                 >
-                    <MoreVertical className="w-4 h-4" />
+                    <MoreVertical className="h-4 w-4" />
                 </button>
 
                 {showMenu && (
                     <>
                         <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                        <div className="absolute right-0 top-10 z-20 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 animate-in fade-in zoom-in duration-200">
+                        <div className="absolute right-0 top-10 z-20 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl animate-in fade-in zoom-in duration-200 dark:border-slate-700 dark:bg-slate-800">
                             <button
                                 onClick={() => {
                                     window.open(bookmark.url, '_blank')
                                     setShowMenu(false)
                                 }}
-                                className="w-full text-left px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                             >
-                                <ExternalLink className="w-3.5 h-3.5" /> OPEN LINK
+                                <ExternalLink className="h-3.5 w-3.5" /> Open link
                             </button>
                             <button
                                 onClick={() => {
                                     setEditingBookmark(bookmark)
                                     setShowMenu(false)
                                 }}
-                                className="w-full text-left px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                             >
-                                <Edit2 className="w-3.5 h-3.5" /> EDIT
+                                <Edit2 className="h-3.5 w-3.5" /> Edit
                             </button>
 
                             <button
@@ -118,12 +116,12 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
                                     setShowFolderModal(true)
                                     setShowMenu(false)
                                 }}
-                                className="w-full text-left px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                             >
-                                <FolderIcon className="w-3.5 h-3.5" /> MOVE TO FOLDER
+                                <FolderIcon className="h-3.5 w-3.5" /> Move to folder
                             </button>
 
-                            <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                            <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" />
                             <button
                                 onClick={async () => {
                                     if (window.confirm('Delete bookmark?')) {
@@ -132,9 +130,9 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
                                     }
                                     setShowMenu(false)
                                 }}
-                                className="w-full text-left px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2"
+                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
                             >
-                                <Trash2 className="w-3.5 h-3.5" /> DELETE
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
                             </button>
                         </div>
                     </>

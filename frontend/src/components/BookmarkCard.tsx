@@ -44,7 +44,6 @@ const BookmarkCard = memo(function BookmarkCard({
   const [showMenu, setShowMenu] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [titleHovered, setTitleHovered] = useState(false)
   const [showFolderModal, setShowFolderModal] = useState(false)
 
   const { trackAccess, retryEnrichment, deleteBookmark, updateBookmark } = useBookmarksStore()
@@ -115,14 +114,14 @@ const BookmarkCard = memo(function BookmarkCard({
   }
 
   return (
-    <div className={`group bg-white dark:bg-gray-900/40 border-2 rounded-2xl overflow-hidden transition-all duration-300 break-inside-avoid w-full text-sm ${titleHovered ? 'border-primary-500/50 shadow-2xl shadow-primary-500/10' : 'border-gray-100 dark:border-gray-800'} ${!bookmark.is_public && isPublicView ? 'hidden' : ''} ${!bookmark.is_public && !isPublicView && isOwner ? 'opacity-70 bg-gray-50/50 dark:bg-gray-900/20 border-dashed' : ''}`}>
+    <div className={`group relative w-full overflow-hidden break-inside-avoid rounded-card bg-surface-light text-sm shadow-card ring-1 ring-white/60 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover dark:bg-surface-dark dark:ring-white/5 ${!bookmark.is_public && isPublicView ? 'hidden' : ''}`}>
       {/* Thumbnail */}
       {bookmark.thumbnail_url && (
-        <div className="h-40 bg-gray-100 dark:bg-gray-800 overflow-hidden">
+        <div className="p-3 pb-0">
           <img
             src={bookmark.thumbnail_url.replace(/^http:\/\//, 'https://')}
             alt=""
-            className="w-full h-full object-cover"
+            className="h-36 w-full rounded-[1.25rem] object-cover"
             onError={(e) => {
               const container = (e.target as HTMLImageElement).parentElement;
               if (container) container.style.display = 'none';
@@ -131,15 +130,15 @@ const BookmarkCard = memo(function BookmarkCard({
         </div>
       )}
 
-      <div className="p-4 sm:p-5">
+      <div className="p-5">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 bg-gray-50 dark:bg-gray-800 rounded-xl flex items-center justify-center shrink-0 shadow-inner border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="mb-4 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-inner dark:border-slate-700 dark:bg-slate-800">
               <img
                 src={bookmark.favicon_url || `https://www.google.com/s2/favicons?domain=${bookmark.domain}&sz=64`}
                 alt=""
-                className="w-6 h-6 object-contain"
+                className="h-4 w-4 object-contain"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   if (!target.src.includes('BookMarked')) {
@@ -148,19 +147,17 @@ const BookmarkCard = memo(function BookmarkCard({
                 }}
               />
             </div>
-            <div className="min-w-0">
-              <p className="text-gray-500 dark:text-gray-400 text-[10px] font-black uppercase tracking-widest truncate">{bookmark.domain}</p>
-              <p className="text-gray-400 dark:text-gray-600 text-[9px] font-bold mt-0 uppercase tracking-tighter">{formatDate(bookmark.created_at)}</p>
-            </div>
+            <span className="truncate font-medium">{bookmark.domain}</span>
           </div>
+          <span className="ml-auto shrink-0 text-slate-400 dark:text-slate-500">{formatDate(bookmark.created_at)}</span>
 
-          {/* User Actions (Menu) */}
-          <div className="flex items-center gap-1">
+          <div className="relative -mr-2">
             {!isPublicView && (
-              <div className="relative">
+              <>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  className="rounded-full p-2 text-slate-400 opacity-0 transition-all hover:bg-white hover:text-slate-700 group-hover:opacity-100 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  aria-label="Bookmark actions"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
@@ -171,14 +168,14 @@ const BookmarkCard = memo(function BookmarkCard({
                       className="fixed inset-0 z-10"
                       onClick={() => setShowMenu(false)}
                     />
-                    <div className="absolute right-0 top-10 z-20 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="absolute right-0 top-10 z-20 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl animate-in fade-in zoom-in duration-200 dark:border-slate-700 dark:bg-slate-800">
                       {isFailed && (
                         <button
                           onClick={handleRetry}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                         >
                           <RefreshCw className="w-4 h-4" />
-                          RETRY ENRICHMENT
+                          Retry enrichment
                         </button>
                       )}
                       <button
@@ -186,10 +183,10 @@ const BookmarkCard = memo(function BookmarkCard({
                           setEditingBookmark(bookmark)
                           setShowMenu(false)
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                       >
                         <Edit2 className="w-4 h-4" />
-                        EDIT BOOKMARK
+                        Edit bookmark
                       </button>
 
                       <button
@@ -197,45 +194,45 @@ const BookmarkCard = memo(function BookmarkCard({
                           setShowFolderModal(true)
                           setShowMenu(false)
                         }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
                       >
                         <FolderIcon className="w-4 h-4" />
-                        MOVE TO FOLDER
+                        Move to folder
                       </button>
 
-                      <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                      <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" />
                       <button
                         onClick={handleDelete}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
                       >
                         <Trash2 className="w-4 h-4" />
-                        DELETE
+                        Delete
                       </button>
                     </div>
                   </>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
 
         {/* Enrichment Status */}
         {isEnriching && (
-          <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-primary-50 dark:bg-primary-900/10 text-primary-600 dark:text-primary-400 rounded-xl text-[10px] font-black uppercase tracking-widest">
+          <div className="mb-4 flex items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
             <Loader2 className="w-3 h-3 animate-spin" />
             <span>Analyzing content...</span>
           </div>
         )}
 
         {isFailed && (
-          <div className="mb-4 flex items-center justify-between px-3 py-2 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest">
+          <div className="mb-4 flex items-center justify-between rounded-2xl bg-red-50 px-3 py-2 text-xs font-medium text-red-600 dark:bg-red-900/10 dark:text-red-400">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-3 h-3" />
               <span>Failed</span>
             </div>
             <button
               onClick={handleRetry}
-              className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg transition-colors"
+              className="rounded-full bg-red-100 px-2 py-0.5 transition-colors hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50"
             >
               Retry
             </button>
@@ -243,7 +240,7 @@ const BookmarkCard = memo(function BookmarkCard({
         )}
 
         {/* Title */}
-        <h3 className="text-gray-900 dark:text-white font-bold text-lg leading-snug mb-3 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+        <h3 className="mb-2 font-display text-[1.4rem] font-normal leading-tight text-slate-950 transition-colors group-hover:text-indigo-700 dark:text-slate-50 dark:group-hover:text-indigo-300">
           <a
             href={bookmark.url}
             target="_blank"
@@ -253,9 +250,7 @@ const BookmarkCard = memo(function BookmarkCard({
                 trackAccess(bookmark.id)
               }
             }}
-            onMouseEnter={() => setTitleHovered(true)}
-            onMouseLeave={() => setTitleHovered(false)}
-            className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+            className="transition-colors"
           >
             {title}
           </a>
@@ -263,14 +258,14 @@ const BookmarkCard = memo(function BookmarkCard({
 
         {/* Summary */}
         {bookmark.ai_summary && (
-          <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-5 font-medium opacity-90">
+          <p className="mb-5 text-sm font-normal leading-6 text-slate-600 dark:text-slate-400">
             {bookmark.ai_summary}
           </p>
         )}
 
-        {/* Tags - Refined lowercase style */}
+        {/* Tags */}
         {bookmark.auto_tags && bookmark.auto_tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
+          <div className="mb-5 flex flex-wrap gap-1.5">
             {bookmark.auto_tags.slice(0, 3).map((tag) => (
               <button
                 key={tag}
@@ -279,13 +274,13 @@ const BookmarkCard = memo(function BookmarkCard({
                   e.stopPropagation()
                   onTagClick?.(tag)
                 }}
-                className="px-2 py-0.5 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] font-medium lowercase rounded-lg border border-gray-100 dark:border-gray-700 transition-all hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="rounded-full bg-white px-2.5 py-1 text-xs font-medium lowercase text-slate-500 ring-1 ring-slate-200 transition-all hover:text-slate-800 hover:ring-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700 dark:hover:text-slate-200"
               >
                 {tag}
               </button>
             ))}
             {bookmark.auto_tags.length > 3 && (
-              <span className="px-2 py-0.5 text-gray-400 dark:text-gray-500 text-[10px] font-medium lowercase">
+              <span className="px-2 py-1 text-xs font-medium lowercase text-slate-400 dark:text-slate-500">
                 + {bookmark.auto_tags.length - 3} more
               </span>
             )}
@@ -293,20 +288,20 @@ const BookmarkCard = memo(function BookmarkCard({
         )}
 
         {/* Actions Footer */}
-        <div className="flex items-center gap-2 pt-5 border-t border-gray-50 dark:border-gray-800/50 mt-auto">
+        <div className="mt-auto flex items-center gap-3 border-t border-slate-200/70 pt-4 dark:border-slate-800">
           {isPublicView && !isOwner ? (
             bookmark.is_saved_by_viewer ? (
               <button
                 disabled
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed opacity-90"
+                className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200 cursor-not-allowed dark:bg-emerald-900/10 dark:text-emerald-300 dark:ring-emerald-800"
               >
-                <Check className="w-4 h-4" /> In Your Collection
+                <Check className="w-4 h-4" /> In your collection
               </button>
             ) : (
               <button
                 onClick={() => onSave?.(bookmark)}
                 disabled={isSaving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary-600 hover:bg-primary-500 disabled:bg-primary-400 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary-600/20 active:scale-95 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-500 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
               >
                 {isSaving ? (
                   <>
@@ -314,7 +309,7 @@ const BookmarkCard = memo(function BookmarkCard({
                   </>
                 ) : (
                   <>
-                    <Plus className="w-4 h-4" /> Save to Collection
+                    <Plus className="w-4 h-4" /> Save to collection
                   </>
                 )}
               </button>
@@ -322,14 +317,14 @@ const BookmarkCard = memo(function BookmarkCard({
           ) : (
             <button
               onClick={handleOpen}
-              className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-3 bg-primary-600 dark:bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary-600/20 active:scale-95"
+              className="flex items-center gap-2 text-sm font-medium text-slate-800 transition hover:text-slate-950 dark:text-slate-200 dark:hover:text-white"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span className="truncate">Open Link</span>
+              <span className="truncate">Open link</span>
             </button>
           )}
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {/* Visibility Toggle for Owner */}
             {!isPublicView && isOwner && (
               <button
@@ -337,7 +332,7 @@ const BookmarkCard = memo(function BookmarkCard({
                   e.stopPropagation()
                   onVisibilityToggle?.(bookmark)
                 }}
-                className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all border shrink-0 ${bookmark.is_public ? 'bg-primary-50 dark:bg-primary-900/10 border-primary-200 dark:border-primary-800 text-primary-600' : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all ${bookmark.is_public ? 'border-slate-300 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300' : 'border-slate-200 bg-white text-slate-400 hover:text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500 dark:hover:text-slate-200'}`}
                 title={bookmark.is_public ? 'Public (shared)' : 'Private (locked)'}
               >
                 {bookmark.is_public ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -346,7 +341,7 @@ const BookmarkCard = memo(function BookmarkCard({
 
             <button
               onClick={handleCopy}
-              className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all border shrink-0 ${copied ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800 text-green-600' : 'bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border transition-all ${copied ? 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-900/10' : 'border-slate-200 bg-white text-slate-400 hover:text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500 dark:hover:text-slate-200'}`}
               title="Copy URL"
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

@@ -17,36 +17,27 @@ export default function FolderCard({ folder, onClick, matchCount }: FolderCardPr
             tabIndex={0}
             onClick={onClick}
             onKeyDown={(e) => e.key === 'Enter' && onClick()}
-            className="group bg-gradient-to-br from-primary-50 to-white dark:from-gray-800 dark:to-gray-900 
-                       rounded-2xl border-2 border-primary-100 dark:border-gray-700 
-                       p-4 cursor-pointer transition-all duration-200
-                       hover:border-primary-300 dark:hover:border-primary-600 
-                       hover:shadow-lg hover:shadow-primary-100/50 dark:hover:shadow-primary-900/30
-                       hover:-translate-y-0.5"
+            className="group relative w-full cursor-pointer overflow-hidden rounded-card bg-surface-light p-4 shadow-card ring-1 ring-white/60 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover dark:bg-surface-dark dark:ring-white/5"
         >
             <div className="flex items-center gap-3">
-                {/* Folder Icon */}
-                <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/40 
-                               flex items-center justify-center
-                               group-hover:bg-primary-200 dark:group-hover:bg-primary-800/50 transition-colors">
-                    <FolderIcon className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition-colors group-hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:text-indigo-300">
+                    <FolderIcon className="h-5 w-5" />
                 </div>
 
-                {/* Folder Info */}
-                <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-base">
+                <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-display text-lg font-normal leading-tight text-slate-950 transition-colors group-hover:text-indigo-700 dark:text-slate-50 dark:group-hover:text-indigo-300">
                         {folder.name}
                     </h3>
                     {isFiltering ? (
-                        <p className="text-sm text-primary-600 dark:text-primary-400 mt-0.5 font-medium">
+                        <p className="mt-0.5 text-sm font-medium text-slate-600 dark:text-slate-300">
                             {matchCount} of {totalCount} match
                         </p>
                     ) : totalCount > 0 ? (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
                             {totalCount} {totalCount === 1 ? 'bookmark' : 'bookmarks'}
                         </p>
                     ) : (
-                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+                        <p className="mt-0.5 text-sm text-slate-400 dark:text-slate-500">
                             Empty folder
                         </p>
                     )}

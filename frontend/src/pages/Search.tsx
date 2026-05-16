@@ -16,9 +16,7 @@ export default function Search() {
   const [hasSearched, setHasSearched] = useState(false)
   const [searchHistory, setSearchHistory] = useState<string[]>([])
   const [showHistory, setShowHistory] = useState(false)
-  const [isTyping, setIsTyping] = useState(false)
 
-  // Load search history on mount
   useEffect(() => {
     loadHistory()
   }, [])
@@ -33,7 +31,6 @@ export default function Search() {
     }
   }
 
-  // Search uses keyword/FTS by default while semantic search is hidden.
   const performSearch = useCallback(async (searchQuery: string, searchTag?: string) => {
     if (!searchQuery.trim()) {
       setResults([])
@@ -60,7 +57,6 @@ export default function Search() {
     }
   }, [])
 
-  // Sync state with URL params (supports header search navigation)
   useEffect(() => {
     const paramQuery = searchParams.get('q') || ''
     const paramTag = searchParams.get('tag') || ''
@@ -77,7 +73,6 @@ export default function Search() {
     }
   }, [searchParams, performSearch])
 
-  // Handle search on Enter
   const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault()
     const params: Record<string, string> = { q: query }
@@ -86,12 +81,6 @@ export default function Search() {
     performSearch(query, tag)
     setShowHistory(false)
   }
-
-  // Keep search explicit to avoid noisy API calls while typing.
-  useEffect(() => {
-    // We intentionally don't auto-search on typing.
-    setIsTyping(false)
-  }, [query])
 
   const handleHistoryClick = (historyQuery: string) => {
     setQuery(historyQuery)
@@ -108,85 +97,73 @@ export default function Search() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Search Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <form onSubmit={handleSearch}>
-          {/* Search Input */}
-          <div className="relative">
-            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setShowHistory(true)}
-              placeholder="Search bookmarks..."
-              className="w-full pl-12 pr-10 py-4 text-lg border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={clearSearch}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
+    <div className="space-y-8">
+      {/* Search header */}
+      <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 px-6 py-6 sm:px-8 sm:py-7">
+        <h1 className="font-display text-3xl text-slate-950 dark:text-slate-50 sm:text-4xl">Search your library</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Find any link by title, summary, or topic.</p>
 
-          {/* Search History Dropdown */}
+        <form onSubmit={handleSearch} className="mt-6 relative">
+          <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setShowHistory(true)}
+            placeholder="What are you looking for?"
+            className="w-full pl-14 pr-12 py-4 rounded-full bg-white/80 ring-1 ring-slate-200 text-base text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
           {showHistory && searchHistory.length > 0 && !query && (
-            <div className="mt-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg overflow-hidden">
-              <div className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-600">
-                Recent Searches
+            <div className="absolute left-0 right-0 mt-2 z-10 rounded-2xl bg-white shadow-card ring-1 ring-slate-200/70 overflow-hidden dark:bg-slate-900 dark:ring-slate-800">
+              <div className="px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                Recent searches
               </div>
               {searchHistory.slice(0, 5).map((historyQuery, index) => (
                 <button
                   key={index}
                   type="button"
                   onClick={() => handleHistoryClick(historyQuery)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100/70 dark:text-slate-200 dark:hover:bg-slate-800/60 transition-colors"
                 >
-                  <Clock className="w-4 h-4 text-gray-400" />
+                  <Clock className="w-4 h-4 text-slate-400" />
                   {historyQuery}
                 </button>
               ))}
             </div>
           )}
-
-          {/* Actions */}
-          <div className="flex items-center justify-end mt-4">
-            <button
-              type="submit"
-              disabled={!query.trim() || isSearching}
-              className="px-6 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Search
-            </button>
-          </div>
         </form>
       </div>
 
       {/* Results */}
-      {(isSearching || isTyping) && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-          {isTyping && <span className="ml-3 text-gray-500">Typing...</span>}
+      {isSearching && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
         </div>
       )}
 
-      {!isSearching && !isTyping && hasSearched && (
+      {!isSearching && hasSearched && (
         <>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Found {results.length} result{results.length !== 1 ? 's' : ''} for "{query}"
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            {results.length} {results.length === 1 ? 'result' : 'results'} for <span className="text-slate-900 dark:text-slate-100">"{query}"</span>
           </div>
 
           {results.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center">
-              <SearchIcon className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
-                No bookmarks found matching your search
-              </p>
+            <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 px-8 py-16 text-center">
+              <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+                <SearchIcon className="w-5 h-5" />
+              </div>
+              <p className="font-display text-xl text-slate-950 dark:text-slate-50">No matches</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Try a different word or check your topics.</p>
             </div>
           ) : (
             <MasonryGrid
@@ -205,11 +182,12 @@ export default function Search() {
       )}
 
       {!hasSearched && !isSearching && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center">
-          <SearchIcon className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-          <p className="text-gray-500 dark:text-gray-400">
-            Start typing to search your bookmarks
-          </p>
+        <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 px-8 py-16 text-center">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+            <SearchIcon className="w-5 h-5" />
+          </div>
+          <p className="font-display text-xl text-slate-950 dark:text-slate-50">Start a search</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Type a phrase, a topic, or part of a title.</p>
         </div>
       )}
     </div>

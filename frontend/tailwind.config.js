@@ -7,20 +7,38 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Helvetica', 'Arial', 'sans-serif'],
+        display: ['Fraunces', 'ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'serif'],
+      },
       colors: {
+        // `primary` repointed from indigo to slate so any holdout class inherits
+        // the new neutral palette. Use `text-indigo-700` / `dark:text-indigo-300`
+        // directly when an accent is genuinely warranted (hover, active).
         primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
-          950: '#1e1b4b',
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b',
+          600: '#475569',
+          700: '#334155',
+          800: '#1e293b',
+          900: '#0f172a',
+          950: '#020617',
         },
+      },
+      backgroundImage: {
+        'surface-light': 'linear-gradient(180deg, #ffffff 0%, #f3f5f2 100%)',
+        'surface-dark': 'linear-gradient(180deg, #14181f 0%, #0b0d11 100%)',
+      },
+      boxShadow: {
+        card: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.10)',
+        'card-hover': '0 2px 4px rgba(15, 23, 42, 0.06), 0 16px 36px -14px rgba(15, 23, 42, 0.18)',
+      },
+      borderRadius: {
+        card: '1.5rem',
       },
     },
   },
