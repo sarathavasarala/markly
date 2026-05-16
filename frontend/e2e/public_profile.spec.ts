@@ -1,6 +1,17 @@
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+    await page.route('**/api/auth/me', async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                is_authenticated: false,
+                user: null,
+            }),
+        });
+    });
+
     // Mock the bookmarks API
     await page.route('**/api/public/@testuser/bookmarks', async (route) => {
         await route.fulfill({

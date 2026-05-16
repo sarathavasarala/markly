@@ -42,7 +42,6 @@ def create_app():
     app.teardown_appcontext(close_db)
     
     # Register blueprints
-    from routes.admin import admin_bp
     from routes.auth import auth_bp
     from routes.bookmarks import bookmarks_bp
     from routes.search import search_bp
@@ -50,7 +49,6 @@ def create_app():
     from routes.public import public_bp
     from routes.folders import folders_bp
     
-    app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(bookmarks_bp, url_prefix="/api/bookmarks")
     app.register_blueprint(search_bp, url_prefix="/api/search")

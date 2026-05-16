@@ -2,6 +2,27 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Refresh and Polling Logic', () => {
     test.beforeEach(async ({ page }) => {
+        await page.route('**/api/auth/me', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    is_authenticated: true,
+                    user: {
+                        id: 'test-user',
+                        email: 'test@example.com',
+                        username: 'test',
+                        user_metadata: {
+                            full_name: 'Test User',
+                            name: 'Test User',
+                            avatar_url: null,
+                            picture: null,
+                        },
+                    },
+                }),
+            });
+        });
+
         // Mock the bookmarks API
         await page.route('**/api/bookmarks*', async (route) => {
             const method = route.request().method();
@@ -68,11 +89,6 @@ test.describe('Refresh and Polling Logic', () => {
             await route.fulfill({ status: 200, body: JSON.stringify({ tags: [] }) });
         });
 
-        // Mock auth
-        await page.addInitScript(() => {
-            localStorage.setItem('markly_token', 'test-token');
-            localStorage.setItem('markly_expires', String(Date.now() + 3600000));
-        });
     });
 
     test('adding a bookmark updates the list and count', async ({ page }) => {

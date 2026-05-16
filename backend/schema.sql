@@ -2,4 +2,4 @@
 --
 -- Runtime schema creation lives in backend/database.py so the Flask app can
 -- initialize a new MARKLY_DB_PATH automatically. Keep this file as a human
--- reference only; do not run it in Supabase.
+-- reference only.

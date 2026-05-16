@@ -2,6 +2,27 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Dashboard Views', () => {
     test.beforeEach(async ({ page }) => {
+        await page.route('**/api/auth/me', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    is_authenticated: true,
+                    user: {
+                        id: 'test-user',
+                        email: 'test@example.com',
+                        username: 'test',
+                        user_metadata: {
+                            full_name: 'Test User',
+                            name: 'Test User',
+                            avatar_url: null,
+                            picture: null,
+                        },
+                    },
+                }),
+            });
+        });
+
         // Mock the bookmarks API
         await page.route('**/api/bookmarks*', async (route) => {
             const url = route.request().url();
@@ -104,12 +125,6 @@ test.describe('Dashboard Views', () => {
                 })
             });
         });
-
-        // Mock auth token
-        await page.addInitScript(() => {
-            localStorage.setItem('markly_token', 'test-token');
-            localStorage.setItem('markly_expires', String(Date.now() + 3600000));
-        });
     });
 
     test('folders toggle button is visible', async ({ page }) => {
@@ -174,7 +189,7 @@ test.describe('Dashboard Views', () => {
         await expect(foldersToggleAfter).toHaveClass(/text-primary-600/);
     });
 
-    test('header shows "Folders" title in folders view', async ({ page }) => {
+    test('header keeps bookmarks title in folders view', async ({ page }) => {
         await page.goto('/');
 
         // Initially should show "Your bookmarks"
@@ -184,13 +199,34 @@ test.describe('Dashboard Views', () => {
         const foldersToggle = page.getByTitle('Folders view');
         await foldersToggle.click();
 
-        // Should now show "Folders"
-        await expect(page.getByRole('heading', { level: 1 })).toContainText('Folders');
+        // Folders are a view of the bookmark library, so the heading remains stable.
+        await expect(page.getByRole('heading', { level: 1 })).toContainText('Your bookmarks');
     });
 });
 
 test.describe('Dashboard Views - Dark Mode', () => {
     test.beforeEach(async ({ page }) => {
+        await page.route('**/api/auth/me', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    is_authenticated: true,
+                    user: {
+                        id: 'test-user',
+                        email: 'test@example.com',
+                        username: 'test',
+                        user_metadata: {
+                            full_name: 'Test User',
+                            name: 'Test User',
+                            avatar_url: null,
+                            picture: null,
+                        },
+                    },
+                }),
+            });
+        });
+
         // Set up mocks same as above
         await page.route('**/api/bookmarks*', async (route) => {
             await route.fulfill({
@@ -229,11 +265,9 @@ test.describe('Dashboard Views - Dark Mode', () => {
             });
         });
 
-        // Set dark mode and auth
+        // Set dark mode
         await page.addInitScript(() => {
             localStorage.setItem('markly_theme', 'dark');
-            localStorage.setItem('markly_token', 'test-token');
-            localStorage.setItem('markly_expires', String(Date.now() + 3600000));
         });
     });
 
