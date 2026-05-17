@@ -12,7 +12,11 @@ from database import get_user_by_id, upsert_user
 
 logger = logging.getLogger(__name__)
 
-DEV_BYPASS_AUTH = os.getenv("DEV_BYPASS_AUTH", "false").lower() == "true"
+def _dev_bypass_auth_enabled() -> bool:
+    return (
+        os.getenv("APP_ENV", "").lower() != "test"
+        and os.getenv("DEV_BYPASS_AUTH", "false").lower() == "true"
+    )
 
 
 def _as_user_object(user: dict):
@@ -43,7 +47,7 @@ def require_auth(f):
     """Decorator to require a local authenticated user."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if DEV_BYPASS_AUTH:
+        if _dev_bypass_auth_enabled():
             user = upsert_user("dev@local", full_name="Development User")
         else:
             user = _load_session_user() or _load_test_user()
