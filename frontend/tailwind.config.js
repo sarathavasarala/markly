@@ -31,7 +31,7 @@ export default {
       },
       backgroundImage: {
         'surface-light': 'linear-gradient(180deg, #ffffff 0%, #f3f5f2 100%)',
-        'surface-dark': 'linear-gradient(180deg, #14181f 0%, #0b0d11 100%)',
+        'surface-dark': 'linear-gradient(180deg, rgba(31, 39, 54, 0.88) 0%, rgba(22, 28, 40, 0.88) 100%)',
       },
       boxShadow: {
         card: '0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.10)',
