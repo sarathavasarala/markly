@@ -9,6 +9,10 @@ interface MasonryGridProps<T> {
     breakpoints?: { [width: number]: number }
 }
 
+// Hoisted to module-level to avoid a new object reference on every render,
+// which would cause the ResizeObserver useEffect to re-run needlessly.
+const DEFAULT_BREAKPOINTS: { [width: number]: number } = { 0: 1, 640: 2, 1024: 3, 1280: 4 }
+
 /**
  * A robust masonry grid that distributes items into columns by tracking column heights.
  * This preserves semi-row-wise ordering (Today at top) while ensuring balanced columns.
@@ -20,7 +24,7 @@ export default function MasonryGrid<T>({
     renderItem,
     gap = 24,
     columnClasses = "",
-    breakpoints = { 0: 1, 640: 2, 1024: 3, 1280: 4 }
+    breakpoints = DEFAULT_BREAKPOINTS
 }: MasonryGridProps<T>) {
     const [columns, setColumns] = useState(1)
     const containerRef = useRef<HTMLDivElement>(null)

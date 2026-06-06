@@ -44,7 +44,14 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
     try {
       const res = await bookmarksApi.list(params)
       const { bookmarks, total, page, per_page, pages } = res.data
-      set({ bookmarks, total, page, perPage: per_page, pages })
+
+      // When the request has no folder/tag filters the total IS the
+      // global bookmark count — update totalCount as a side-effect to
+      // avoid a separate API round-trip (was fetchTotalCount).
+      const isUnfiltered = !params?.folder_id && (!params?.tag || params.tag.length === 0)
+      const extra: Partial<BookmarksState> = isUnfiltered ? { totalCount: total } : {}
+
+      set({ bookmarks, total, page, perPage: per_page, pages, ...extra })
 
       // Check if we need to start/stop polling based on enrichment/archive status
       const hasPendingOrProcessing = bookmarks.some(
@@ -66,7 +73,10 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
     }
   },
 
+  // Only fires a lightweight API call when totalCount hasn't already
+  // been populated by an unfiltered fetchBookmarks call.
   fetchTotalCount: async () => {
+    if (get().totalCount > 0) return
     try {
       const res = await bookmarksApi.list({ per_page: 1 })
       set({ totalCount: res.data.total })

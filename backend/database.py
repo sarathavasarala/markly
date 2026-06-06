@@ -43,6 +43,10 @@ def _connect() -> sqlite3.Connection:
     # Azure App Service persists /home on network-backed storage where WAL can
     # hang during startup. DELETE is safer for this small single-instance app.
     conn.execute(f"PRAGMA journal_mode = {Config.SQLITE_JOURNAL_MODE}")
+    # Performance PRAGMAs — improve read throughput
+    conn.execute("PRAGMA cache_size = -8000")       # 8 MB page cache (default ~2 MB)
+    conn.execute("PRAGMA temp_store = MEMORY")       # Keep temp tables in RAM
+    conn.execute("PRAGMA mmap_size = 268435456")     # Memory-map up to 256 MB of DB
     return conn
 
 

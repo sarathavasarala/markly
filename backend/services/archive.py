@@ -21,17 +21,28 @@ def _archive_bookmark(bookmark_id: str) -> None:
     
     try:
         with db_session() as conn:
+            bookmark_row = conn.execute(
+                "SELECT id, url, archive_status, archive_content FROM bookmarks WHERE id = ?",
+                (bookmark_id,),
+            ).fetchone()
+            if not bookmark_row:
+                raise ValueError(f"Bookmark {bookmark_id} not found")
+            bookmark = row_to_dict(bookmark_row)
+
+        # If enrichment already populated the archive, nothing to do.
+        existing_content = bookmark.get("archive_content")
+        if existing_content and existing_content.strip() and bookmark.get("archive_status") == "completed":
+            logger.info(f"Archive already populated by enrichment for bookmark {bookmark_id}, skipping scrape")
+            return
+
+        url = bookmark["url"]
+
+        with db_session() as conn:
             conn.execute(
                 "UPDATE bookmarks SET archive_status = ?, archive_error = ?, updated_at = ? WHERE id = ?",
                 ("processing", None, utc_now(), bookmark_id),
             )
-            bookmark_row = conn.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
-            if not bookmark_row:
-                raise ValueError(f"Bookmark {bookmark_id} not found")
-            bookmark = row_to_dict(bookmark_row)
             
-        url = bookmark["url"]
-        
         # Perform content extraction
         extracted = ContentExtractor.extract(url)
         content = extracted.get("content")

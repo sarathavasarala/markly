@@ -46,18 +46,17 @@ def get_public_tags(username: str):
 
     try:
         rows = get_db().execute(
-            "SELECT auto_tags FROM bookmarks WHERE user_id = ? AND is_public = 1",
-            (profile["id"],),
+            """
+            SELECT j.value AS tag, COUNT(*) AS count
+            FROM bookmarks, json_each(bookmarks.auto_tags) AS j
+            WHERE user_id = ? AND is_public = 1 AND auto_tags IS NOT NULL
+            GROUP BY j.value
+            ORDER BY count DESC
+            LIMIT ?
+            """,
+            (profile["id"], limit),
         ).fetchall()
-        tag_counts = {}
-        for row in rows:
-            bookmark = row_to_dict(row)
-            for tag in bookmark.get("auto_tags") or []:
-                tag_counts[tag] = tag_counts.get(tag, 0) + 1
-        tags = [
-            {"tag": tag, "count": count}
-            for tag, count in sorted(tag_counts.items(), key=lambda item: item[1], reverse=True)[:limit]
-        ]
+        tags = [{"tag": row["tag"], "count": row["count"]} for row in rows]
         return jsonify({"tags": tags})
     except Exception as e:
         logger.error(f"Error fetching public tags for {username}: {str(e)}")

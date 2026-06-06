@@ -151,12 +151,15 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
             )
 
         was_scrape_successful = bool(extracted.get("content"))
+        raw_content = extracted.get("content") or ""
+        content_format = extracted.get("content_format") or "text"
+
         update_data = {
             "domain": extracted.get("domain") or bookmark.get("domain"),
             "original_title": extracted.get("title") or bookmark.get("original_title"),
             "favicon_url": extracted.get("favicon_url"),
             "thumbnail_url": extracted.get("thumbnail_url"),
-            "content_extract": (extracted.get("content") or "")[:50000],
+            "content_extract": raw_content[:50000],
             "clean_title": enriched.get("clean_title"),
             "ai_summary": enriched.get("ai_summary"),
             "auto_tags": serialize_value(enriched.get("auto_tags", [])),
@@ -172,6 +175,28 @@ def _enrich_bookmark(bookmark_id: str, use_nano_model: bool = False):
             ),
             "updated_at": utc_now(),
         }
+
+        # Piggyback archive data onto the same update to avoid a duplicate
+        # scrape by the archive task.  Only fill if we actually got content.
+        if raw_content.strip():
+            word_count = len(raw_content.split())
+            char_count = len(raw_content)
+            update_data.update({
+                "archive_content": raw_content,
+                "archive_format": content_format,
+                "archive_status": "completed",
+                "archive_error": None,
+                "archived_at": utc_now(),
+                "archive_word_count": word_count,
+                "archive_char_count": char_count,
+            })
+        else:
+            update_data.update({
+                "archive_status": "failed",
+                "archive_error": (
+                    "Scraping failed: no content could be extracted from page."
+                ),
+            })
 
         assignments = ", ".join(f"{key} = ?" for key in update_data)
         with db_session() as conn:
