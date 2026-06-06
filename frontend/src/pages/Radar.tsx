@@ -25,6 +25,7 @@ export default function Radar() {
   const [isReaderLoading, setIsReaderLoading] = useState(false)
   const [readerError, setReaderError] = useState<string | null>(null)
   const [isExtractingClean, setIsExtractingClean] = useState(false)
+  const [isSourcesExpanded, setIsSourcesExpanded] = useState(false)
 
   const openAddModal = useUIStore((state) => state.openAddModal)
 
@@ -234,10 +235,32 @@ export default function Radar() {
 
       <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="space-y-3 xl:sticky xl:top-20 xl:self-start">
-          <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sources</h2>
-          <div className="space-y-1">
+          <button
+            type="button"
+            onClick={() => setIsSourcesExpanded(!isSourcesExpanded)}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-left text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800/80 dark:bg-slate-900/50 dark:text-slate-300 xl:hidden"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400 font-semibold">Sources</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-400 font-medium">
+                {selectedFeed ? selectedFeed.title || selectedFeed.feed_url : 'All sources'}
+              </span>
+            </div>
+            <span className="text-xs text-slate-400 font-semibold">
+              {isSourcesExpanded ? 'Hide ▲' : 'Show ▼'}
+            </span>
+          </button>
+
+          <div className="hidden xl:block">
+            <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sources</h2>
+          </div>
+
+          <div className={`${isSourcesExpanded ? 'block animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden'} xl:block space-y-1`}>
             <button
-              onClick={() => setSelectedFeedId(null)}
+              onClick={() => {
+                setSelectedFeedId(null)
+                setIsSourcesExpanded(false)
+              }}
               className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm transition ${selectedFeedId === null
                 ? 'bg-white text-slate-950 ring-1 ring-slate-200 shadow-sm dark:bg-slate-800 dark:text-slate-50 dark:ring-slate-700'
                 : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100'
@@ -254,7 +277,10 @@ export default function Radar() {
               feeds.map((feed) => (
                 <div key={feed.id} className="group flex items-center gap-1">
                   <button
-                    onClick={() => setSelectedFeedId(feed.id)}
+                    onClick={() => {
+                      setSelectedFeedId(feed.id)
+                      setIsSourcesExpanded(false)
+                    }}
                     className={`min-w-0 flex-1 rounded-2xl px-3 py-2 text-left transition ${selectedFeedId === feed.id
                       ? 'bg-white text-slate-950 ring-1 ring-slate-200 shadow-sm dark:bg-slate-800 dark:text-slate-50 dark:ring-slate-700'
                       : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100'
