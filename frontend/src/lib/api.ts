@@ -162,6 +162,8 @@ export interface FeedItem {
   author: string | null
   published_at: string | null
   summary: string | null
+  content?: string | null
+  content_format?: string | null
   status: 'new' | 'dismissed' | 'saved'
   bookmark_id: string | null
   first_seen_at: string
@@ -190,6 +192,8 @@ export const feedsApi = {
   dismissItem: (id: string) => api.post(`/feeds/items/${id}/dismiss`),
   markItemSaved: (id: string, bookmarkId: string) =>
     api.post<FeedItem>(`/feeds/items/${id}/saved`, { bookmark_id: bookmarkId }),
+  getItemContent: (id: string, params?: { fetch_clean?: boolean }) =>
+    api.get<{ content: string | null; content_format: string | null }>(`/feeds/items/${id}/content`, { params }),
 }
 
 // Folders API

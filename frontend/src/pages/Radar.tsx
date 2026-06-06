@@ -1,5 +1,8 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import { ExternalLink, Loader2, Plus, Radio, RefreshCw, Trash2, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { BookOpen, ExternalLink, Loader2, Plus, Radio, RefreshCw, Trash2, X } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Bookmark, Feed, FeedItem, feedsApi } from '../lib/api'
 import { useUIStore } from '../stores/uiStore'
 
@@ -14,6 +17,15 @@ export default function Radar() {
   const [error, setError] = useState<string | null>(null)
   const [lastRefreshSummary, setLastRefreshSummary] = useState<string | null>(null)
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null)
+
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
+  const [activeReaderItem, setActiveReaderItem] = useState<FeedItem | null>(null)
+  const [readerContent, setReaderContent] = useState<string | null>(null)
+  const [readerFormat, setReaderFormat] = useState<string>('html')
+  const [isReaderLoading, setIsReaderLoading] = useState(false)
+  const [readerError, setReaderError] = useState<string | null>(null)
+  const [isExtractingClean, setIsExtractingClean] = useState(false)
+
   const openAddModal = useUIStore((state) => state.openAddModal)
 
   const loadRadar = useCallback(async () => {
@@ -37,6 +49,44 @@ export default function Radar() {
   useEffect(() => {
     loadRadar()
   }, [loadRadar])
+
+  const toggleExpandItem = (itemId: string) => {
+    setExpandedItems((prev) => ({
+      ...prev,
+      [itemId]: !prev[itemId],
+    }))
+  }
+
+  const handleOpenReader = useCallback(async (item: FeedItem) => {
+    setActiveReaderItem(item)
+    setIsReaderLoading(true)
+    setReaderError(null)
+    setReaderContent(null)
+    try {
+      const res = await feedsApi.getItemContent(item.id)
+      setReaderContent(res.data.content)
+      setReaderFormat(res.data.content_format || 'html')
+    } catch (err: any) {
+      setReaderError(err.response?.data?.error || 'Failed to load article content.')
+    } finally {
+      setIsReaderLoading(false)
+    }
+  }, [])
+
+  const handleExtractCleanContent = async () => {
+    if (!activeReaderItem) return
+    setIsExtractingClean(true)
+    setReaderError(null)
+    try {
+      const res = await feedsApi.getItemContent(activeReaderItem.id, { fetch_clean: true })
+      setReaderContent(res.data.content)
+      setReaderFormat(res.data.content_format || 'markdown')
+    } catch (err: any) {
+      setReaderError(err.response?.data?.error || 'Failed to extract clean readability text.')
+    } finally {
+      setIsExtractingClean(false)
+    }
+  }
 
   const handleAddFeed = async (event: FormEvent) => {
     event.preventDefault()
@@ -277,18 +327,26 @@ export default function Radar() {
                       </>
                     )}
                   </div>
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block font-display text-lg font-normal leading-snug text-slate-950 transition hover:text-indigo-700 dark:text-slate-50 dark:hover:text-indigo-300"
+                  <button
+                    onClick={() => handleOpenReader(item)}
+                    className="block text-left font-display text-lg font-normal leading-snug text-slate-950 transition hover:text-indigo-700 dark:text-slate-50 dark:hover:text-indigo-300"
                   >
                     {item.title}
-                  </a>
+                  </button>
                   {item.summary && (
-                    <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-slate-600 dark:text-slate-300">
-                      {item.summary}
-                    </p>
+                    <div className="mt-1.5">
+                      <p className={`text-sm leading-5 text-slate-600 dark:text-slate-300 ${expandedItems[item.id] ? '' : 'line-clamp-2'}`}>
+                        {item.summary}
+                      </p>
+                      {item.summary.length > 140 && (
+                        <button
+                          onClick={() => toggleExpandItem(item.id)}
+                          className="mt-1 text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+                        >
+                          {expandedItems[item.id] ? 'Show less' : 'Show more'}
+                        </button>
+                      )}
+                    </div>
                   )}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
@@ -304,6 +362,13 @@ export default function Radar() {
                       <X className="h-3.5 w-3.5" />
                       Dismiss
                     </button>
+                    <button
+                      onClick={() => handleOpenReader(item)}
+                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                      Read
+                    </button>
                     <a
                       href={item.url}
                       target="_blank"
@@ -311,7 +376,7 @@ export default function Radar() {
                       className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
-                      Open
+                      Open Link
                     </a>
                   </div>
                 </article>
@@ -321,6 +386,132 @@ export default function Radar() {
         </section>
 
       </div>
+
+      {/* Reader Drawer */}
+      {activeReaderItem && createPortal(
+        <div className="fixed inset-0 z-[60] flex justify-end bg-slate-950/40 backdrop-blur-sm transition-opacity animate-in fade-in-0 duration-200">
+          <div 
+            className="fixed inset-0" 
+            onClick={() => setActiveReaderItem(null)} 
+          />
+          <aside className="relative z-10 flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl transition-transform dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between border-b border-slate-200/60 p-4 dark:border-slate-800/60">
+              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                {activeReaderItem.feed_favicon_url && (
+                  <img src={activeReaderItem.feed_favicon_url} alt="" className="h-4 w-4 rounded" />
+                )}
+                <span className="font-semibold truncate max-w-[200px]">
+                  {activeReaderItem.feed_title || 'Feed source'}
+                </span>
+                {formatDate(activeReaderItem.published_at || activeReaderItem.first_seen_at) && (
+                  <>
+                    <span>&middot;</span>
+                    <span>{formatDate(activeReaderItem.published_at || activeReaderItem.first_seen_at)}</span>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    saveItem(activeReaderItem)
+                    setActiveReaderItem(null)
+                  }}
+                  className="rounded-full bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                >
+                  Save to Library
+                </button>
+                <button
+                  onClick={() => {
+                    dismissItem(activeReaderItem)
+                    setActiveReaderItem(null)
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Dismiss
+                </button>
+                <a
+                  href={activeReaderItem.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open Link
+                </a>
+                <button
+                  onClick={() => setActiveReaderItem(null)}
+                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Drawer Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-8 md:px-8 select-text">
+              <div className="mx-auto max-w-2xl">
+                <h1 className="font-display text-2xl sm:text-3xl font-semibold leading-tight text-slate-950 dark:text-slate-50 mb-2">
+                  {activeReaderItem.title}
+                </h1>
+                {activeReaderItem.author && (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                    By {activeReaderItem.author}
+                  </p>
+                )}
+
+                <div className="mb-6 flex justify-end">
+                  <button
+                    onClick={handleExtractCleanContent}
+                    disabled={isReaderLoading || isExtractingClean}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/50 px-3.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 dark:border-indigo-900/40 dark:bg-indigo-950/20 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
+                  >
+                    {isExtractingClean ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Extracting...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3 w-3" />
+                        Extract Clean Reader View
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {isReaderLoading ? (
+                  <div className="flex flex-col items-center justify-center py-24 text-slate-500 dark:text-slate-400">
+                    <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mb-4" />
+                    <p className="text-sm font-medium">Loading content...</p>
+                  </div>
+                ) : readerError ? (
+                  <div className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-900/20 dark:text-rose-300">
+                    {readerError}
+                  </div>
+                ) : readerContent ? (
+                  <article className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200">
+                    {readerFormat === 'markdown' ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{readerContent}</ReactMarkdown>
+                    ) : (
+                      <div 
+                        className="feed-html-content space-y-4 text-base leading-relaxed" 
+                        dangerouslySetInnerHTML={{ __html: readerContent }} 
+                      />
+                    )}
+                  </article>
+                ) : (
+                  <div className="py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+                    No content available. Click 'Extract Clean Reader View' to load the full article.
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

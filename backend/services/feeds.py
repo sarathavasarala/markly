@@ -220,6 +220,15 @@ def _plain_summary(entry) -> str | None:
     return unescape(text)[:1000] if text else None
 
 
+def _entry_content(entry) -> str | None:
+    contents = entry.get("content")
+    if contents and isinstance(contents, list):
+        for c in contents:
+            if c and isinstance(c, dict) and c.get("value"):
+                return c.get("value")
+    return entry.get("summary") or entry.get("description") or None
+
+
 def _entry_url(entry) -> str | None:
     link = entry.get("link")
     return link.strip() if isinstance(link, str) and link.strip() else None
@@ -241,9 +250,9 @@ def _insert_entry(conn, user_id: str, feed_id: str, entry) -> bool:
         """
         INSERT OR IGNORE INTO feed_items (
             id, user_id, feed_id, guid, url, title, author, published_at,
-            summary, status, first_seen_at, updated_at
+            summary, content, content_format, status, first_seen_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'html', 'new', ?, ?)
         """,
         (
             new_id(),
@@ -255,6 +264,7 @@ def _insert_entry(conn, user_id: str, feed_id: str, entry) -> bool:
             entry.get("author"),
             _entry_datetime(entry),
             _plain_summary(entry),
+            _entry_content(entry),
             now,
             now,
         ),

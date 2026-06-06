@@ -268,3 +268,41 @@ def test_pruning_is_isolated_per_user_and_feed():
 
         u2_items = conn.execute("SELECT id FROM feed_items WHERE feed_id = ?", (feed2,)).fetchall()
         assert len(u2_items) == 2
+
+
+def test_get_feed_item_content(client, mocker):
+    user = upsert_user("test@example.com")
+    feed_id = _insert_feed(user["id"])
+    item_id = _insert_feed_item(
+        user["id"],
+        feed_id,
+        content="<p>Saved raw RSS content</p>",
+        content_format="html",
+        url="https://example.com/item-1"
+    )
+
+    # 1. Test fetching cached raw content
+    response = client.get(f"/api/feeds/items/{item_id}/content", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["content"] == "<p>Saved raw RSS content</p>"
+    assert data["content_format"] == "html"
+
+    # 2. Test fetching with clean extraction (mocking ContentExtractor)
+    mock_extract = mocker.patch("services.content_extractor.ContentExtractor.extract", return_value={
+        "content": "Clean extracted text content",
+        "content_format": "markdown"
+    })
+
+    response = client.get(f"/api/feeds/items/{item_id}/content?fetch_clean=true", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["content"] == "Clean extracted text content"
+    assert data["content_format"] == "markdown"
+    mock_extract.assert_called_once_with("https://example.com/item-1")
+
+    # 3. Test database is updated with extracted content
+    with db_session() as conn:
+        row = conn.execute("SELECT content, content_format FROM feed_items WHERE id = ?", (item_id,)).fetchone()
+        assert row["content"] == "Clean extracted text content"
+        assert row["content_format"] == "markdown"

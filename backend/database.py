@@ -188,6 +188,8 @@ def initialize_database():
                 author TEXT,
                 published_at TEXT,
                 summary TEXT,
+                content TEXT,
+                content_format TEXT,
                 status TEXT NOT NULL DEFAULT 'new',
                 bookmark_id TEXT REFERENCES bookmarks(id) ON DELETE SET NULL,
                 first_seen_at TEXT NOT NULL,
@@ -272,6 +274,14 @@ def initialize_database():
         feed_columns = [row["name"] for row in cursor.fetchall()]
         if "retention_limit" not in feed_columns:
             cursor.execute("ALTER TABLE feeds ADD COLUMN retention_limit INTEGER NOT NULL DEFAULT 100")
+
+        # Lightweight migration to add content and content_format to feed_items if missing
+        cursor.execute("PRAGMA table_info(feed_items)")
+        feed_item_columns = [row["name"] for row in cursor.fetchall()]
+        if "content" not in feed_item_columns:
+            cursor.execute("ALTER TABLE feed_items ADD COLUMN content TEXT")
+        if "content_format" not in feed_item_columns:
+            cursor.execute("ALTER TABLE feed_items ADD COLUMN content_format TEXT")
 
 
 def serialize_value(value: Any) -> Any:

@@ -173,3 +173,48 @@ def mark_item_saved(item_id: str):
         (item_id, g.user.id),
     ).fetchone()
     return jsonify(row_to_dict(item))
+
+
+@feeds_bp.route("/items/<item_id>/content", methods=["GET"])
+@require_auth
+def get_item_content(item_id: str):
+    fetch_clean = request.args.get("fetch_clean", "false").lower() == "true"
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, url, content, content_format FROM feed_items WHERE id = ? AND user_id = ?",
+        (item_id, g.user.id),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Feed item not found"}), 404
+
+    item = row_to_dict(row)
+    url = item["url"]
+
+    if fetch_clean or not item.get("content"):
+        try:
+            from services.content_extractor import ContentExtractor
+            extracted = ContentExtractor.extract(url)
+            content = extracted.get("content")
+            if content and content.strip():
+                content_format = extracted.get("content_format") or "markdown"
+                conn.execute(
+                    "UPDATE feed_items SET content = ?, content_format = ?, updated_at = ? WHERE id = ?",
+                    (content, content_format, utc_now(), item_id),
+                )
+                conn.commit()
+                item["content"] = content
+                item["content_format"] = content_format
+            elif not item.get("content"):
+                summary_row = conn.execute("SELECT summary FROM feed_items WHERE id = ?", (item_id,)).fetchone()
+                if summary_row and summary_row["summary"]:
+                    item["content"] = summary_row["summary"]
+                    item["content_format"] = "html"
+        except Exception as exc:
+            logger.error(f"Failed to extract item content for {url}: {exc}")
+            if not item.get("content"):
+                return jsonify({"error": f"Failed to extract content: {str(exc)}"}), 500
+
+    return jsonify({
+        "content": item.get("content"),
+        "content_format": item.get("content_format") or "html"
+    })
