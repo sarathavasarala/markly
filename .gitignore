@@ -32,3 +32,8 @@ DATABASE_SETUP.md
 # Test environment (contains secrets)
 backend/.env.test
 frontend/.env.test
+
+# SQLite databases
+backend/markly.db
+*.db
+
