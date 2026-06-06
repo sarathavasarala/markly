@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
 import { useUIStore } from '../stores/uiStore'
 import { useFolderStore } from '../stores/folderStore'
+import { feedsApi } from '../lib/api'
 import Sidebar from './Sidebar'
 import AddBookmarkModal from './AddBookmarkModal'
 import EditBookmarkModal from './EditBookmarkModal'
@@ -31,7 +32,7 @@ export default function Layout({
     user: state.user,
     isAuthenticated: state.isAuthenticated
   }))
-  const { theme, toggleTheme, editingBookmark, setEditingBookmark, isAddModalOpen, setIsAddModalOpen, isSidebarOpen, toggleSidebar } = useUIStore()
+  const { theme, toggleTheme, editingBookmark, setEditingBookmark, isAddModalOpen, addModalPrefill, setIsAddModalOpen, openAddModal, isSidebarOpen, toggleSidebar } = useUIStore()
   const { fetchFolders, selectedFolderId } = useFolderStore()
   const navigate = useNavigate()
 
@@ -58,6 +59,9 @@ export default function Layout({
         document.title = 'markly'
       }
       fetchFolders()
+      feedsApi.refresh({ force: false, stale_after_minutes: 30 }).catch((error) => {
+        console.error('Feed refresh failed:', error)
+      })
     } else {
       document.title = 'markly - Your bookmark library'
     }
@@ -138,7 +142,7 @@ export default function Layout({
 
                 <div className="flex flex-shrink-0 items-center gap-2">
                   <button
-                    onClick={() => setIsAddModalOpen(true)}
+                    onClick={() => openAddModal()}
                     className="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 active:scale-95 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
                   >
                     <Plus className="h-4 w-4" />
@@ -209,6 +213,7 @@ export default function Layout({
             isOpen={isAddModalOpen}
             onClose={() => setIsAddModalOpen(false)}
             folderId={selectedFolderId}
+            prefill={addModalPrefill}
           />
           <EditBookmarkModal
             bookmark={editingBookmark}

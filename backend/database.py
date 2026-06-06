@@ -159,6 +159,42 @@ def initialize_database():
                 UNIQUE(curator_username, email)
             );
 
+            CREATE TABLE IF NOT EXISTS feeds (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                feed_url TEXT NOT NULL,
+                title TEXT,
+                site_url TEXT,
+                favicon_url TEXT,
+                etag TEXT,
+                last_modified TEXT,
+                last_fetched_at TEXT,
+                failure_count INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, feed_url)
+            );
+
+            CREATE TABLE IF NOT EXISTS feed_items (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                feed_id TEXT NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
+                guid TEXT NOT NULL,
+                url TEXT NOT NULL,
+                title TEXT NOT NULL,
+                author TEXT,
+                published_at TEXT,
+                summary TEXT,
+                status TEXT NOT NULL DEFAULT 'new',
+                bookmark_id TEXT REFERENCES bookmarks(id) ON DELETE SET NULL,
+                first_seen_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(feed_id, guid),
+                UNIQUE(user_id, url)
+            );
+
             CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
                 bookmark_id UNINDEXED,
                 user_id UNINDEXED,
@@ -172,6 +208,10 @@ def initialize_database():
             CREATE INDEX IF NOT EXISTS idx_folders_user_id ON folders(user_id);
             CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_subscribers_curator ON subscribers(curator_username);
+            CREATE INDEX IF NOT EXISTS idx_feeds_user_id ON feeds(user_id);
+            CREATE INDEX IF NOT EXISTS idx_feeds_active_fetch ON feeds(is_active, last_fetched_at);
+            CREATE INDEX IF NOT EXISTS idx_feed_items_inbox ON feed_items(user_id, status, published_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_feed_items_feed ON feed_items(feed_id, published_at DESC);
             """
         )
 

@@ -138,6 +138,60 @@ export const bookmarksApi = {
   deleteAccount: () => api.delete('/public/account'),
 }
 
+export interface Feed {
+  id: string
+  feed_url: string
+  title: string | null
+  site_url: string | null
+  favicon_url: string | null
+  last_fetched_at: string | null
+  failure_count: number
+  last_error: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  new_item_count?: number
+}
+
+export interface FeedItem {
+  id: string
+  feed_id: string
+  guid: string
+  url: string
+  title: string
+  author: string | null
+  published_at: string | null
+  summary: string | null
+  status: 'new' | 'dismissed' | 'saved'
+  bookmark_id: string | null
+  first_seen_at: string
+  updated_at: string
+  feed_title: string | null
+  feed_site_url: string | null
+  feed_favicon_url: string | null
+}
+
+export interface FeedRefreshResult {
+  feeds_checked: number
+  feeds_skipped: number
+  feeds_failed: number
+  feeds_unchanged: number
+  items_added: number
+}
+
+export const feedsApi = {
+  list: () => api.get<{ feeds: Feed[] }>('/feeds'),
+  create: (url: string) => api.post<Feed>('/feeds', { url }),
+  delete: (id: string) => api.delete(`/feeds/${id}`),
+  refresh: (data?: { force?: boolean; stale_after_minutes?: number }) =>
+    api.post<FeedRefreshResult>('/feeds/refresh', data || {}),
+  inbox: (params?: { limit?: number; offset?: number; feed_id?: string }) =>
+    api.get<{ items: FeedItem[]; total: number }>('/feeds/inbox', { params }),
+  dismissItem: (id: string) => api.post(`/feeds/items/${id}/dismiss`),
+  markItemSaved: (id: string, bookmarkId: string) =>
+    api.post<FeedItem>(`/feeds/items/${id}/saved`, { bookmark_id: bookmarkId }),
+}
+
 // Folders API
 export interface Folder {
   id: string
