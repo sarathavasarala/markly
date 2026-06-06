@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { bookmarksApi, BookmarkArchive } from '../lib/api'
@@ -13,7 +13,7 @@ export default function BookmarkReader() {
   const [error, setError] = useState<string | null>(null)
   const [isRetrying, setIsRetrying] = useState(false)
 
-  const loadArchive = async (showLoading = true) => {
+  const loadArchive = useCallback(async (showLoading = true) => {
     if (!id) return
     if (showLoading) setIsLoading(true)
     setError(null)
@@ -29,11 +29,11 @@ export default function BookmarkReader() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     loadArchive()
-  }, [id])
+  }, [id, loadArchive])
 
   // Poll for changes if status is pending or processing
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function BookmarkReader() {
       }, 3000)
       return () => clearInterval(interval)
     }
-  }, [archive?.archive_status])
+  }, [archive, loadArchive])
 
   const handleRetry = async () => {
     if (!id) return

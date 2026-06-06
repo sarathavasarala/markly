@@ -8,8 +8,8 @@ import time
 # Ensure parent directory is in sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import db_session, row_to_dict
-from services.archive import _archive_bookmark
+from database import db_session  # noqa: E402
+from services.archive import _archive_bookmark  # noqa: E402
 
 
 def print_aggregate_stats():
@@ -92,11 +92,9 @@ def main():
     print(f"Processing {len(targets)} bookmarks...")
     succeeded_count = 0
     failed_count = 0
-    
     for idx, t in enumerate(targets):
         b_id = t["id"]
         domain = t["domain"] or "unknown"
-        url = t["url"]
         
         if idx > 0 and args.delay > 0:
             time.sleep(args.delay)

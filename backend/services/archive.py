@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from typing import Optional
-
-from database import db_session, refresh_bookmark_fts, row_to_dict, serialize_value, utc_now
+from database import db_session, refresh_bookmark_fts, row_to_dict, utc_now
 from services.content_extractor import ContentExtractor
 from services.enrichment import get_executor
 

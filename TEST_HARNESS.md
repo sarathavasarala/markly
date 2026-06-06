@@ -46,6 +46,11 @@ To ensure markly remains robust for all users, we have specific tests for these 
 - **How we handle it**: The `is_public` boolean in the database determines visibility. Public profile routes strictly filter by `is_public=True`.
 - **Verification**: Tests verify that private bookmarks never appear in the `/api/public` responses, even if the username is correct.
 
+### 5. Local Saved Copy Archiving and Reader View
+**Goal**: Ensure articles are fetched, cleaned, parsed into text/markdown, and securely served in a readable layout.
+- **How we handle it**: A background async worker triggers the `ContentExtractor` (Jina Reader API with a BeautifulSoup/newspaper3k fallback), tracks archiving status, and updates the SQLite DB. The custom reader route `/bookmarks/:id/read` is restricted to the bookmark owner.
+- **Verification**: `backend/tests/test_archive.py` tests column additions, extraction fallback logic, endpoint privacy, FTS indexing, and retry routes.
+
 ---
 
 ## 🛠️ Developer Workflow

@@ -1,7 +1,6 @@
-from unittest.mock import patch, MagicMock
-from database import db_session, new_id, refresh_bookmark_fts, row_to_dict, initialize_database, get_db
-from services.archive import _archive_bookmark, retry_archive, backfill_archives
-from routes.bookmarks import BOOKMARK_COLUMNS
+from unittest.mock import patch
+from database import db_session, new_id, refresh_bookmark_fts
+from services.archive import _archive_bookmark
 
 AUTH_HEADERS = {"Authorization": "Bearer dummy-token"}
 

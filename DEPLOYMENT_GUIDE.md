@@ -28,12 +28,12 @@ docker login <your-registry-url> -u <username>
 *Crucial: If building on Apple Silicon (M1/M2/M3), use the `--platform linux/amd64` flag for compatibility with cloud servers.*
 
 ```bash
-docker build --platform linux/amd64 -t <your-registry-url>/<image-name>:latest .
+docker build --platform linux/amd64 -t marklyregistry.azurecr.io/markly:latest .
 ```
 
 ### Step 3: Push to Registry
 ```bash
-docker push <your-registry-url>/<image-name>:latest
+docker push marklyregistry.azurecr.io/markly:latest
 ```
 
 ## 3. Server Configuration
@@ -65,3 +65,18 @@ The production database is a SQLite file owned by the Flask backend. In the Azur
    ```
 
 Back up `/home/data/markly.db` periodically. A manual download is enough for small personal use; a later scheduled copy to Azure Blob Storage is safer.
+
+## 4. Agent Instructions: Database Archiving & Backfills
+
+When the container starts or restarts, the application automatically runs startup migrations that add missing archive columns to the `bookmarks` table.
+
+If you are an AI agent tasked with backfilling or migrating archiving content for existing bookmarks:
+1. **Pull the live production SQLite DB**:
+   - Obtain an Azure AD access token: `az account get-access-token --query accessToken --output tsv`.
+   - Download the DB from the SCM API endpoint: `https://<your-app>.scm.azurewebsites.net/api/vfs/data/markly.db`.
+2. **Execute local backfill**:
+   - Run `python backend/scripts/backfill_archives.py --limit <limit> --delay <seconds>` locally.
+   - Throttling (e.g., `--delay 5`) is recommended to avoid rate limits or service blocks.
+3. **Upload & Apply**:
+   - Write the DB back via the SCM API PUT endpoint (`/api/vfs/data/markly.db`).
+   - Restart the Azure App Service.
