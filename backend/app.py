@@ -48,6 +48,7 @@ def create_app():
     from routes.stats import stats_bp
     from routes.public import public_bp
     from routes.folders import folders_bp
+    from routes.feeds import feeds_bp
     
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(bookmarks_bp, url_prefix="/api/bookmarks")
@@ -55,6 +56,7 @@ def create_app():
     app.register_blueprint(stats_bp, url_prefix="/api/stats")
     app.register_blueprint(public_bp, url_prefix="/api/public")  # Public profile routes
     app.register_blueprint(folders_bp, url_prefix="/api/folders")
+    app.register_blueprint(feeds_bp, url_prefix="/api/feeds")
     
     # Health check endpoint
     @app.route("/api/health")

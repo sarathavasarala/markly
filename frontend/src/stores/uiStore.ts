@@ -4,6 +4,13 @@ import { Bookmark } from '../lib/api'
 export type BookmarkViewMode = 'cards' | 'list' | 'folders'
 export type Theme = 'light' | 'dark'
 
+export interface AddBookmarkPrefill {
+  url: string
+  description?: string
+  sourceLabel?: string
+  onSaved?: (bookmark: Bookmark) => Promise<void> | void
+}
+
 const VIEW_STORAGE_KEY = 'markly_bookmarks_view_mode'
 const THEME_STORAGE_KEY = 'markly_theme'
 
@@ -27,7 +34,9 @@ interface UIState {
   editingBookmark: Bookmark | null
   setEditingBookmark: (bookmark: Bookmark | null) => void
   isAddModalOpen: boolean
+  addModalPrefill: AddBookmarkPrefill | null
   setIsAddModalOpen: (isOpen: boolean) => void
+  openAddModal: (prefill?: AddBookmarkPrefill) => void
   isSidebarOpen: boolean
   setIsSidebarOpen: (isOpen: boolean) => void
   toggleSidebar: () => void
@@ -57,7 +66,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   editingBookmark: null,
   setEditingBookmark: (bookmark) => set({ editingBookmark: bookmark }),
   isAddModalOpen: false,
-  setIsAddModalOpen: (isOpen) => set({ isAddModalOpen: isOpen }),
+  addModalPrefill: null,
+  setIsAddModalOpen: (isOpen) => set({ isAddModalOpen: isOpen, addModalPrefill: isOpen ? get().addModalPrefill : null }),
+  openAddModal: (prefill) => set({ isAddModalOpen: true, addModalPrefill: prefill || null }),
   isSidebarOpen: false, // Hidden by default as requested
   setIsSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen }))

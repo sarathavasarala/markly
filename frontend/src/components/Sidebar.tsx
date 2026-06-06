@@ -5,13 +5,16 @@ import {
     Edit2,
     Trash2,
     LayoutGrid,
+    Radio,
 } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
 import { useFolderStore } from '../stores/folderStore'
 import { useUIStore } from '../stores/uiStore'
 
 export default function Sidebar() {
     const { folders, isLoading, selectedFolderId, setSelectedFolderId, createFolder, deleteFolder, updateFolder } = useFolderStore()
     const { isSidebarOpen, setIsSidebarOpen, setBookmarksViewMode } = useUIStore()
+    const location = useLocation()
     const [isCreating, setIsCreating] = useState(false)
     const [newFolderName, setNewFolderName] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -54,13 +57,21 @@ export default function Sidebar() {
             <aside className={`fixed bottom-0 left-0 top-16 z-40 flex w-64 flex-col border-r border-slate-200/70 bg-[#eef1ee] transition-transform duration-300 ease-in-out dark:border-slate-800/80 dark:bg-[#0b0d11] ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="flex h-full flex-col p-4">
                     <div className="mb-6 flex-shrink-0 space-y-1">
-                        <button
+                        <Link
+                            to="/"
                             onClick={() => setSelectedFolderId(null)}
-                            className={`${itemBase} ${selectedFolderId === null ? itemActive : itemIdle}`}
+                            className={`${itemBase} ${selectedFolderId === null && location.pathname === '/' ? itemActive : itemIdle}`}
                         >
                             <LayoutGrid className="h-4 w-4" />
                             Everything
-                        </button>
+                        </Link>
+                        <Link
+                            to="/radar"
+                            className={`${itemBase} ${location.pathname === '/radar' ? itemActive : itemIdle}`}
+                        >
+                            <Radio className="h-4 w-4" />
+                            Radar
+                        </Link>
                     </div>
 
                     <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto">

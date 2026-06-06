@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, Loader2, AlertCircle, Plus, ArrowRight } from 'lucide-react'
-import { bookmarksApi } from '../lib/api'
+import { Bookmark, bookmarksApi } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
+import { AddBookmarkPrefill } from '../stores/uiStore'
 
 interface AddBookmarkModalProps {
   isOpen: boolean
   onClose: () => void
   folderId?: string | null
+  prefill?: AddBookmarkPrefill | null
 }
 
 
-export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookmarkModalProps) {
+export default function AddBookmarkModal({ isOpen, onClose, folderId, prefill }: AddBookmarkModalProps) {
   const [url, setUrl] = useState('')
   const [description, setDescription] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -26,6 +28,21 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
   const [isPublic, setIsPublic] = useState(true)
 
   const createBookmark = useBookmarksStore((state: any) => state.createBookmark)
+
+  useEffect(() => {
+    if (!isOpen) return
+    setUrl(prefill?.url || '')
+    setDescription(prefill?.description || '')
+    setError('')
+    setPreviewData(null)
+    setEditTitle('')
+    setEditSummary('')
+    setEditTags([])
+    setEnrichmentWarning(null)
+    setIsPublic(true)
+    setStep('idle')
+    setIsSubmitting(false)
+  }, [isOpen, prefill])
 
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,6 +68,7 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
 
     setIsSubmitting(true)
     setStep('analyzing')
+    setUrl(finalUrl)
 
     try {
       const resp = await bookmarksApi.analyze(finalUrl, description.trim() || undefined)
@@ -86,7 +104,7 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
     }
 
     try {
-      await createBookmark(
+      const bookmark = await createBookmark(
         url,
         description.trim() || undefined,
         undefined,
@@ -99,6 +117,9 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
           folder_id: folderId,
         }
       )
+      if (bookmark) {
+        await prefill?.onSaved?.(bookmark as Bookmark)
+      }
       handleClose()
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to save to your library')
