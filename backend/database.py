@@ -172,6 +172,7 @@ def initialize_database():
                 failure_count INTEGER NOT NULL DEFAULT 0,
                 last_error TEXT,
                 is_active INTEGER NOT NULL DEFAULT 1,
+                retention_limit INTEGER NOT NULL DEFAULT 100,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 UNIQUE(user_id, feed_url)
@@ -265,6 +266,12 @@ def initialize_database():
                     (content, "text", "completed", word_count, char_count, utc_now(), row["id"]),
                 )
                 refresh_bookmark_fts(conn, row["id"])
+
+        # Lightweight migration to add retention_limit to feeds if missing
+        cursor.execute("PRAGMA table_info(feeds)")
+        feed_columns = [row["name"] for row in cursor.fetchall()]
+        if "retention_limit" not in feed_columns:
+            cursor.execute("ALTER TABLE feeds ADD COLUMN retention_limit INTEGER NOT NULL DEFAULT 100")
 
 
 def serialize_value(value: Any) -> Any:

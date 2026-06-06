@@ -41,4 +41,3 @@ def get_top_tags():
         return jsonify({"tags": tags})
     except Exception as e:
         return jsonify({"error": f"Failed to get tags: {str(e)}"}), 500
-

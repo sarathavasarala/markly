@@ -92,9 +92,9 @@ test('public profile loads bookmarks', async ({ page }) => {
 test('viral loop subscribe section is present', async ({ page }) => {
     await page.goto('/@testuser');
 
-    const subscribeInput = page.getByPlaceholder(/enter email to join the list/i);
+    const subscribeInput = page.getByPlaceholder(/your email/i);
     await expect(subscribeInput).toBeVisible();
 
-    const subscribeButton = page.getByRole('button', { name: /keep me updated/i });
+    const subscribeButton = page.getByRole('button', { name: /subscribe/i });
     await expect(subscribeButton).toBeVisible();
 });

@@ -55,6 +55,9 @@ class Config:
     ARCHIVE_MAX_CHARS = int(os.getenv("ARCHIVE_MAX_CHARS", "200000"))
     ARCHIVE_BACKFILL_BATCH_SIZE = int(os.getenv("ARCHIVE_BACKFILL_BATCH_SIZE", "10"))
 
+    # Feed Radar settings
+    FEED_RADAR_ITEMS_PER_SOURCE = int(os.getenv("FEED_RADAR_ITEMS_PER_SOURCE", "100"))
+
     # Optional services
     JINA_READER_API_KEY = os.getenv("JINA_READER_API_KEY")
     

@@ -145,8 +145,8 @@ test.describe('Dashboard Views', () => {
         await page.waitForTimeout(500);
 
         // Check that folder cards are visible
-        await expect(page.getByText('Learning')).toBeVisible();
-        await expect(page.getByText('Work')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Learning' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Work' })).toBeVisible();
 
         // Check that bookmark counts are shown
         await expect(page.getByText('5 bookmarks')).toBeVisible();
@@ -164,11 +164,11 @@ test.describe('Dashboard Views', () => {
         await page.waitForTimeout(500);
 
         // Click on the Learning folder
-        await page.getByText('Learning').click();
+        await page.getByRole('heading', { name: 'Learning' }).click();
 
         // The grid view should be active now (not folders view)
         const gridToggle = page.getByTitle('Grid view');
-        await expect(gridToggle).toHaveClass(/text-primary-600/);
+        await expect(gridToggle).toHaveClass(/bg-slate-900/);
     });
 
     test('view preference persists after reload', async ({ page }) => {
@@ -186,7 +186,7 @@ test.describe('Dashboard Views', () => {
 
         // The folders toggle should still be active
         const foldersToggleAfter = page.getByTitle('Folders view');
-        await expect(foldersToggleAfter).toHaveClass(/text-primary-600/);
+        await expect(foldersToggleAfter).toHaveClass(/bg-slate-900/);
     });
 
     test('header keeps bookmarks title in folders view', async ({ page }) => {
@@ -282,7 +282,7 @@ test.describe('Dashboard Views - Dark Mode', () => {
         await page.waitForTimeout(500);
 
         // Check that the folder card is visible
-        await expect(page.getByText('Dark Mode Test')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Dark Mode Test' })).toBeVisible();
 
         // Check that dark class is applied to the document
         const htmlElement = page.locator('html');

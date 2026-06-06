@@ -12,6 +12,7 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 
+from config import Config
 from database import new_id, row_to_dict, utc_now
 
 logger = logging.getLogger(__name__)
@@ -172,6 +173,7 @@ def add_feed(conn, user_id: str, input_url: str) -> dict[str, Any]:
         feed = row_to_dict(existing)
         for entry in parsed.entries[:MAX_ENTRIES_PER_FEED]:
             _insert_entry(conn, user_id, feed["id"], entry)
+        prune_feed_items(conn, user_id, feed["id"])
         return feed
 
     feed_id = new_id()
@@ -198,6 +200,7 @@ def add_feed(conn, user_id: str, input_url: str) -> dict[str, Any]:
     )
     for entry in parsed.entries[:MAX_ENTRIES_PER_FEED]:
         _insert_entry(conn, user_id, feed_id, entry)
+    prune_feed_items(conn, user_id, feed_id)
     row = conn.execute("SELECT * FROM feeds WHERE id = ?", (feed_id,)).fetchone()
     return row_to_dict(row)
 
@@ -315,6 +318,7 @@ def refresh_feeds(
             for entry in parsed.entries[:MAX_ENTRIES_PER_FEED]:
                 if _insert_entry(conn, user_id, feed["id"], entry):
                     inserted += 1
+            prune_feed_items(conn, user_id, feed["id"])
 
             conn.execute(
                 """
@@ -362,3 +366,31 @@ def refresh_feeds(
         "feeds_unchanged": unchanged,
         "items_added": inserted,
     }
+
+
+def prune_feed_items(conn, user_id: str, feed_id: str, keep_latest: int | None = None):
+    """Keep only the latest N unsaved/dismissible feed items for a feed."""
+    if keep_latest is None:
+        row = conn.execute(
+            "SELECT retention_limit FROM feeds WHERE id = ? AND user_id = ?",
+            (feed_id, user_id),
+        ).fetchone()
+        keep_latest = row["retention_limit"] if row else Config.FEED_RADAR_ITEMS_PER_SOURCE
+
+    conn.execute(
+        """
+        DELETE FROM feed_items
+        WHERE user_id = ? AND feed_id = ?
+          AND status != 'saved'
+          AND bookmark_id IS NULL
+          AND id NOT IN (
+              SELECT id FROM feed_items
+              WHERE user_id = ? AND feed_id = ?
+                AND status != 'saved'
+                AND bookmark_id IS NULL
+              ORDER BY COALESCE(published_at, first_seen_at) DESC
+              LIMIT ?
+          )
+        """,
+        (user_id, feed_id, user_id, feed_id, keep_latest),
+    )

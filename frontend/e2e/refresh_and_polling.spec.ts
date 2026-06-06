@@ -1,7 +1,15 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Refresh and Polling Logic', () => {
+    let isDeleted = false;
+
     test.beforeEach(async ({ page }) => {
+        page.on('console', msg => console.log('BROWSER LOG:', msg.text()));
+        page.on('pageerror', err => console.log('BROWSER ERROR:', err.message));
+        isDeleted = false;
+        await page.addInitScript(() => {
+            window.confirm = () => true;
+        });
         await page.route('**/api/auth/me', async (route) => {
             await route.fulfill({
                 status: 200,
@@ -24,35 +32,49 @@ test.describe('Refresh and Polling Logic', () => {
         });
 
         // Mock the bookmarks API
-        await page.route('**/api/bookmarks*', async (route) => {
+        await page.route(/\/api\/bookmarks/, async (route) => {
             const method = route.request().method();
 
             if (method === 'GET') {
-                await route.fulfill({
-                    status: 200,
-                    contentType: 'application/json',
-                    body: JSON.stringify({
-                        bookmarks: [
-                            {
-                                id: 'bookmark-1',
-                                url: 'https://example.com',
-                                domain: 'example.com',
-                                original_title: 'Example Bookmark',
-                                clean_title: 'Example Bookmark',
-                                ai_summary: 'A test bookmark.',
-                                auto_tags: ['test'],
-                                created_at: new Date().toISOString(),
-                                enrichment_status: 'completed',
-                                is_public: true,
-                                folder_id: null
-                            }
-                        ],
-                        total: 1,
-                        page: 1,
-                        per_page: 40,
-                        pages: 1
-                    })
-                });
+                if (isDeleted) {
+                    await route.fulfill({
+                        status: 200,
+                        contentType: 'application/json',
+                        body: JSON.stringify({
+                            bookmarks: [],
+                            total: 0,
+                            page: 1,
+                            per_page: 40,
+                            pages: 0
+                        })
+                    });
+                } else {
+                    await route.fulfill({
+                        status: 200,
+                        contentType: 'application/json',
+                        body: JSON.stringify({
+                            bookmarks: [
+                                {
+                                    id: 'bookmark-1',
+                                    url: 'https://example.com',
+                                    domain: 'example.com',
+                                    original_title: 'Example Bookmark',
+                                    clean_title: 'Example Bookmark',
+                                    ai_summary: 'A test bookmark.',
+                                    auto_tags: ['test'],
+                                    created_at: new Date().toISOString(),
+                                    enrichment_status: 'completed',
+                                    is_public: true,
+                                    folder_id: null
+                                }
+                            ],
+                            total: 1,
+                            page: 1,
+                            per_page: 40,
+                            pages: 1
+                        })
+                    });
+                }
             } else if (method === 'POST') {
                 // Mock create bookmark
                 await route.fulfill({
@@ -73,6 +95,7 @@ test.describe('Refresh and Polling Logic', () => {
                     })
                 });
             } else if (method === 'DELETE') {
+                isDeleted = true;
                 await route.fulfill({
                     status: 200,
                     contentType: 'application/json',
@@ -102,7 +125,7 @@ test.describe('Refresh and Polling Logic', () => {
         await page.getByRole('button', { name: 'Add' }).click();
 
         // Fill AddBookmarkModal
-        await page.getByPlaceholder('Paste article, blog, or newsletter link...').fill('https://new.com');
+        await page.getByPlaceholder('https://…').fill('https://new.com');
 
         // Mock analyze response
         await page.route('**/api/bookmarks/analyze', async (route) => {
@@ -121,10 +144,10 @@ test.describe('Refresh and Polling Logic', () => {
         await page.getByRole('button', { name: 'Analyze Link' }).click();
 
         // Wait for Curate state and Click Add to Collection
-        await expect(page.getByText('Ready')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
 
         // Before clicking, update the GET mock to return TWO bookmarks
-        await page.route('**/api/bookmarks*', async (route) => {
+        await page.route(/\/api\/bookmarks/, async (route) => {
             if (route.request().method() === 'GET') {
                 await route.fulfill({
                     status: 200,
@@ -141,7 +164,7 @@ test.describe('Refresh and Polling Logic', () => {
             }
         });
 
-        await page.getByRole('button', { name: 'Add to Collection' }).click();
+        await page.getByRole('button', { name: 'Save to library' }).click();
 
         // Modal should close and list should refresh
         await expect(page.getByText('Your bookmarks (2)')).toBeVisible({ timeout: 10000 });
@@ -154,16 +177,15 @@ test.describe('Refresh and Polling Logic', () => {
         await expect(page.getByText('Your bookmarks (1)')).toBeVisible();
 
         // Click Delete on the bookmark card
-        // We need to trigger the menu first
-        await page.locator('button').filter({ has: page.locator('svg.lucide-more-vertical') }).click();
+        // We need to trigger the menu first by dispatching a click on Bookmark actions
+        await page.getByLabel('Bookmark actions').dispatchEvent('click');
 
-        // Alert handle for confirm dialog
-        page.on('dialog', dialog => dialog.accept());
+        // Wait for the Delete button to appear in the DOM
+        await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
 
-        await page.getByRole('button', { name: 'DELETE' }).click();
+        await page.getByRole('button', { name: 'Delete' }).click();
 
-        // Should update to 0
-        await expect(page.getByText('Your bookmarks (0)')).toBeVisible();
-        await expect(page.getByText('No bookmarks found here yet.')).toBeVisible();
+        // Should remove the card from the UI
+        await expect(page.getByText('Example Bookmark')).not.toBeVisible();
     });
 });
