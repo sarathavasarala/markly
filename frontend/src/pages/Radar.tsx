@@ -396,12 +396,12 @@ export default function Radar() {
           />
           <aside className="relative z-10 flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl transition-transform dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300">
             {/* Drawer Header */}
-            <div className="flex items-center justify-between border-b border-slate-200/60 p-4 dark:border-slate-800/60">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/60 p-4 dark:border-slate-800/60">
               <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 {activeReaderItem.feed_favicon_url && (
                   <img src={activeReaderItem.feed_favicon_url} alt="" className="h-4 w-4 rounded" />
                 )}
-                <span className="font-semibold truncate max-w-[200px]">
+                <span className="font-semibold truncate max-w-[150px] sm:max-w-[200px]">
                   {activeReaderItem.feed_title || 'Feed source'}
                 </span>
                 {formatDate(activeReaderItem.published_at || activeReaderItem.first_seen_at) && (
@@ -411,38 +411,41 @@ export default function Radar() {
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 <button
                   onClick={() => {
                     saveItem(activeReaderItem)
                     setActiveReaderItem(null)
                   }}
-                  className="rounded-full bg-slate-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                  className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
                 >
-                  Save to Library
+                  Save<span className="hidden sm:inline"> to Library</span>
                 </button>
                 <button
                   onClick={() => {
                     dismissItem(activeReaderItem)
                     setActiveReaderItem(null)
                   }}
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  title="Dismiss from Radar"
                 >
-                  <X className="h-3.5 w-3.5" />
-                  Dismiss
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Dismiss</span>
                 </button>
                 <a
                   href={activeReaderItem.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  title="Open original link"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  Open Link
+                  <span className="hidden sm:inline">Open Link</span>
                 </a>
                 <button
                   onClick={() => setActiveReaderItem(null)}
                   className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  title="Close Reader"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -465,7 +468,7 @@ export default function Radar() {
                   <button
                     onClick={handleExtractCleanContent}
                     disabled={isReaderLoading || isExtractingClean}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/50 px-3.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 dark:border-indigo-900/40 dark:bg-indigo-950/20 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-xs font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700 dark:hover:bg-slate-700"
                   >
                     {isExtractingClean ? (
                       <>
