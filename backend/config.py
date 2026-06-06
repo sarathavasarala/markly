@@ -50,7 +50,11 @@ class Config:
     )
     
     SESSION_EXPIRY_DAYS = 365  # 1 year
-    
+
+    # Archive settings
+    ARCHIVE_MAX_CHARS = int(os.getenv("ARCHIVE_MAX_CHARS", "200000"))
+    ARCHIVE_BACKFILL_BATCH_SIZE = int(os.getenv("ARCHIVE_BACKFILL_BATCH_SIZE", "10"))
+
     # Optional services
     JINA_READER_API_KEY = os.getenv("JINA_READER_API_KEY")
     

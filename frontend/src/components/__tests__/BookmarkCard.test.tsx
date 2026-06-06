@@ -18,6 +18,10 @@ vi.mock('../../stores/uiStore', () => ({
     })),
 }))
 
+vi.mock('react-router-dom', () => ({
+    useNavigate: () => vi.fn(),
+}))
+
 // Mock lucide-react
 vi.mock('lucide-react', () => ({
     ExternalLink: () => <div data-testid="external-link-icon" />,

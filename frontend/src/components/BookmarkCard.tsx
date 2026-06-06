@@ -11,10 +11,12 @@ import {
   EyeOff,
   Plus,
   Check,
-  Folder as FolderIcon
+  Folder as FolderIcon,
+  BookOpen
 } from 'lucide-react'
 import { useState, memo } from 'react'
-import { Bookmark } from '../lib/api'
+import { useNavigate } from 'react-router-dom'
+import { Bookmark, bookmarksApi } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 import { useUIStore } from '../stores/uiStore'
 import { useAuthStore } from '../stores/authStore'
@@ -45,6 +47,7 @@ const BookmarkCard = memo(function BookmarkCard({
   const [copied, setCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showFolderModal, setShowFolderModal] = useState(false)
+  const navigate = useNavigate()
 
   const { trackAccess, retryEnrichment, deleteBookmark, updateBookmark } = useBookmarksStore()
   const setEditingBookmark = useUIStore((state) => state.setEditingBookmark)
@@ -169,6 +172,32 @@ const BookmarkCard = memo(function BookmarkCard({
                       onClick={() => setShowMenu(false)}
                     />
                     <div className="absolute right-0 top-10 z-20 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl animate-in fade-in zoom-in duration-200 dark:border-slate-700 dark:bg-slate-800">
+                      {bookmark.archive_status === 'completed' && (
+                        <button
+                          onClick={() => {
+                            navigate(`/bookmarks/${bookmark.id}/read`)
+                            setShowMenu(false)
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                        >
+                          <BookOpen className="w-4 h-4" />
+                          Read saved copy
+                        </button>
+                      )}
+                      {bookmark.archive_status === 'failed' && (
+                        <button
+                          onClick={() => {
+                            bookmarksApi.retryArchive(bookmark.id).then(() => {
+                              updateBookmark(bookmark.id, { archive_status: 'pending', archive_error: null })
+                            }).catch(err => console.error("Failed to retry archiving:", err))
+                            setShowMenu(false)
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          Retry saved copy
+                        </button>
+                      )}
                       {isFailed && (
                         <button
                           onClick={handleRetry}
@@ -221,6 +250,14 @@ const BookmarkCard = memo(function BookmarkCard({
           <div className="mb-4 flex items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
             <Loader2 className="w-3 h-3 animate-spin" />
             <span>Analyzing content...</span>
+          </div>
+        )}
+
+        {/* Archive Status */}
+        {(bookmark.archive_status === 'pending' || bookmark.archive_status === 'processing') && (
+          <div className="mb-4 flex items-center gap-2 rounded-2xl bg-indigo-50/50 px-3 py-2 text-xs font-medium text-indigo-600 dark:bg-indigo-950/10 dark:text-indigo-400">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span>Saving copy...</span>
           </div>
         )}
 

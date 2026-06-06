@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Search from './pages/Search'
 import PublicProfile from './pages/PublicProfile'
 import CardRedesignMock from './pages/CardRedesignMock'
+import BookmarkReader from './pages/BookmarkReader'
 import { useEffect } from 'react'
 
 import { useUIStore } from './stores/uiStore'
@@ -91,6 +92,7 @@ function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="search" element={<Search />} />
+        <Route path="bookmarks/:id/read" element={<BookmarkReader />} />
       </Route>
 
       {/* Catch-all: handles /@username and redirects unknown paths */}

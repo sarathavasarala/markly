@@ -68,10 +68,30 @@ export interface Bookmark {
   access_count: number
   enrichment_status: 'pending' | 'processing' | 'completed' | 'failed'
   enrichment_error: string | null
+  archive_status?: 'pending' | 'processing' | 'completed' | 'failed' | 'unavailable' | null
+  archive_format?: 'markdown' | 'text' | null
+  archive_error?: string | null
+  archived_at?: string | null
+  archive_word_count?: number | null
+  archive_char_count?: number | null
   is_public: boolean
   folder_id: string | null
   suggested_folder_name: string | null
   is_saved_by_viewer?: boolean
+}
+
+export interface BookmarkArchive {
+  bookmark_id: string
+  url: string
+  domain: string | null
+  title: string
+  archive_content: string | null
+  archive_format: 'markdown' | 'text' | null
+  archive_status: Bookmark['archive_status']
+  archive_error: string | null
+  archived_at: string | null
+  archive_word_count: number | null
+  archive_char_count: number | null
 }
 
 export interface BookmarkListResponse {
@@ -113,6 +133,8 @@ export const bookmarksApi = {
   trackAccess: (id: string) => api.post(`/bookmarks/${id}/access`),
   retry: (id: string) => api.post(`/bookmarks/${id}/retry`),
   savePublic: (id: string) => api.post<{ bookmark: Bookmark; already_exists?: boolean }>('/bookmarks/save-public', { bookmark_id: id }),
+  getArchive: (id: string) => api.get<BookmarkArchive>(`/bookmarks/${id}/archive`),
+  retryArchive: (id: string) => api.post(`/bookmarks/${id}/archive/retry`),
   deleteAccount: () => api.delete('/public/account'),
 }
 

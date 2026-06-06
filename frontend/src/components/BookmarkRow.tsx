@@ -1,7 +1,8 @@
-import { ExternalLink, MoreVertical, Trash2, Edit2, Folder as FolderIcon } from 'lucide-react'
+import { ExternalLink, MoreVertical, Trash2, Edit2, Folder as FolderIcon, Loader2, BookOpen, RefreshCw } from 'lucide-react'
 import MoveToFolderModal from './MoveToFolderModal'
 import { useState } from 'react'
-import { Bookmark } from '../lib/api'
+import { useNavigate } from 'react-router-dom'
+import { Bookmark, bookmarksApi } from '../lib/api'
 import { useBookmarksStore } from '../stores/bookmarksStore'
 import { useUIStore } from '../stores/uiStore'
 
@@ -14,6 +15,7 @@ interface BookmarkRowProps {
 export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: BookmarkRowProps) {
     const [showMenu, setShowMenu] = useState(false)
     const [showFolderModal, setShowFolderModal] = useState(false)
+    const navigate = useNavigate()
     const { deleteBookmark, updateBookmark } = useBookmarksStore()
     const setEditingBookmark = useUIStore((state) => state.setEditingBookmark)
 
@@ -58,6 +60,11 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
                         {title}
                     </a>
                     <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{bookmark.domain}</span>
+                    {(bookmark.archive_status === 'pending' || bookmark.archive_status === 'processing') && (
+                        <span className="flex items-center gap-1 text-[11px] text-indigo-500 dark:text-indigo-400 ml-2">
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" /> Saving copy...
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -92,6 +99,30 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
                     <>
                         <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
                         <div className="absolute right-0 top-10 z-20 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl animate-in fade-in zoom-in duration-200 dark:border-slate-700 dark:bg-slate-800">
+                            {bookmark.archive_status === 'completed' && (
+                                <button
+                                    onClick={() => {
+                                        navigate(`/bookmarks/${bookmark.id}/read`)
+                                        setShowMenu(false)
+                                    }}
+                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                >
+                                    <BookOpen className="h-3.5 w-3.5" /> Read saved copy
+                                </button>
+                            )}
+                            {bookmark.archive_status === 'failed' && (
+                                <button
+                                    onClick={() => {
+                                        bookmarksApi.retryArchive(bookmark.id).then(() => {
+                                            updateBookmark(bookmark.id, { archive_status: 'pending', archive_error: null })
+                                        }).catch(err => console.error("Failed to retry archiving:", err))
+                                        setShowMenu(false)
+                                    }}
+                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                >
+                                    <RefreshCw className="h-3.5 w-3.5" /> Retry saved copy
+                                </button>
+                            )}
                             <button
                                 onClick={() => {
                                     window.open(bookmark.url, '_blank')

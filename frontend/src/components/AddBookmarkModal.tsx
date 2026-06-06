@@ -308,6 +308,10 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId }: AddBookm
                       </button>
                     </div>
                   </div>
+
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                    We'll save a local copy in the background after this bookmark is added.
+                  </p>
                 </div>
 
                 <div className="mt-6 flex gap-3 pt-5 border-t border-slate-200/70 dark:border-slate-800/70">

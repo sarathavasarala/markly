@@ -28,6 +28,24 @@ def _callback_url() -> str:
 
 @auth_bp.route("/me", methods=["GET"])
 def me():
+    from middleware.auth import _dev_bypass_auth_enabled
+    if _dev_bypass_auth_enabled():
+        user = upsert_user("dev@local", full_name="Development User")
+        return jsonify({
+            "user": {
+                "id": user["id"],
+                "email": user["email"],
+                "username": user["username"],
+                "user_metadata": {
+                    "full_name": user["full_name"],
+                    "name": user["full_name"],
+                    "avatar_url": user["avatar_url"],
+                    "picture": user["avatar_url"],
+                },
+            },
+            "is_authenticated": True,
+        })
+
     user = current_user_optional()
     if not user:
         return jsonify({"user": None, "is_authenticated": False})
@@ -49,6 +67,14 @@ def me():
 
 @auth_bp.route("/google/login", methods=["GET"])
 def google_login():
+    from middleware.auth import _dev_bypass_auth_enabled
+    if _dev_bypass_auth_enabled():
+        user = upsert_user("dev@local", full_name="Development User")
+        session.clear()
+        session.permanent = True
+        session["user_id"] = user["id"]
+        return redirect("/")
+
     if not Config.GOOGLE_CLIENT_ID:
         return jsonify({"error": "Google OAuth is not configured"}), 500
 

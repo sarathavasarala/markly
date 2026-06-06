@@ -25,6 +25,7 @@ class ContentExtractor:
         - title: page title
         - description: meta description
         - content: main text content
+        - content_format: "markdown" | "text" | None
         - favicon_url: favicon URL
         - thumbnail_url: og:image or similar
         - domain: domain name
@@ -35,6 +36,7 @@ class ContentExtractor:
             "title": None,
             "description": None,
             "content": None,
+            "content_format": None,
             "favicon_url": None,
             "thumbnail_url": None,
             "domain": None,
@@ -47,29 +49,43 @@ class ContentExtractor:
         except Exception:
             pass
         
+        jina_future = None
+        bs_future = None
+        
         # We run Jina and BeautifulSoup in parallel to speed things up
         # BS often finishes faster and gives us the favicon/meta which Jina might miss
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            futures = []
-            
             # 1. Jina Reader API
             if Config.JINA_READER_API_KEY:
-                futures.append(executor.submit(cls._extract_via_jina, url))
+                jina_future = executor.submit(cls._extract_via_jina, url)
             
-            # 2. BeautifulSoup Fallback/Complement
-            futures.append(executor.submit(cls._extract_via_beautifulsoup, url))
+            # 2. BeautifulSoup / Newspaper Fallback
+            bs_future = executor.submit(cls._extract_via_beautifulsoup, url)
             
-            # Collect results
-            for future in concurrent.futures.as_completed(futures):
+            jina_res = {}
+            if jina_future:
                 try:
-                    extract_res = future.result()
-                    # Merge results, prioritizing Jina for content if it succeeds
-                    # but keeping BS data if Jina is empty
-                    for key, val in extract_res.items():
-                        if val and (not result.get(key) or key == "content"):
-                            result[key] = val
+                    jina_res = jina_future.result()
                 except Exception as e:
-                    print(f"Extraction task failed: {e}")
+                    print(f"Jina extraction failed: {e}")
+                    
+            bs_res = {}
+            if bs_future:
+                try:
+                    bs_res = bs_future.result()
+                except Exception as e:
+                    print(f"BeautifulSoup extraction failed: {e}")
+
+        # Merge results, prioritizing Jina for content if it succeeds
+        # 1. First merge BeautifulSoup results
+        for key, val in bs_res.items():
+            if val:
+                result[key] = val
+                
+        # 2. Then merge Jina results (takes precedence for content and format, and fills other empty values)
+        for key, val in jina_res.items():
+            if val:
+                result[key] = val
 
         # Final fallback for favicon if still missing
         if not result.get("favicon_url") and result.get("domain"):
@@ -98,10 +114,12 @@ class ContentExtractor:
             # Jina API returns content nested inside a 'data' object
             data = raw_data.get("data", {}) if "data" in raw_data else raw_data
             
+            content = data.get("content", "")
             return {
                 "title": data.get("title"),
                 "description": data.get("description"),
-                "content": data.get("content", "")[:15000],
+                "content": content[:Config.ARCHIVE_MAX_CHARS] if content else None,
+                "content_format": "markdown" if content else None,
             }
             
         except Exception as e:
@@ -110,7 +128,7 @@ class ContentExtractor:
     
     @classmethod
     def _extract_via_beautifulsoup(cls, url: str) -> dict:
-        """Extract content using BeautifulSoup."""
+        """Extract content using BeautifulSoup and newspaper3k."""
         result = {}
         
         try:
@@ -144,9 +162,27 @@ class ContentExtractor:
             # Extract favicon
             result["favicon_url"] = cls.extract_favicon(url, soup)
             
-            # Extract main content
-            content = cls._extract_main_content(soup)
-            result["content"] = content[:15000] if content else None
+            # Try newspaper3k extraction
+            newspaper_content = None
+            try:
+                from newspaper import Article
+                article = Article(url)
+                article.set_html(response.text)
+                article.parse()
+                if article.text and article.text.strip():
+                    newspaper_content = article.text.strip()
+            except Exception as e:
+                print(f"Newspaper3k parse failed: {e}")
+            
+            if newspaper_content:
+                result["content"] = newspaper_content[:Config.ARCHIVE_MAX_CHARS]
+                result["content_format"] = "text"
+            else:
+                # Fallback to BeautifulSoup selector extraction
+                content = cls._extract_main_content(soup)
+                if content:
+                    result["content"] = content[:Config.ARCHIVE_MAX_CHARS]
+                    result["content_format"] = "text"
             
         except Exception as e:
             print(f"BeautifulSoup extraction failed for {url}: {e}")

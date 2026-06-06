@@ -128,6 +128,13 @@ def initialize_database():
                 is_public INTEGER NOT NULL DEFAULT 1,
                 folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
                 suggested_folder_name TEXT,
+                archive_content TEXT,
+                archive_format TEXT,
+                archive_status TEXT NOT NULL DEFAULT 'pending',
+                archive_error TEXT,
+                archived_at TEXT,
+                archive_word_count INTEGER,
+                archive_char_count INTEGER,
                 UNIQUE(user_id, url)
             );
 
@@ -163,6 +170,57 @@ def initialize_database():
             CREATE INDEX IF NOT EXISTS idx_subscribers_curator ON subscribers(curator_username);
             """
         )
+
+        # Lightweight migration to add archive columns if missing
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(bookmarks)")
+        columns = [row["name"] for row in cursor.fetchall()]
+
+        new_cols = [
+            ("archive_content", "TEXT"),
+            ("archive_format", "TEXT"),
+            ("archive_status", "TEXT NOT NULL DEFAULT 'pending'"),
+            ("archive_error", "TEXT"),
+            ("archived_at", "TEXT"),
+            ("archive_word_count", "INTEGER"),
+            ("archive_char_count", "INTEGER"),
+        ]
+
+        migrated = False
+        for col_name, col_def in new_cols:
+            if col_name not in columns:
+                cursor.execute(f"ALTER TABLE bookmarks ADD COLUMN {col_name} {col_def}")
+                migrated = True
+
+        if migrated or "archive_content" in columns:
+            # Backfill from content_extract to archive_content for old DBs that may have content
+            rows = cursor.execute(
+                """
+                SELECT id, content_extract
+                FROM bookmarks
+                WHERE content_extract IS NOT NULL AND length(trim(content_extract)) > 0
+                  AND (archive_content IS NULL OR length(trim(archive_content)) = 0)
+                """
+            ).fetchall()
+
+            for row in rows:
+                content = row["content_extract"]
+                word_count = len(content.split())
+                char_count = len(content)
+                cursor.execute(
+                    """
+                    UPDATE bookmarks
+                    SET archive_content = ?,
+                        archive_format = ?,
+                        archive_status = ?,
+                        archive_word_count = ?,
+                        archive_char_count = ?,
+                        archived_at = ?
+                    WHERE id = ?
+                    """,
+                    (content, "text", "completed", word_count, char_count, utc_now(), row["id"]),
+                )
+                refresh_bookmark_fts(conn, row["id"])
 
 
 def serialize_value(value: Any) -> Any:
@@ -269,6 +327,7 @@ def bookmark_search_body(bookmark: dict[str, Any]) -> str:
             bookmark.get("ai_summary"),
             bookmark.get("raw_notes"),
             bookmark.get("user_description"),
+            bookmark.get("archive_content"),
             " ".join(tags),
         ]
         if part

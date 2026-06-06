@@ -11,6 +11,7 @@ interface BookmarksState {
   isLoading: boolean
   error: string | null
   pollingInterval: NodeJS.Timeout | null
+  lastParams: Parameters<typeof bookmarksApi.list>[0] | null
 
   fetchBookmarks: (params?: Parameters<typeof bookmarksApi.list>[0]) => Promise<void>
   fetchTotalCount: () => Promise<void>
@@ -36,17 +37,24 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
   isLoading: false,
   error: null,
   pollingInterval: null,
+  lastParams: null,
 
   fetchBookmarks: async (params) => {
-    set({ isLoading: true, error: null })
+    set({ isLoading: true, error: null, lastParams: params || {} })
     try {
       const res = await bookmarksApi.list(params)
       const { bookmarks, total, page, per_page, pages } = res.data
       set({ bookmarks, total, page, perPage: per_page, pages })
 
-      // Check if we need to start/stop polling based on enrichment status
-      const hasEnriching = bookmarks.some(b => b.enrichment_status === 'pending' || b.enrichment_status === 'processing')
-      if (hasEnriching) {
+      // Check if we need to start/stop polling based on enrichment/archive status
+      const hasPendingOrProcessing = bookmarks.some(
+        (b) =>
+          b.enrichment_status === 'pending' ||
+          b.enrichment_status === 'processing' ||
+          b.archive_status === 'pending' ||
+          b.archive_status === 'processing'
+      )
+      if (hasPendingOrProcessing) {
         get().startPolling(params)
       } else {
         get().stopPolling()
@@ -68,14 +76,24 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
   },
 
   startPolling: (params) => {
+    if (params) {
+      set({ lastParams: params })
+    }
     if (get().pollingInterval) return
     const interval = setInterval(() => {
+      const currentParams = get().lastParams || {}
       // Background fetch without setting isLoading: true
-      bookmarksApi.list(params).then(res => {
+      bookmarksApi.list(currentParams).then(res => {
         const { bookmarks } = res.data
         set({ bookmarks })
-        const hasEnriching = bookmarks.some(b => b.enrichment_status === 'pending' || b.enrichment_status === 'processing')
-        if (!hasEnriching) {
+        const hasPendingOrProcessing = bookmarks.some(
+          (b) =>
+            b.enrichment_status === 'pending' ||
+            b.enrichment_status === 'processing' ||
+            b.archive_status === 'pending' ||
+            b.archive_status === 'processing'
+        )
+        if (!hasPendingOrProcessing) {
           get().stopPolling()
         }
       }).catch(err => console.error('Polling failed:', err))
@@ -103,6 +121,15 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
         total: state.total + 1,
         totalCount: state.totalCount + 1,
       }))
+
+      // Start polling if new bookmark is pending/processing
+      const hasPendingOrProcessing = newBookmark.enrichment_status === 'pending' ||
+        newBookmark.enrichment_status === 'processing' ||
+        newBookmark.archive_status === 'pending' ||
+        newBookmark.archive_status === 'processing'
+      if (hasPendingOrProcessing) {
+        get().startPolling(get().lastParams || {})
+      }
 
       return newBookmark
     } catch (error: unknown) {
@@ -151,8 +178,7 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
           b.id === id ? { ...b, enrichment_status: 'pending' as const } : b
         ),
       }))
-      // Start polling if not already started (we don't have the current list params here easily, 
-      // but fetchBookmarks will handle it on next refresh or we can just wait for next load)
+      get().startPolling(get().lastParams || {})
     } catch (error: unknown) {
       set({
         error: error instanceof Error ? error.message : 'Failed to retry enrichment',
@@ -191,6 +217,14 @@ export const useBookmarksStore = create<BookmarksState>((set, get) => ({
       set((state) => ({
         bookmarks: state.bookmarks.map((b) => (b.id === id ? updated : b)),
       }))
+
+      const hasPendingOrProcessing = updated.enrichment_status === 'pending' ||
+        updated.enrichment_status === 'processing' ||
+        updated.archive_status === 'pending' ||
+        updated.archive_status === 'processing'
+      if (hasPendingOrProcessing) {
+        get().startPolling(get().lastParams || {})
+      }
     } catch (error: unknown) {
       set({
         error: error instanceof Error ? error.message : 'Failed to update bookmark',

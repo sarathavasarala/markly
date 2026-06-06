@@ -18,6 +18,7 @@ from database import (
 )
 from middleware.auth import require_auth
 from services.enrichment import analyze_link, enrich_bookmark_async, retry_failed_enrichment
+from services.archive import archive_bookmark_async, retry_archive
 
 logger = logging.getLogger(__name__)
 bookmarks_bp = Blueprint("bookmarks", __name__)
@@ -28,7 +29,8 @@ BOOKMARK_COLUMNS = (
     "user_description, clean_title, ai_summary, content_extract, key_quotes, auto_tags, "
     "intent_type, technical_level, content_type, embedding, created_at, updated_at, "
     "last_accessed_at, access_count, enrichment_status, enrichment_error, is_public, "
-    "folder_id, suggested_folder_name"
+    "folder_id, suggested_folder_name, archive_status, archive_format, archive_error, "
+    "archived_at, archive_word_count, archive_char_count"
 )
 
 
@@ -167,6 +169,7 @@ def create_bookmark():
                 "raw_notes": raw_notes,
                 "user_description": user_description,
                 "enrichment_status": "completed",
+                "archive_status": "pending",
                 "is_public": True,
             }
         else:
@@ -189,6 +192,7 @@ def create_bookmark():
                 "raw_notes": raw_notes,
                 "user_description": user_description,
                 "enrichment_status": "pending",
+                "archive_status": "pending",
                 "is_public": True,
                 "folder_id": data.get("folder_id"),
             }
@@ -196,6 +200,9 @@ def create_bookmark():
         row = _insert_bookmark(conn, bookmark_data)
         conn.commit()
         bookmark = _bookmark_response(row)
+
+        # Start archiving in background
+        archive_bookmark_async(bookmark["id"])
 
         if not is_pre_enriched:
             enrich_bookmark_async(bookmark["id"])
@@ -418,12 +425,67 @@ def save_public_bookmark():
         new_bookmark_data.update({
             "user_id": g.user.id,
             "enrichment_status": "completed",
+            "archive_status": "pending",
             "is_public": True,
         })
         row = _insert_bookmark(conn, new_bookmark_data)
         conn.commit()
+
+        # Start archiving for copy in background
+        archive_bookmark_async(row["id"])
+
         return jsonify(_bookmark_response(row)), 201
     except Exception as e:
         conn.rollback()
         logger.error(f"Failed to save public bookmark: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@bookmarks_bp.route("/<bookmark_id>/archive", methods=["GET"])
+@require_auth
+def get_bookmark_archive(bookmark_id: str):
+    """Retrieve full archive copy (owner-only)."""
+    row = get_db().execute(
+        f"SELECT {BOOKMARK_COLUMNS}, archive_content FROM bookmarks WHERE id = ? AND user_id = ?",
+        (bookmark_id, g.user.id),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Bookmark not found"}), 404
+
+    data = row_to_dict(row)
+    response_data = {
+        "bookmark_id": data["id"],
+        "url": data["url"],
+        "domain": data["domain"],
+        "title": data["clean_title"] or data["original_title"] or data["url"],
+        "archive_content": data.get("archive_content"),
+        "archive_format": data.get("archive_format"),
+        "archive_status": data.get("archive_status") or "pending",
+        "archive_error": data.get("archive_error"),
+        "archived_at": data.get("archived_at"),
+        "archive_word_count": data.get("archive_word_count"),
+        "archive_char_count": data.get("archive_char_count"),
+    }
+
+    status = response_data["archive_status"]
+    if status == "completed":
+        return jsonify(response_data), 200
+    elif status in ("pending", "processing"):
+        return jsonify(response_data), 202
+    else:  # failed or unavailable
+        return jsonify(response_data), 409
+
+
+@bookmarks_bp.route("/<bookmark_id>/archive/retry", methods=["POST"])
+@require_auth
+def retry_bookmark_archive(bookmark_id: str):
+    """Queue background archive retry for a failed archive copy (owner-only)."""
+    row = get_db().execute(
+        "SELECT archive_status FROM bookmarks WHERE id = ? AND user_id = ?",
+        (bookmark_id, g.user.id),
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "Bookmark not found"}), 404
+
+    retry_archive(bookmark_id)
+    return jsonify({"message": "Archive retry started"}), 200
