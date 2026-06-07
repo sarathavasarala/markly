@@ -66,6 +66,26 @@ class Config:
 
     # Signal settings
     SIGNAL_CANDIDATE_LIMIT = int(os.getenv("SIGNAL_CANDIDATE_LIMIT", "75"))
+    # Embedding-based candidate selection knobs (gentle defaults that preserve
+    # current behavior at small scale).
+    SIGNAL_RECENCY_HALF_LIFE_DAYS = float(os.getenv("SIGNAL_RECENCY_HALF_LIFE_DAYS", "3"))
+    # Recent candidate pool is pulled at this multiple of the candidate limit
+    # before ranking. Embedding ranking only kicks in when the pool actually
+    # exceeds the candidate limit.
+    SIGNAL_CANDIDATE_POOL_MULTIPLIER = int(os.getenv("SIGNAL_CANDIDATE_POOL_MULTIPLIER", "3"))
+    # Items briefed within this window are excluded from new briefs (anti-repeat).
+    SIGNAL_BRIEFED_EXCLUDE_DAYS = float(os.getenv("SIGNAL_BRIEFED_EXCLUDE_DAYS", "7"))
+    # Only rank by embeddings when at least this fraction of the pool is embedded;
+    # otherwise fall back to recency order (and skip the taste-profile embedding call).
+    SIGNAL_EMBED_MIN_COVERAGE = float(os.getenv("SIGNAL_EMBED_MIN_COVERAGE", "0.5"))
+    # Named magic numbers (defaults match prior hardcoded values).
+    SIGNAL_MAX_SYNTHESIS_ARTICLES = int(os.getenv("SIGNAL_MAX_SYNTHESIS_ARTICLES", "15"))
+    SIGNAL_CONTENT_MAX_CHARS = int(os.getenv("SIGNAL_CONTENT_MAX_CHARS", "8000"))
+    SIGNAL_CONTENT_HEAD_CHARS = int(os.getenv("SIGNAL_CONTENT_HEAD_CHARS", "6500"))
+    SIGNAL_CONTENT_TAIL_CHARS = int(os.getenv("SIGNAL_CONTENT_TAIL_CHARS", "1500"))
+    # Per-refresh cap on how many backlog items get embedded, so a large backlog
+    # smooths across multiple refreshes instead of bursting hundreds of calls at once.
+    SIGNAL_EMBED_MAX_PER_RUN = int(os.getenv("SIGNAL_EMBED_MAX_PER_RUN", "200"))
 
     # Optional services
     JINA_READER_API_KEY = os.getenv("JINA_READER_API_KEY")
