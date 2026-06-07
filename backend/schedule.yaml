@@ -12,3 +12,9 @@ schedule:
 email:
   # Enable daily email briefs (requires SMTP credentials configured in .env)
   enable_delivery: false
+
+  # Whitelist of emails that are allowed to receive briefs.
+  # Leave this list empty to allow sending to all users.
+  allowed_recipients:
+    - "sarathavasarala@gmail.com"
+
