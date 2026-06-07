@@ -20,6 +20,10 @@ markly is a personal bookmark library that turns saved links into searchable, or
 
 **Save from other profiles.** Authenticated visitors can save a public bookmark from someone else's profile into their own collection.
 
+**RSS Feed Radar.** Keep track of your favorite blogs, newsletters, and publications. The Radar tab consolidates followed RSS feeds, allows reading content inline, and lets you quickly bookmark or dismiss articles.
+
+**Signal daily brief.** Replaces endless feed scrolling with a synthesized daily briefing memo. Using a customizable Taste Profile, the system selects relevant articles, fetches full text, and uses a dedicated LLM to compile a clean, thematic briefing containing inline source links. Real-time generation progress is shown using a Server-Sent Events (SSE) pipeline tracker.
+
 ## Tech Stack
 
 | Layer | Stack |
@@ -27,7 +31,7 @@ markly is a personal bookmark library that turns saved links into searchable, or
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand, React Router, Axios, Lucide icons |
 | Backend | Python Flask 3, Flask-CORS, Flask-Compress, Gunicorn |
 | Database | SQLite owned by the Flask backend, including FTS5 for keyword search |
-| AI and extraction | Azure OpenAI, optional stored embeddings, optional Jina Reader API, BeautifulSoup/newspaper/lxml fallback extraction |
+| AI and extraction | Azure OpenAI (including custom overrides for Signal daily briefs), optional stored embeddings, optional Jina Reader API, BeautifulSoup/newspaper/lxml fallback extraction |
 | Auth | Google OAuth with Flask cookie sessions and optional email allowlist |
 | Testing | Pytest, Vitest, React Testing Library, Playwright |
 | Deployment | Multi-stage Docker image deployed to Azure App Service |
@@ -46,6 +50,8 @@ Main API areas:
 - `/api/search` handles FTS keyword search, optional semantic mode, and search history.
 - `/api/stats` returns top tags.
 - `/api/public` powers public profiles, public bookmarks, subscriptions, visibility changes, and account deletion.
+- `/api/feeds` handles RSS feed registration, removal, and parsing.
+- `/api/signal` handles Taste Profile customization, history retrieval, brief deletion, and SSE-based real-time daily brief generation.
 
 ## Running Locally
 
@@ -115,6 +121,13 @@ AZURE_OPENAI_NANO_DEPLOYMENT_NAME=
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-large
 AZURE_OPENAI_API_VERSION=2024-08-01-preview
 AZURE_OPENAI_EMBEDDING_API_VERSION=2024-12-01-preview
+
+# Optional overrides for Signal daily briefs
+SIGNAL_AZURE_OPENAI_API_KEY=your-custom-signal-api-key
+SIGNAL_AZURE_OPENAI_ENDPOINT=https://your-custom-signal-resource.openai.azure.com/
+SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-more-powerful
+SIGNAL_AZURE_OPENAI_API_VERSION=2024-08-01-preview
+SIGNAL_CANDIDATE_LIMIT=75
 
 ENABLE_EMBEDDINGS=true
 ENABLE_SEMANTIC_SEARCH=false
@@ -204,13 +217,13 @@ markly/
 |   |-- app.py                 # Flask app factory, API registration, SPA serving, profile OG injection
 |   |-- config.py              # Environment-driven configuration
 |   |-- database.py            # SQLite connection, schema initialization, row serialization
-|   |-- routes/                # Auth, bookmarks, folders, search, stats, public profiles
-|   |-- services/              # Content extraction, enrichment, Azure OpenAI integration
+|   |-- routes/                # Auth, bookmarks, folders, search, stats, public profiles, feeds, signal
+|   |-- services/              # Content extraction, enrichment, Azure OpenAI integration, feeds
 |   |-- scripts/               # One-time migration utilities
 |   `-- tests/                 # Backend Pytest suite
 |-- frontend/
 |   |-- src/pages/             # Dashboard, Search, PublicProfile, Login
-|   |-- src/components/        # Bookmark cards/rows, folders, modals, layout, topics
+|   |-- src/components/        # Bookmark cards/rows, folders, modals, layout, topics, feeds, signal
 |   |-- src/stores/            # Zustand auth, bookmarks, folders, UI state
 |   `-- e2e/                   # Playwright specs
 |-- Dockerfile                 # Production container build

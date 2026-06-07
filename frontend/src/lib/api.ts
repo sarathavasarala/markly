@@ -262,3 +262,27 @@ export const publicApi = {
   deleteSubscriber: (username: string, subscriberEmail: string) =>
     api.delete(`/public/@${username}/subscribers/${subscriberEmail}`),
 }
+
+// Signal API
+export interface SignalBrief {
+  id: string
+  user_id: string
+  content: string
+  article_count: number | null
+  created_at: string
+}
+
+export const signalApi = {
+  getTasteProfile: () => api.get<{ taste_profile: string }>('/signal/taste-profile'),
+  updateTasteProfile: (tasteProfile: string) =>
+    api.put<{ success: boolean; taste_profile: string }>('/signal/taste-profile', { taste_profile: tasteProfile }),
+  listBriefs: () => api.get<{ briefs: SignalBrief[] }>('/signal/briefs'),
+  generateBrief: () => api.post<SignalBrief | { success: boolean; reason: string; message: string }>('/signal/briefs'),
+  generateBriefStream: () =>
+    fetch(`${API_BASE_URL}/signal/briefs/generate`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  deleteBrief: (id: string) => api.delete<{ success: boolean }>(`/signal/briefs/${id}`),
+}

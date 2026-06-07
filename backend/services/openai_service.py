@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
-from openai import AzureOpenAI
+from typing import Any, Optional
+from openai import AzureOpenAI, OpenAI
 
 from config import Config
 
@@ -12,6 +12,7 @@ class AzureOpenAIService:
     """Service for Azure OpenAI operations."""
     
     _chat_client: Optional[AzureOpenAI] = None
+    _signal_chat_client: Optional[AzureOpenAI] = None
     _embedding_client: Optional[AzureOpenAI] = None
     
     @classmethod
@@ -24,6 +25,45 @@ class AzureOpenAIService:
                 api_key=Config.AZURE_OPENAI_API_KEY,
             )
         return cls._chat_client
+
+    @classmethod
+    def get_signal_chat_client_and_model(cls) -> tuple[Any, str]:
+        """Get the client and model deployment name for generating the Signal Daily Brief."""
+        # Use overrides if configured; otherwise fall back to default chat configuration
+        api_key = Config.SIGNAL_AZURE_OPENAI_API_KEY or Config.AZURE_OPENAI_API_KEY
+        endpoint = Config.SIGNAL_AZURE_OPENAI_ENDPOINT or Config.AZURE_OPENAI_ENDPOINT
+        api_version = Config.SIGNAL_AZURE_OPENAI_API_VERSION or Config.AZURE_OPENAI_API_VERSION
+        deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME
+
+        # If no custom endpoint/key is configured, reuse the default chat client
+        if (
+            not Config.SIGNAL_AZURE_OPENAI_API_KEY
+            and not Config.SIGNAL_AZURE_OPENAI_ENDPOINT
+            and not Config.SIGNAL_AZURE_OPENAI_API_VERSION
+        ):
+            return cls.get_chat_client(), deployment
+
+        if cls._signal_chat_client is None:
+            # Auto-detect if we should use standard OpenAI compatible client (e.g. for Serverless/Catalog models)
+            # Standard OpenAI client is initialized if the endpoint contains "services.ai.azure.com" or ends with "/v1" or "/v1/"
+            is_openai_compatible = False
+            if endpoint:
+                cleaned_ep = endpoint.lower().strip()
+                if "services.ai.azure.com" in cleaned_ep or cleaned_ep.endswith("/v1") or cleaned_ep.endswith("/v1/"):
+                    is_openai_compatible = True
+
+            if is_openai_compatible:
+                cls._signal_chat_client = OpenAI(
+                    base_url=endpoint,
+                    api_key=api_key,
+                )
+            else:
+                cls._signal_chat_client = AzureOpenAI(
+                    api_version=api_version,
+                    azure_endpoint=cls._clean_endpoint(endpoint),
+                    api_key=api_key,
+                )
+        return cls._signal_chat_client, deployment
     
     @classmethod
     def get_embedding_client(cls) -> AzureOpenAI:

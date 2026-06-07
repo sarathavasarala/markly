@@ -198,6 +198,14 @@ def initialize_database():
                 UNIQUE(user_id, url)
             );
 
+            CREATE TABLE IF NOT EXISTS signal_briefs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                content TEXT NOT NULL,
+                article_count INTEGER,
+                created_at TEXT NOT NULL
+            );
+
             CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
                 bookmark_id UNINDEXED,
                 user_id UNINDEXED,
@@ -215,6 +223,7 @@ def initialize_database():
             CREATE INDEX IF NOT EXISTS idx_feeds_active_fetch ON feeds(is_active, last_fetched_at);
             CREATE INDEX IF NOT EXISTS idx_feed_items_inbox ON feed_items(user_id, status, published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_feed_items_feed ON feed_items(feed_id, published_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_signal_briefs_user_created ON signal_briefs(user_id, created_at DESC);
             """
         )
 
@@ -282,6 +291,18 @@ def initialize_database():
             cursor.execute("ALTER TABLE feed_items ADD COLUMN content TEXT")
         if "content_format" not in feed_item_columns:
             cursor.execute("ALTER TABLE feed_items ADD COLUMN content_format TEXT")
+
+        # Lightweight migration to add taste_profile to users if missing
+        cursor.execute("PRAGMA table_info(users)")
+        user_columns = [row["name"] for row in cursor.fetchall()]
+        if "taste_profile" not in user_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN taste_profile TEXT")
+
+        # Lightweight migration to add article_count to signal_briefs if missing
+        cursor.execute("PRAGMA table_info(signal_briefs)")
+        signal_columns = [row["name"] for row in cursor.fetchall()]
+        if "article_count" not in signal_columns:
+            cursor.execute("ALTER TABLE signal_briefs ADD COLUMN article_count INTEGER")
 
 
 def serialize_value(value: Any) -> Any:

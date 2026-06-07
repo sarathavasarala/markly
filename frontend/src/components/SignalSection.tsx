@@ -1,0 +1,571 @@
+import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Sparkles, Settings, Loader2, Calendar, ChevronRight, Info, X, RefreshCw, Undo2, Trash2, Check, Circle } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { signalApi, SignalBrief } from '../lib/api'
+
+interface SignalSectionProps {
+  onGenerateSuccess?: () => void
+}
+
+interface PipelineStep {
+  id: string
+  label: string
+  status: 'pending' | 'active' | 'done'
+  detail?: string
+  titles?: string[]
+}
+
+const INITIAL_STEPS: PipelineStep[] = [
+  { id: 'scanning', label: 'Scanning sources', status: 'pending' },
+  { id: 'filtering', label: 'Applying taste profile', status: 'pending' },
+  { id: 'extracting', label: 'Extracting full text', status: 'pending' },
+  { id: 'synthesizing', label: 'Writing your daily brief', status: 'pending' },
+]
+
+export default function SignalSection({ onGenerateSuccess }: SignalSectionProps) {
+  const [briefs, setBriefs] = useState<SignalBrief[]>([])
+  const [selectedBriefId, setSelectedBriefId] = useState<string | null>(null)
+  const [tasteProfileInput, setTasteProfileInput] = useState<string>('')
+  
+  const [isLoading, setIsLoading] = useState(true)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(INITIAL_STEPS)
+  const [isTasteProfileOpen, setIsTasteProfileOpen] = useState(false)
+  
+  const [error, setError] = useState<string | null>(null)
+  const [infoMessage, setInfoMessage] = useState<string | null>(null)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  const loadSignalData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const [briefsRes, profileRes] = await Promise.all([
+        signalApi.listBriefs(),
+        signalApi.getTasteProfile()
+      ])
+      setBriefs(briefsRes.data.briefs)
+      setTasteProfileInput(profileRes.data.taste_profile)
+      
+      if (briefsRes.data.briefs.length > 0) {
+        setSelectedBriefId(briefsRes.data.briefs[0].id)
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to load Signal data')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSignalData()
+  }, [loadSignalData])
+
+  const updateStep = (stepId: string, updates: Partial<PipelineStep>) => {
+    setPipelineSteps(prev => prev.map(s => s.id === stepId ? { ...s, ...updates } : s))
+  }
+
+  const markStepDone = (stepId: string, detail?: string, titles?: string[]) => {
+    setPipelineSteps(prev => prev.map(s => {
+      if (s.id === stepId) return { ...s, status: 'done' as const, detail, titles }
+      return s
+    }))
+  }
+
+  const markStepActive = (stepId: string, detail?: string) => {
+    setPipelineSteps(prev => prev.map(s => {
+      if (s.id === stepId) return { ...s, status: 'active' as const, detail }
+      return s
+    }))
+  }
+
+  const handleGenerate = async () => {
+    setIsGenerating(true)
+    setError(null)
+    setInfoMessage(null)
+    setPipelineSteps(INITIAL_STEPS.map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
+
+    try {
+      const response = await signalApi.generateBriefStream()
+      if (!response.ok) {
+        const text = await response.text()
+        try {
+          const err = JSON.parse(text)
+          setError(err.error || 'Failed to generate brief.')
+        } catch {
+          setError('Failed to generate brief. Please ensure you have added active RSS feeds.')
+        }
+        setIsGenerating(false)
+        return
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        setError('Streaming not supported in this browser.')
+        setIsGenerating(false)
+        return
+      }
+
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+
+            switch (event.stage) {
+              case 'scanning':
+                markStepActive('scanning', event.message)
+                // Immediately mark done since scanning is instant
+                setTimeout(() => markStepDone('scanning', event.message), 300)
+                break
+              case 'filtering':
+                markStepDone('scanning')
+                markStepActive('filtering', event.message)
+                break
+              case 'filtered':
+                markStepDone('filtering', event.message, event.titles)
+                break
+              case 'extracting':
+                markStepActive('extracting', event.message)
+                updateStep('extracting', { detail: event.message })
+                break
+              case 'synthesizing':
+                markStepDone('extracting')
+                markStepActive('synthesizing', event.message)
+                break
+              case 'complete': {
+                markStepDone('synthesizing')
+                const newBrief = event.brief as SignalBrief
+                setBriefs(prev => [newBrief, ...prev])
+                setSelectedBriefId(newBrief.id)
+                if (onGenerateSuccess) onGenerateSuccess()
+                break
+              }
+              case 'error':
+                setInfoMessage(event.message)
+                break
+            }
+          } catch {
+            // Skip unparseable lines
+          }
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate brief. Please ensure you have added active RSS feeds.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    setSaveStatus('saving')
+    try {
+      const res = await signalApi.updateTasteProfile(tasteProfileInput)
+      setTasteProfileInput(res.data.taste_profile)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    } catch (err) {
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 3000)
+    }
+  }
+
+  const handleResetProfile = async () => {
+    if (window.confirm('Reset Taste Profile to the recommended default instructions?')) {
+      setTasteProfileInput('')
+      setSaveStatus('saving')
+      try {
+        const res = await signalApi.updateTasteProfile('')
+        setTasteProfileInput(res.data.taste_profile)
+        setSaveStatus('saved')
+        setTimeout(() => setSaveStatus('idle'), 2000)
+      } catch (err) {
+        setSaveStatus('error')
+        setTimeout(() => setSaveStatus('idle'), 3000)
+      }
+    }
+  }
+
+  const formatDate = (value: string | null) => {
+    if (!value) return null
+    try {
+      return new Intl.DateTimeFormat(undefined, { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      }).format(new Date(value))
+    } catch {
+      return null
+    }
+  }
+
+  const formatShortDate = (value: string | null) => {
+    if (!value) return null
+    try {
+      return new Intl.DateTimeFormat(undefined, { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      }).format(new Date(value))
+    } catch {
+      return null
+    }
+  }
+
+  const selectedBrief = briefs.find(b => b.id === selectedBriefId)
+
+  return (
+    <div className="space-y-6">
+      {/* Action Bar */}
+      <div className="flex items-center justify-between gap-4 border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
+        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          Today's Signal
+        </h2>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsTasteProfileOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-850 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-750"
+            title="Edit Taste Profile Settings"
+          >
+            <Settings className="h-4 w-4" />
+            Taste Profile
+          </button>
+          
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+          >
+            {isGenerating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {briefs.length > 0 ? 'Generate today\'s brief' : 'Generate brief'}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-900/20 dark:text-rose-300">
+          {error}
+        </div>
+      )}
+
+      {infoMessage && (
+        <div className="flex items-start gap-3 rounded-2xl bg-amber-50 px-4 py-4 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20">
+          <Info className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-500 mt-0.5" />
+          <div>
+            <p className="font-semibold text-slate-900 dark:text-slate-100">Brief Generation Status</p>
+            <p className="mt-1">{infoMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 animate-pulse rounded-2xl bg-slate-200/70 dark:bg-slate-800/70" />
+            ))}
+          </div>
+          <div className="h-96 animate-pulse rounded-3xl bg-slate-200/70 dark:bg-slate-800/70" />
+        </div>
+      ) : briefs.length === 0 && !isGenerating ? (
+        /* Empty State */
+        <div className="rounded-card border border-dashed border-slate-300 bg-white/40 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
+          <div className="mx-auto max-w-lg space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+              <Sparkles className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+            </div>
+            <h2 className="font-display text-xl font-normal text-slate-900 dark:text-slate-100">
+              Create your first Daily Brief
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Instead of reading individual feed items, Signal filters recent RSS stories using your Taste Profile and synthesizes them into a unified chief-of-staff memo.
+            </p>
+            <div className="pt-4 flex justify-center gap-3">
+              <button
+                onClick={() => setIsTasteProfileOpen(true)}
+                className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
+              >
+                Configure Taste Profile
+              </button>
+              <button
+                onClick={handleGenerate}
+                className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+              >
+                Generate Brief
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Signal Brief Viewport */
+        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+          {/* Left Column: Brief History Sidebar */}
+          <aside className="space-y-3">
+            <div className="flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <Calendar className="h-3.5 w-3.5" />
+              Brief History
+            </div>
+            <div className="space-y-1">
+              {briefs.map((brief) => {
+                const isSelected = brief.id === selectedBriefId
+                return (
+                  <div key={brief.id} className="group flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        setSelectedBriefId(brief.id)
+                        setInfoMessage(null)
+                      }}
+                      className={`min-w-0 flex-1 flex items-center justify-between rounded-2xl px-4 py-3 text-left transition ${
+                        isSelected
+                          ? 'bg-white text-slate-950 ring-1 ring-slate-200 shadow-sm dark:bg-slate-800 dark:text-slate-50 dark:ring-slate-700'
+                          : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">
+                          {formatShortDate(brief.created_at)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500 truncate">
+                          {brief.article_count ? `${brief.article_count} articles analyzed` : 'Synthesized memo'}
+                        </p>
+                      </div>
+                      <ChevronRight className={`h-4 w-4 flex-shrink-0 ml-2 ${isSelected ? 'text-slate-600 dark:text-slate-400' : 'text-slate-300'}`} />
+                    </button>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        if (!window.confirm('Delete this brief? You can regenerate a new one.')) return
+                        try {
+                          await signalApi.deleteBrief(brief.id)
+                          setBriefs(prev => prev.filter(b => b.id !== brief.id))
+                          if (selectedBriefId === brief.id) {
+                            const remaining = briefs.filter(b => b.id !== brief.id)
+                            setSelectedBriefId(remaining.length > 0 ? remaining[0].id : null)
+                          }
+                        } catch {
+                          setError('Failed to delete brief')
+                        }
+                      }}
+                      className="rounded-lg p-1.5 text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:hover:bg-rose-900/20 dark:hover:text-rose-300"
+                      title="Delete brief"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </aside>
+
+          {/* Right Column: Brief Viewer Area */}
+          <section className="space-y-4">
+            {isGenerating ? (
+              /* Generation Step Indicator */
+              <div className="rounded-card border border-slate-200/70 bg-white/70 p-8 dark:border-slate-800/80 dark:bg-slate-900/50 min-h-[400px] flex flex-col justify-center">
+                <h3 className="font-display text-lg font-medium text-slate-900 dark:text-slate-100 mb-6">
+                  Preparing your daily brief
+                </h3>
+                <div className="space-y-1">
+                  {pipelineSteps.map((step, idx) => (
+                    <div key={step.id} className="flex items-start gap-3">
+                      {/* Step connector line + icon */}
+                      <div className="flex flex-col items-center">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0">
+                          {step.status === 'done' ? (
+                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 dark:bg-slate-100">
+                              <Check className="h-3 w-3 text-white dark:text-slate-900" />
+                            </div>
+                          ) : step.status === 'active' ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-slate-700 dark:text-slate-300" />
+                          ) : (
+                            <Circle className="h-4 w-4 text-slate-300 dark:text-slate-600" />
+                          )}
+                        </div>
+                        {idx < pipelineSteps.length - 1 && (
+                          <div className={`w-px h-full min-h-[16px] my-1 ${
+                            step.status === 'done' ? 'bg-slate-400 dark:bg-slate-500' : 'bg-slate-200 dark:bg-slate-700'
+                          }`} />
+                        )}
+                      </div>
+                      {/* Step text */}
+                      <div className="pb-4 min-w-0 flex-1">
+                        <p className={`text-sm font-medium ${
+                          step.status === 'done'
+                            ? 'text-slate-900 dark:text-slate-100'
+                            : step.status === 'active'
+                            ? 'text-slate-800 dark:text-slate-200'
+                            : 'text-slate-400 dark:text-slate-500'
+                        }`}>
+                          {step.detail || step.label}
+                        </p>
+                        {/* Show filtered titles */}
+                        {step.id === 'filtering' && step.status === 'done' && step.titles && step.titles.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {step.titles.map((title, i) => (
+                              <p key={i} className="text-xs text-slate-400 dark:text-slate-500 truncate pl-2 border-l-2 border-slate-200 dark:border-slate-700">
+                                {title}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : selectedBrief ? (
+              /* Brief Display Card */
+              <article className="rounded-card border border-slate-200/70 bg-white p-6 shadow-sm dark:border-slate-800/80 dark:bg-slate-950">
+                {/* Header info */}
+                <div className="border-b border-slate-100 pb-4 mb-6 dark:border-slate-900">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                    Daily Briefing Memo
+                  </div>
+                  <h2 className="font-display text-2xl font-normal text-slate-900 dark:text-slate-50">
+                    {formatDate(selectedBrief.created_at)}
+                  </h2>
+                </div>
+
+                {/* Briefing intro note */}
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 mb-6 dark:bg-slate-900/40 ring-1 ring-slate-100 dark:ring-slate-800">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span>
+                    {selectedBrief.article_count
+                      ? ` - based on analysis of ${selectedBrief.article_count} articles from your RSS feeds.`
+                      : ' - synthesized from recent articles across your RSS feeds.'}
+                    {' '}Below are the themes and developments that stood out today.
+                  </p>
+                </div>
+                
+                {/* Synthesized Brief Content */}
+                <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 select-text leading-relaxed font-sans text-base">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ href, children }) => (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-slate-700 dark:text-slate-300 underline decoration-slate-400/50 underline-offset-2 transition hover:text-slate-950 hover:decoration-slate-700 dark:hover:text-slate-100 dark:decoration-slate-500/50 dark:hover:decoration-slate-300"
+                        >
+                          {children}
+                        </a>
+                      )
+                    }}
+                  >
+                    {selectedBrief.content}
+                  </ReactMarkdown>
+                </div>
+              </article>
+            ) : null}
+          </section>
+        </div>
+      )}
+
+      {/* Slide-over Taste Profile Drawer */}
+      {isTasteProfileOpen && createPortal(
+        <div className="fixed inset-0 z-[60] flex justify-end bg-slate-950/40 backdrop-blur-sm transition-opacity animate-in fade-in-0 duration-200">
+          <div 
+            className="fixed inset-0" 
+            onClick={() => setIsTasteProfileOpen(false)} 
+          />
+          <aside className="relative z-10 flex h-full w-full max-w-xl flex-col bg-white shadow-2xl transition-transform dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300 p-6">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-4 dark:border-slate-800/60">
+              <div>
+                <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-50">
+                  Signal Taste Profile
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Standing instructions that guide daily report filtering and style.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsTasteProfileOpen(false)}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Profile editor form */}
+            <div className="flex-1 overflow-y-auto py-6 space-y-4">
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Preference Instructions
+              </label>
+              
+              <textarea
+                value={tasteProfileInput}
+                onChange={(e) => setTasteProfileInput(e.target.value)}
+                placeholder="Describe your taste, filtering guidelines, style, or specific domains of interest..."
+                className="w-full h-80 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
+              />
+
+              <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 space-y-2">
+                <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <Info className="h-3.5 w-3.5 text-slate-500" />
+                  Taste Profile Guidelines
+                </div>
+                <p>
+                  Explain exactly what insights you prioritize, what styles you favor, and what low-value content (e.g. clickbait, raw metrics, hype announcements) should be aggressively discarded.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="border-t border-slate-200/60 pt-4 dark:border-slate-800/60 flex items-center justify-between gap-3">
+              <button
+                onClick={handleResetProfile}
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                title="Reset to default prompt guidelines"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+                Reset to Default
+              </button>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsTasteProfileOpen(false)}
+                  className="rounded-full px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={saveStatus === 'saving'}
+                  className="rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white flex items-center gap-2"
+                >
+                  {saveStatus === 'saving' && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error' : 'Save Profile'}
+                </button>
+              </div>
+            </div>
+
+          </aside>
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}

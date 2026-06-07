@@ -49,6 +49,12 @@ class Config:
         "AZURE_OPENAI_EMBEDDING_API_VERSION", "2024-12-01-preview"
     )
     
+    # Custom LLM overrides specifically for Signal daily brief generation
+    SIGNAL_AZURE_OPENAI_API_KEY = os.getenv("SIGNAL_AZURE_OPENAI_API_KEY")
+    SIGNAL_AZURE_OPENAI_ENDPOINT = os.getenv("SIGNAL_AZURE_OPENAI_ENDPOINT")
+    SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME")
+    SIGNAL_AZURE_OPENAI_API_VERSION = os.getenv("SIGNAL_AZURE_OPENAI_API_VERSION")
+    
     SESSION_EXPIRY_DAYS = 365  # 1 year
 
     # Archive settings
@@ -57,6 +63,9 @@ class Config:
 
     # Feed Radar settings
     FEED_RADAR_ITEMS_PER_SOURCE = int(os.getenv("FEED_RADAR_ITEMS_PER_SOURCE", "100"))
+
+    # Signal settings
+    SIGNAL_CANDIDATE_LIMIT = int(os.getenv("SIGNAL_CANDIDATE_LIMIT", "75"))
 
     # Optional services
     JINA_READER_API_KEY = os.getenv("JINA_READER_API_KEY")
