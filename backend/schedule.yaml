@@ -1,0 +1,14 @@
+# Configuration for Markly scheduled background tasks
+schedule:
+  # How often to fetch new items from RSS feeds (in hours)
+  feed_refresh_interval_hours: 12
+
+  # What time to generate the daily brief synthesis (24-hour HH:MM format)
+  daily_brief_time: "05:30"
+
+  # Timezone for daily_brief_time evaluation (e.g., "Asia/Kolkata", "UTC", "America/New_York")
+  timezone: "Asia/Kolkata"
+
+email:
+  # Enable daily email briefs (requires SMTP credentials configured in .env)
+  enable_delivery: false
