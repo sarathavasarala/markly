@@ -73,18 +73,19 @@ def test_generate_brief_success(client, mocker):
         return_value=(mock_client, "gpt-4o")
     )
     
-    # Mocking first call (filtering) and second call (synthesis)
+    # Mocking first call (filtering)
     mock_response_filter = mocker.MagicMock()
     mock_response_filter.choices = [
         mocker.MagicMock(message=mocker.MagicMock(content='{"selected_ids": ["item-1"]}'))
     ]
     
-    mock_response_synth = mocker.MagicMock()
-    mock_response_synth.choices = [
-        mocker.MagicMock(message=mocker.MagicMock(content="## AI Ecosystem Shift\nAI labs are optimizing for reliability and deployment economics — which is a major change."))
-    ]
+    mock_client.chat.completions.create.side_effect = [mock_response_filter]
     
-    mock_client.chat.completions.create.side_effect = [mock_response_filter, mock_response_synth]
+    # Mocking synthesis call
+    mocker.patch(
+        "services.openai_service.AzureOpenAIService.generate_brief_with_search",
+        return_value="## AI Ecosystem Shift\nAI labs are optimizing for reliability and deployment economics — which is a major change."
+    )
 
     # Generate brief
     response = client.post("/api/signal/briefs", headers=AUTH_HEADERS)

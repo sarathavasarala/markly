@@ -71,7 +71,12 @@ Instructions:
    - Weave links naturally into the prose. For example: "As [this analysis from Stratechery](https://example.com/article) argues, the real shift is...".
    - Do not group all sources at the end. Embed them where they are most contextually relevant.
    - Every thematic section should contain at least one source link.
-5. Output Format:
+5. Web Search Grounding and Active Research:
+   - Identify gaps in the provided RSS articles where more context is needed. This includes unexplained specialist terms, new product announcements, references to ongoing industry events, or technical claims that would benefit from latest public details or grounding.
+   - Actively use the `web_search` tool to execute search queries to retrieve the latest public context, background, and updates for these points.
+   - Integrate these web search findings naturally into your briefing prose to ground the analysis and explain background realities.
+   - For all information or insights retrieved via web search, include inline citation hyperlinks to the source: [descriptive anchor text](URL) using the actual search result URL.
+6. Output Format:
    - Provide the response in Markdown format.
    - Use simple headers (e.g. `##` for conversation clusters) to organize the memo.
    - Do not include any greeting, introduction, signature, or filler. Start directly with the first thematic header.
@@ -83,7 +88,7 @@ Instructions:
 def get_taste_profile():
     conn = get_db()
     row = conn.execute(
-        "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt "
+        "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt, signal_web_search_enabled "
         "FROM users WHERE id = ?",
         (g.user.id,)
     ).fetchone()
@@ -93,6 +98,7 @@ def get_taste_profile():
         "signal_candidate_limit": row["signal_candidate_limit"] if row else None,
         "signal_filter_prompt": row["signal_filter_prompt"] if row else None,
         "signal_synthesis_prompt": row["signal_synthesis_prompt"] if row else None,
+        "signal_web_search_enabled": bool(row["signal_web_search_enabled"]) if row and row["signal_web_search_enabled"] is not None else True,
         "default_filter_prompt": FILTER_PROMPT_TEMPLATE,
         "default_synthesis_prompt": SYNTHESIS_PROMPT_TEMPLATE,
     })
@@ -114,6 +120,11 @@ def update_taste_profile():
 
     filter_prompt = data.get("signal_filter_prompt", "").strip() or None
     synthesis_prompt = data.get("signal_synthesis_prompt", "").strip() or None
+    web_search_enabled = data.get("signal_web_search_enabled")
+    if web_search_enabled is None:
+        web_search_enabled = True
+    else:
+        web_search_enabled = bool(web_search_enabled)
 
     # Save as NULL if they match default templates exactly or are empty
     if filter_prompt and filter_prompt.strip() == FILTER_PROMPT_TEMPLATE.strip():
@@ -124,8 +135,8 @@ def update_taste_profile():
     conn = get_db()
     conn.execute(
         "UPDATE users SET taste_profile = ?, signal_candidate_limit = ?, "
-        "signal_filter_prompt = ?, signal_synthesis_prompt = ?, updated_at = ? WHERE id = ?",
-        (profile, limit, filter_prompt, synthesis_prompt, utc_now(), g.user.id)
+        "signal_filter_prompt = ?, signal_synthesis_prompt = ?, signal_web_search_enabled = ?, updated_at = ? WHERE id = ?",
+        (profile, limit, filter_prompt, synthesis_prompt, 1 if web_search_enabled else 0, utc_now(), g.user.id)
     )
     conn.commit()
 
@@ -135,6 +146,7 @@ def update_taste_profile():
         "signal_candidate_limit": limit,
         "signal_filter_prompt": filter_prompt,
         "signal_synthesis_prompt": synthesis_prompt,
+        "signal_web_search_enabled": web_search_enabled,
     })
 
 @signal_bp.route("/briefs", methods=["GET"])
@@ -182,7 +194,12 @@ def generate_brief():
     signal_pipeline.persist_content_updates(conn, updates)
 
     try:
-        content = signal_pipeline.synthesize(selected_items, taste_profile, settings["synthesis_template"])
+        content = signal_pipeline.synthesize(
+            selected_items,
+            taste_profile,
+            settings["synthesis_template"],
+            web_search_enabled=settings["web_search_enabled"],
+        )
     except Exception as exc:
         logger.error(f"Error in signal brief synthesis LLM call: {exc}")
         return jsonify({"error": f"Failed to generate brief content: {str(exc)}"}), 500
@@ -270,10 +287,18 @@ def _generate_brief_stream(user_id: str):
 
         signal_pipeline.persist_content_updates(conn, updates)
 
-        yield _sse_event({"stage": "synthesizing", "message": "Writing your daily brief..."})
+        if settings.get("web_search_enabled", True):
+            yield _sse_event({"stage": "synthesizing", "message": "Researching web and writing your daily brief..."})
+        else:
+            yield _sse_event({"stage": "synthesizing", "message": "Writing your daily brief..."})
 
         try:
-            content = signal_pipeline.synthesize(selected_items, taste_profile, settings["synthesis_template"])
+            content = signal_pipeline.synthesize(
+                selected_items,
+                taste_profile,
+                settings["synthesis_template"],
+                web_search_enabled=settings.get("web_search_enabled", True),
+            )
         except Exception as exc:
             logger.error(f"Error in signal brief synthesis LLM call: {exc}")
             yield _sse_event({"stage": "error", "message": f"Failed to generate brief content: {str(exc)}"})

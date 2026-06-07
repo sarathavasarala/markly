@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Optional
 from openai import AzureOpenAI, OpenAI
 
 from config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class AzureOpenAIService:
@@ -230,6 +233,85 @@ class AzureOpenAIService:
         }
         
         return validated
+
+    @classmethod
+    def generate_brief_with_search(cls, prompt: str, instructions: str) -> str:
+        """
+        Generate Signal Daily Brief using Azure OpenAI's native Responses API with web search.
+        
+        Falls back to standard Chat Completions (without web search) if Responses API fails.
+        """
+        import requests
+        
+        endpoint = Config.SIGNAL_AZURE_OPENAI_ENDPOINT or Config.AZURE_OPENAI_ENDPOINT
+        api_key = Config.SIGNAL_AZURE_OPENAI_API_KEY or Config.AZURE_OPENAI_API_KEY
+        deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME
+        
+        if not endpoint or not api_key:
+            logger.warning("Azure OpenAI endpoint or API key not configured. Falling back to standard Completions.")
+            return cls.generate_brief_completions_fallback(prompt, instructions, deployment)
+            
+        base_endpoint = endpoint.strip().rstrip("/")
+        if not base_endpoint.endswith("/openai/v1"):
+            if base_endpoint.endswith("/openai"):
+                url = f"{base_endpoint}/v1/responses"
+            else:
+                url = f"{base_endpoint}/openai/v1/responses"
+        else:
+            url = f"{base_endpoint}/responses"
+            
+        headers = {
+            "api-key": api_key,
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": deployment,
+            "tools": [{"type": "web_search"}],
+            "instructions": instructions,
+            "input": prompt
+        }
+        
+        try:
+            logger.info("Calling Azure OpenAI Responses API with web search...")
+            res = requests.post(url, headers=headers, json=data, timeout=60)
+            if res.status_code == 200:
+                res_data = res.json()
+                output_items = res_data.get("output", [])
+                text = ""
+                # Find the assistant's output message
+                for item in output_items:
+                    if item.get("type") == "message" and item.get("role") == "assistant":
+                        contents = item.get("content", [])
+                        for content_item in contents:
+                            if content_item.get("type") == "output_text":
+                                text = content_item.get("text", "")
+                                break
+                if text:
+                    logger.info("Responses API brief generation successful.")
+                    return text
+                else:
+                    logger.warning("Responses API returned successful code but empty assistant text.")
+            else:
+                logger.warning(f"Responses API returned non-200 code: {res.status_code}. Response: {res.text}")
+        except Exception as e:
+            logger.warning(f"Responses API call failed with exception: {e}")
+            
+        logger.info("Falling back to standard Chat Completions daily brief generation...")
+        return cls.generate_brief_completions_fallback(prompt, instructions, deployment)
+
+    @classmethod
+    def generate_brief_completions_fallback(cls, prompt: str, instructions: str, deployment: str) -> str:
+        """Fallback chat completions implementation without search."""
+        client, model = cls.get_signal_chat_client_and_model()
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return response.choices[0].message.content
     
     @staticmethod
     def _validate_enum(value: str, allowed: list[str], default: str) -> str:

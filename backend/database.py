@@ -90,7 +90,12 @@ def initialize_database():
                 full_name TEXT,
                 avatar_url TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                taste_profile TEXT,
+                signal_candidate_limit INTEGER,
+                signal_filter_prompt TEXT,
+                signal_synthesis_prompt TEXT,
+                signal_web_search_enabled INTEGER DEFAULT 1
             );
 
             CREATE TABLE IF NOT EXISTS folders (
@@ -309,6 +314,8 @@ def initialize_database():
             cursor.execute("ALTER TABLE users ADD COLUMN signal_filter_prompt TEXT")
         if "signal_synthesis_prompt" not in user_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN signal_synthesis_prompt TEXT")
+        if "signal_web_search_enabled" not in user_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN signal_web_search_enabled INTEGER DEFAULT 1")
 
         # Lightweight migration to add article_count to signal_briefs if missing
         cursor.execute("PRAGMA table_info(signal_briefs)")
@@ -348,6 +355,8 @@ def row_to_dict(row: sqlite3.Row | dict[str, Any] | None) -> dict[str, Any] | No
                     data[key] = [] if key != "embedding" else None
     if "is_public" in data:
         data["is_public"] = bool(data["is_public"])
+    if "signal_web_search_enabled" in data:
+        data["signal_web_search_enabled"] = bool(data["signal_web_search_enabled"]) if data["signal_web_search_enabled"] is not None else True
     return data
 
 

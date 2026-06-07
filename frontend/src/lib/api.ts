@@ -279,6 +279,7 @@ export interface SignalSettings {
   signal_synthesis_prompt: string | null
   default_filter_prompt?: string
   default_synthesis_prompt?: string
+  signal_web_search_enabled?: boolean
 }
 
 export const signalApi = {

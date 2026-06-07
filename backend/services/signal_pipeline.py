@@ -189,7 +189,7 @@ def _recency_weight(timestamp: str | None) -> float:
 def load_user_settings(conn, user_id, *, default_filter_template, default_synthesis_template):
     """Load taste profile, candidate limit, and (custom or default) prompt templates."""
     user_row = conn.execute(
-        "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt "
+        "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt, signal_web_search_enabled "
         "FROM users WHERE id = ?",
         (user_id,),
     ).fetchone()
@@ -210,11 +210,17 @@ def load_user_settings(conn, user_id, *, default_filter_template, default_synthe
         if user_row and user_row["signal_synthesis_prompt"]
         else default_synthesis_template
     )
+    web_search_enabled = (
+        bool(user_row["signal_web_search_enabled"])
+        if user_row and user_row["signal_web_search_enabled"] is not None
+        else True
+    )
     return {
         "taste_profile": taste_profile,
         "candidate_limit": candidate_limit,
         "filter_template": filter_template,
         "synthesis_template": synthesis_template,
+        "web_search_enabled": web_search_enabled,
     }
 
 
@@ -474,25 +480,37 @@ def persist_content_updates(conn, updates):
 # Stage 5: synthesis
 # ---------------------------------------------------------------------------
 
-def synthesize(selected_items, taste_profile, synthesis_template):
+def synthesize(selected_items, taste_profile, synthesis_template, web_search_enabled=True):
     """Run the synthesis LLM call and return cleaned brief text.
 
-    The model, system message, inputs, and post-processing are unchanged."""
+    Uses Azure OpenAI's native Responses API with web search, falling back
+    to standard completions if needed."""
     articles_contents_str = _build_articles_contents_str(selected_items)
-    synthesis_prompt = synthesis_template.format(
-        taste_profile=taste_profile,
-        articles_contents_str=articles_contents_str,
-    )
+    
+    # Safely format the template (in case they have other custom placeholders)
+    fmt_args = {
+        "taste_profile": taste_profile,
+        "articles_contents_str": articles_contents_str,
+    }
+    import string
+    formatter = string.Formatter()
+    try:
+        for _, field_name, _, _ in formatter.parse(synthesis_template):
+            if field_name and field_name not in fmt_args:
+                fmt_args[field_name] = ""
+        synthesis_prompt = synthesis_template.format(**fmt_args)
+    except Exception as exc:
+        logger.warning(f"Error formatting synthesis template: {exc}. Falling back to default format.")
+        synthesis_prompt = synthesis_template.replace("{taste_profile}", taste_profile).replace("{articles_contents_str}", articles_contents_str)
 
-    client, model = AzureOpenAIService.get_signal_chat_client_and_model()
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."},
-            {"role": "user", "content": synthesis_prompt},
-        ],
-    )
-    content = response.choices[0].message.content
+    system_content = "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."
+    
+    if web_search_enabled:
+        content = AzureOpenAIService.generate_brief_with_search(synthesis_prompt, system_content)
+    else:
+        deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME
+        content = AzureOpenAIService.generate_brief_completions_fallback(synthesis_prompt, system_content, deployment)
+        
     return _clean_brief_text(content)
 
 

@@ -34,9 +34,9 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [signalSynthesisPrompt, setSignalSynthesisPrompt] = useState<string>('')
   const [defaultFilterPrompt, setDefaultFilterPrompt] = useState<string>('')
   const [defaultSynthesisPrompt, setDefaultSynthesisPrompt] = useState<string>('')
+  const [signalWebSearchEnabled, setSignalWebSearchEnabled] = useState<boolean>(true)
   
   const [activeSettingsTab, setActiveSettingsTab] = useState<'instructions' | 'prompts' | 'settings'>('instructions')
-  const [activePromptSubTab, setActivePromptSubTab] = useState<'filter' | 'synthesis'>('filter')
 
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -66,6 +66,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       
       setSignalFilterPrompt(profileRes.data.signal_filter_prompt !== null ? profileRes.data.signal_filter_prompt : defaultFilter)
       setSignalSynthesisPrompt(profileRes.data.signal_synthesis_prompt !== null ? profileRes.data.signal_synthesis_prompt : defaultSynth)
+      setSignalWebSearchEnabled(profileRes.data.signal_web_search_enabled !== undefined ? !!profileRes.data.signal_web_search_enabled : true)
 
       if (briefsRes.data.briefs.length > 0) {
         setSelectedBriefId(briefsRes.data.briefs[0].id)
@@ -196,11 +197,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
         signal_candidate_limit: signalCandidateLimit,
         signal_filter_prompt: signalFilterPrompt,
         signal_synthesis_prompt: signalSynthesisPrompt,
+        signal_web_search_enabled: signalWebSearchEnabled,
       })
       setTasteProfileInput(res.data.taste_profile)
       setSignalCandidateLimit(res.data.signal_candidate_limit)
       setSignalFilterPrompt(res.data.signal_filter_prompt !== null ? res.data.signal_filter_prompt : defaultFilterPrompt)
       setSignalSynthesisPrompt(res.data.signal_synthesis_prompt !== null ? res.data.signal_synthesis_prompt : defaultSynthesisPrompt)
+      setSignalWebSearchEnabled(res.data.signal_web_search_enabled !== undefined ? !!res.data.signal_web_search_enabled : true)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch (err) {
@@ -218,11 +221,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
           signal_candidate_limit: null,
           signal_filter_prompt: null,
           signal_synthesis_prompt: null,
+          signal_web_search_enabled: true,
         })
         setTasteProfileInput(res.data.taste_profile)
         setSignalCandidateLimit(res.data.signal_candidate_limit)
         setSignalFilterPrompt(defaultFilterPrompt)
         setSignalSynthesisPrompt(defaultSynthesisPrompt)
+        setSignalWebSearchEnabled(true)
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus('idle'), 2000)
       } catch (err) {
@@ -608,70 +613,46 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
               )}
 
               {activeSettingsTab === 'prompts' && (
-                <div className="space-y-4">
-                  {/* Prompt Sub-tabs */}
-                  <div className="flex gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-900">
-                    <button
-                      type="button"
-                      onClick={() => setActivePromptSubTab('filter')}
-                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition ${
-                        activePromptSubTab === 'filter'
-                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      Step 1: Filtering Prompt
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActivePromptSubTab('synthesis')}
-                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition ${
-                        activePromptSubTab === 'synthesis'
-                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
-                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      Step 2: Synthesis Prompt
-                    </button>
+                <div className="space-y-6">
+                  {/* Step 1: Filtering Prompt */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Step 1: Filter Prompt Template
+                    </label>
+                    <textarea
+                      value={signalFilterPrompt}
+                      onChange={(e) => setSignalFilterPrompt(e.target.value)}
+                      placeholder="Filter prompt template..."
+                      className="w-full h-64 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
+                    />
+                    <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
+                      <span className="font-semibold">Required variables:</span>
+                      <p>
+                        Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_list_str}"}</code> for dynamic insertion.
+                      </p>
+                    </div>
                   </div>
 
-                  {activePromptSubTab === 'filter' ? (
-                    <div className="space-y-3">
-                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Filter Prompt Template
-                      </label>
-                      <textarea
-                        value={signalFilterPrompt}
-                        onChange={(e) => setSignalFilterPrompt(e.target.value)}
-                        placeholder="Filter prompt template..."
-                        className="w-full h-80 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
-                      />
-                      <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
-                        <span className="font-semibold">Required variables:</span>
-                        <p>
-                          Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_list_str}"}</code> for dynamic insertion.
-                        </p>
-                      </div>
+                  <hr className="border-slate-200/60 dark:border-slate-800/60" />
+
+                  {/* Step 2: Synthesis Prompt */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Step 2: Synthesis Prompt Template
+                    </label>
+                    <textarea
+                      value={signalSynthesisPrompt}
+                      onChange={(e) => setSignalSynthesisPrompt(e.target.value)}
+                      placeholder="Synthesis prompt template..."
+                      className="w-full h-64 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
+                    />
+                    <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
+                      <span className="font-semibold">Required variables:</span>
+                      <p>
+                        Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_contents_str}"}</code> for dynamic insertion.
+                      </p>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Synthesis Prompt Template
-                      </label>
-                      <textarea
-                        value={signalSynthesisPrompt}
-                        onChange={(e) => setSignalSynthesisPrompt(e.target.value)}
-                        placeholder="Synthesis prompt template..."
-                        className="w-full h-80 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
-                      />
-                      <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
-                        <span className="font-semibold">Required variables:</span>
-                        <p>
-                          Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_contents_str}"}</code> for dynamic insertion.
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </div>
               )}
 
@@ -705,6 +686,33 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                     <p>
                       A higher limit lets Signal scan further back in your feeds but takes longer to run. The default scan pool limit is 100 articles. Set a custom number to fine tune this scan threshold.
                     </p>
+                  </div>
+
+                  <hr className="border-slate-200/60 dark:border-slate-800/60 my-6" />
+
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Web Search Grounding
+                      </label>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
+                        Synthesize your brief with real-time web searches and source citations.
+                      </p>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setSignalWebSearchEnabled(!signalWebSearchEnabled)}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        signalWebSearchEnabled ? 'bg-slate-900 dark:bg-slate-100' : 'bg-slate-200 dark:bg-slate-800'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          signalWebSearchEnabled ? 'translate-x-5 dark:bg-slate-900' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
               )}
