@@ -8,7 +8,7 @@ This document outlines the testing infrastructure for markly and provides instru
 | --- | --- |
 | `npm test` | Run all Backend + Frontend tests |
 | `npm run lint` | Run all style checks |
-| `npm run test:e2e` | Run Playwright End-to-End tests |
+| `cd frontend && npx playwright test --project=chromium` | Run Playwright End-to-End tests (local Chromium) |
 
 ---
 
@@ -18,7 +18,9 @@ We use a three-tier testing strategy:
 
 1.  **Unit Tests (Pytest/Vitest)**: Focus on local logic like content extraction and component rendering.
 2.  **Integration Tests (Pytest)**: Verify API routes and database interactions with mocked authentication.
-3.  **E2E Tests (Playwright)**: Simulate real user journeys in the browser.
+3.  **E2E Tests (Playwright)**: Simulate real user journeys in the browser. 
+    *   *Note*: The frontend E2E tests are fully isolated and mock backend API routes using Playwright's `page.route` network interception. This means they run quickly and do not require a local Flask backend to be active.
+    *   *Note*: Local runs should use the `--project=chromium` flag, since the default config attempts to run Chromium, Firefox, and Webkit, which might not be installed in your local developer environment.
 
 ---
 

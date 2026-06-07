@@ -181,13 +181,16 @@ Keep a periodic backup of `/home/data/markly.db`. For small personal deployments
 | `npm run test` | Run backend Pytest and frontend Vitest suites |
 | `npm run test:backend` | Run backend Pytest suite |
 | `npm run test:frontend` | Run frontend Vitest suite |
-| `npm run test:e2e` | Run Playwright E2E tests from the frontend workspace |
+| `npm run test:e2e` | Run Playwright E2E tests (Note: local runs should target Chromium) |
 | `npm run lint` | Run frontend ESLint and backend flake8 |
 | `npm run stop` | Kill local processes on ports 5050 and 5173 |
 
 ## Testing
 
 Backend tests live in [backend/tests](backend/tests) and use Pytest with temporary SQLite databases. Frontend unit/component tests live next to components under `frontend/src` and run with Vitest/jsdom. E2E tests live in [frontend/e2e](frontend/e2e) and run with Playwright.
+
+> [!TIP]
+> For local E2E testing, run `npx playwright test --project=chromium` from the `frontend/` directory to prevent failures from missing Webkit/Firefox binaries in your local environment.
 
 CI runs backend lint/tests, frontend lint/tests/build, and Playwright E2E against a temporary SQLite database.
 
