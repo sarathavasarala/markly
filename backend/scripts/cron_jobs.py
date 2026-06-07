@@ -106,7 +106,7 @@ def run_feed_refresh(user_id: str, username: str) -> bool:
         return False
 
 
-def run_daily_brief(user_id: str, username: str, user_email: str, full_name: str | None, email_enabled: bool, email_cfg: dict) -> bool:
+def run_daily_brief(user_id: str, username: str, user_email: str, full_name: str | None, email_enabled: bool) -> bool:
     """Run candidate selection, LLM filtering, full text extraction, synthesis, and email delivery."""
     logger.info("[%s] Generating daily brief...", username)
     try:
@@ -168,16 +168,12 @@ def run_daily_brief(user_id: str, username: str, user_email: str, full_name: str
 
         # 7. Deliver via email if configured
         if email_enabled:
-            allowed = [addr.strip().lower() for addr in email_cfg.get("allowed_recipients", []) if addr.strip()]
-            if allowed and user_email.lower().strip() not in allowed:
-                logger.info("[%s] Email brief delivery skipped (not in allowed_recipients list: %s).", username, allowed)
+            logger.info("[%s] Dispatching brief to %s via SMTP...", username, user_email)
+            sent = EmailService.send_brief(user_email, content, full_name)
+            if sent:
+                logger.info("[%s] Email brief delivered successfully.", username)
             else:
-                logger.info("[%s] Dispatching brief to %s via SMTP...", username, user_email)
-                sent = EmailService.send_brief(user_email, content, full_name)
-                if sent:
-                    logger.info("[%s] Email brief delivered successfully.", username)
-                else:
-                    logger.warning("[%s] Email brief delivery failed.", username)
+                logger.warning("[%s] Email brief delivery failed.", username)
         else:
             logger.info("[%s] Email delivery is disabled. Skipping dispatch.", username)
 
@@ -312,7 +308,7 @@ def check_and_run(args):
             if args.dry_run:
                 logger.info("[DRY-RUN] Would generate daily brief and send email to %s", username)
             else:
-                run_daily_brief(user_id, username, email, full_name, email_enabled, email_cfg)
+                run_daily_brief(user_id, username, email, full_name, email_enabled)
 
 
 def main():
