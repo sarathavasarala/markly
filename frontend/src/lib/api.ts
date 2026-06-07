@@ -272,10 +272,19 @@ export interface SignalBrief {
   created_at: string
 }
 
+export interface SignalSettings {
+  taste_profile: string
+  signal_candidate_limit: number | null
+  signal_filter_prompt: string | null
+  signal_synthesis_prompt: string | null
+  default_filter_prompt?: string
+  default_synthesis_prompt?: string
+}
+
 export const signalApi = {
-  getTasteProfile: () => api.get<{ taste_profile: string }>('/signal/taste-profile'),
-  updateTasteProfile: (tasteProfile: string) =>
-    api.put<{ success: boolean; taste_profile: string }>('/signal/taste-profile', { taste_profile: tasteProfile }),
+  getTasteProfile: () => api.get<SignalSettings>('/signal/taste-profile'),
+  updateTasteProfile: (settings: Partial<SignalSettings>) =>
+    api.put<{ success: boolean } & SignalSettings>('/signal/taste-profile', settings),
   listBriefs: () => api.get<{ briefs: SignalBrief[] }>('/signal/briefs'),
   generateBrief: () => api.post<SignalBrief | { success: boolean; reason: string; message: string }>('/signal/briefs'),
   generateBriefStream: () =>

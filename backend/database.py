@@ -297,6 +297,12 @@ def initialize_database():
         user_columns = [row["name"] for row in cursor.fetchall()]
         if "taste_profile" not in user_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN taste_profile TEXT")
+        if "signal_candidate_limit" not in user_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN signal_candidate_limit INTEGER")
+        if "signal_filter_prompt" not in user_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN signal_filter_prompt TEXT")
+        if "signal_synthesis_prompt" not in user_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN signal_synthesis_prompt TEXT")
 
         # Lightweight migration to add article_count to signal_briefs if missing
         cursor.execute("PRAGMA table_info(signal_briefs)")

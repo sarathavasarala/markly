@@ -185,22 +185,60 @@ def _clean_brief_text(content: str) -> str:
 @require_auth
 def get_taste_profile():
     conn = get_db()
-    row = conn.execute("SELECT taste_profile FROM users WHERE id = ?", (g.user.id,)).fetchone()
-    profile = _resolve_taste_profile(row)
-    return jsonify({"taste_profile": profile})
+    row = conn.execute(
+        "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt "
+        "FROM users WHERE id = ?",
+        (g.user.id,)
+    ).fetchone()
+    
+    return jsonify({
+        "taste_profile": _resolve_taste_profile(row),
+        "signal_candidate_limit": row["signal_candidate_limit"] if row else None,
+        "signal_filter_prompt": row["signal_filter_prompt"] if row else None,
+        "signal_synthesis_prompt": row["signal_synthesis_prompt"] if row else None,
+        "default_filter_prompt": FILTER_PROMPT_TEMPLATE,
+        "default_synthesis_prompt": SYNTHESIS_PROMPT_TEMPLATE,
+    })
 
 @signal_bp.route("/taste-profile", methods=["PUT"])
 @require_auth
 def update_taste_profile():
     data = request.get_json() or {}
     profile = data.get("taste_profile", "").strip()
+    
+    limit = data.get("signal_candidate_limit")
+    if limit is not None:
+        try:
+            limit = int(limit)
+            if limit <= 0:
+                limit = None
+        except (ValueError, TypeError):
+            limit = None
+
+    filter_prompt = data.get("signal_filter_prompt", "").strip() or None
+    synthesis_prompt = data.get("signal_synthesis_prompt", "").strip() or None
+
+    # Save as NULL if they match default templates exactly or are empty
+    if filter_prompt and filter_prompt.strip() == FILTER_PROMPT_TEMPLATE.strip():
+        filter_prompt = None
+    if synthesis_prompt and synthesis_prompt.strip() == SYNTHESIS_PROMPT_TEMPLATE.strip():
+        synthesis_prompt = None
+
     conn = get_db()
     conn.execute(
-        "UPDATE users SET taste_profile = ?, updated_at = ? WHERE id = ?",
-        (profile, utc_now(), g.user.id)
+        "UPDATE users SET taste_profile = ?, signal_candidate_limit = ?, "
+        "signal_filter_prompt = ?, signal_synthesis_prompt = ?, updated_at = ? WHERE id = ?",
+        (profile, limit, filter_prompt, synthesis_prompt, utc_now(), g.user.id)
     )
     conn.commit()
-    return jsonify({"success": True, "taste_profile": profile or DEFAULT_TASTE_PROFILE})
+
+    return jsonify({
+        "success": True,
+        "taste_profile": profile or DEFAULT_TASTE_PROFILE,
+        "signal_candidate_limit": limit,
+        "signal_filter_prompt": filter_prompt,
+        "signal_synthesis_prompt": synthesis_prompt,
+    })
 
 @signal_bp.route("/briefs", methods=["GET"])
 @require_auth
@@ -217,12 +255,18 @@ def list_briefs():
 def generate_brief():
     conn = get_db()
 
-    # 1. Load taste profile
-    user_row = conn.execute("SELECT taste_profile FROM users WHERE id = ?", (g.user.id,)).fetchone()
+    # 1. Load settings (taste profile, candidate limit, custom prompts)
+    user_row = conn.execute(
+        "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt "
+        "FROM users WHERE id = ?",
+        (g.user.id,)
+    ).fetchone()
     taste_profile = _resolve_taste_profile(user_row)
-
-    # 2. Fetch RSS feed items (latest N unread/new)
-    candidate_limit = Config.SIGNAL_CANDIDATE_LIMIT
+    candidate_limit = (
+        user_row["signal_candidate_limit"]
+        if user_row and user_row["signal_candidate_limit"] is not None
+        else Config.SIGNAL_CANDIDATE_LIMIT
+    )
     unread_rows = conn.execute(
         """
         SELECT i.id, i.url, i.title, i.summary, f.title as feed_title
@@ -269,7 +313,12 @@ def generate_brief():
     # 3. LLM Step 1: Filter articles based on Taste Profile
     articles_list_str = _build_articles_list_str(items)
 
-    filter_prompt = FILTER_PROMPT_TEMPLATE.format(
+    filter_template = (
+        user_row["signal_filter_prompt"]
+        if user_row and user_row["signal_filter_prompt"]
+        else FILTER_PROMPT_TEMPLATE
+    )
+    filter_prompt = filter_template.format(
         taste_profile=taste_profile,
         articles_list_str=articles_list_str,
     )
@@ -348,7 +397,12 @@ def generate_brief():
     # 5. LLM Step 2: Synthesis and Clustering
     articles_contents_str = _build_articles_contents_str(selected_items)
 
-    synthesis_prompt = SYNTHESIS_PROMPT_TEMPLATE.format(
+    synthesis_template = (
+        user_row["signal_synthesis_prompt"]
+        if user_row and user_row["signal_synthesis_prompt"]
+        else SYNTHESIS_PROMPT_TEMPLATE
+    )
+    synthesis_prompt = synthesis_template.format(
         taste_profile=taste_profile,
         articles_contents_str=articles_contents_str,
     )
@@ -414,12 +468,18 @@ def _generate_brief_stream(user_id: str):
     from database import db_session
 
     with db_session() as conn:
-        # 1. Load taste profile
-        user_row = conn.execute("SELECT taste_profile FROM users WHERE id = ?", (user_id,)).fetchone()
+        # 1. Load settings (taste profile, candidate limit, custom prompts)
+        user_row = conn.execute(
+            "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt "
+            "FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
         taste_profile = _resolve_taste_profile(user_row)
-
-        # 2. Fetch candidate articles
-        candidate_limit = Config.SIGNAL_CANDIDATE_LIMIT
+        candidate_limit = (
+            user_row["signal_candidate_limit"]
+            if user_row and user_row["signal_candidate_limit"] is not None
+            else Config.SIGNAL_CANDIDATE_LIMIT
+        )
         unread_rows = conn.execute(
             """
             SELECT i.id, i.url, i.title, i.summary, f.title as feed_title
@@ -472,7 +532,12 @@ def _generate_brief_stream(user_id: str):
         # 3. LLM filter by taste profile
         articles_list_str = _build_articles_list_str(items)
 
-        filter_prompt = FILTER_PROMPT_TEMPLATE.format(
+        filter_template = (
+            user_row["signal_filter_prompt"]
+            if user_row and user_row["signal_filter_prompt"]
+            else FILTER_PROMPT_TEMPLATE
+        )
+        filter_prompt = filter_template.format(
             taste_profile=taste_profile,
             articles_list_str=articles_list_str,
         )
@@ -563,7 +628,12 @@ def _generate_brief_stream(user_id: str):
 
         articles_contents_str = _build_articles_contents_str(selected_items)
 
-        synthesis_prompt = SYNTHESIS_PROMPT_TEMPLATE.format(
+        synthesis_template = (
+            user_row["signal_synthesis_prompt"]
+            if user_row and user_row["signal_synthesis_prompt"]
+            else SYNTHESIS_PROMPT_TEMPLATE
+        )
+        synthesis_prompt = synthesis_template.format(
             taste_profile=taste_profile,
             articles_contents_str=articles_contents_str,
         )

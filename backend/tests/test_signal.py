@@ -163,3 +163,64 @@ def test_signal_custom_llm_settings(mocker):
         # Clear cached clients
         AzureOpenAIService._chat_client = None
         AzureOpenAIService._signal_chat_client = None
+
+
+def test_update_taste_profile_customizations(client):
+    upsert_user("test@example.com", full_name="Test User")
+    payload = {
+        "taste_profile": "My custom taste profile instructions.",
+        "signal_candidate_limit": 50,
+        "signal_filter_prompt": "Custom filter prompt {taste_profile} {articles_list_str}",
+        "signal_synthesis_prompt": "Custom synthesis prompt {taste_profile} {articles_contents_str}"
+    }
+
+    response = client.put("/api/signal/taste-profile", json=payload, headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["success"] is True
+    assert data["taste_profile"] == payload["taste_profile"]
+    assert data["signal_candidate_limit"] == 50
+    assert data["signal_filter_prompt"] == payload["signal_filter_prompt"]
+    assert data["signal_synthesis_prompt"] == payload["signal_synthesis_prompt"]
+
+    # Verify retrieval
+    response = client.get("/api/signal/taste-profile", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["taste_profile"] == payload["taste_profile"]
+    assert data["signal_candidate_limit"] == 50
+    assert data["signal_filter_prompt"] == payload["signal_filter_prompt"]
+    assert data["signal_synthesis_prompt"] == payload["signal_synthesis_prompt"]
+
+
+def test_reset_taste_profile_customizations(client):
+    upsert_user("test@example.com", full_name="Test User")
+    payload = {
+        "taste_profile": "",
+        "signal_candidate_limit": None,
+        "signal_filter_prompt": "",
+        "signal_synthesis_prompt": ""
+    }
+
+    response = client.put("/api/signal/taste-profile", json=payload, headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["success"] is True
+    
+    # When reset, taste_profile falls back to default, limit is null/None, templates are null/None
+    assert "I want analysis, not summaries" in data["taste_profile"]
+    assert data["signal_candidate_limit"] is None
+    assert data["signal_filter_prompt"] is None
+    assert data["signal_synthesis_prompt"] is None
+
+    # Retrieve and verify default templates are returned as defaults, but custom columns are null
+    response = client.get("/api/signal/taste-profile", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "I want analysis, not summaries" in data["taste_profile"]
+    assert data["signal_candidate_limit"] is None
+    assert data["signal_filter_prompt"] is None
+    assert data["signal_synthesis_prompt"] is None
+    assert "You are an expert analyst assistant." in data["default_filter_prompt"]
+    assert "You are a top-tier analyst" in data["default_synthesis_prompt"]
+

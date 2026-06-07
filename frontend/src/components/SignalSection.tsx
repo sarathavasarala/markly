@@ -29,6 +29,15 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [selectedBriefId, setSelectedBriefId] = useState<string | null>(null)
   const [tasteProfileInput, setTasteProfileInput] = useState<string>('')
   
+  const [signalCandidateLimit, setSignalCandidateLimit] = useState<number | null>(null)
+  const [signalFilterPrompt, setSignalFilterPrompt] = useState<string>('')
+  const [signalSynthesisPrompt, setSignalSynthesisPrompt] = useState<string>('')
+  const [defaultFilterPrompt, setDefaultFilterPrompt] = useState<string>('')
+  const [defaultSynthesisPrompt, setDefaultSynthesisPrompt] = useState<string>('')
+  
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'instructions' | 'prompts' | 'settings'>('instructions')
+  const [activePromptSubTab, setActivePromptSubTab] = useState<'filter' | 'synthesis'>('filter')
+
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
   const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(INITIAL_STEPS)
@@ -48,7 +57,16 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       ])
       setBriefs(briefsRes.data.briefs)
       setTasteProfileInput(profileRes.data.taste_profile)
+      setSignalCandidateLimit(profileRes.data.signal_candidate_limit)
       
+      const defaultFilter = profileRes.data.default_filter_prompt || ''
+      const defaultSynth = profileRes.data.default_synthesis_prompt || ''
+      setDefaultFilterPrompt(defaultFilter)
+      setDefaultSynthesisPrompt(defaultSynth)
+      
+      setSignalFilterPrompt(profileRes.data.signal_filter_prompt !== null ? profileRes.data.signal_filter_prompt : defaultFilter)
+      setSignalSynthesisPrompt(profileRes.data.signal_synthesis_prompt !== null ? profileRes.data.signal_synthesis_prompt : defaultSynth)
+
       if (briefsRes.data.briefs.length > 0) {
         setSelectedBriefId(briefsRes.data.briefs[0].id)
       }
@@ -172,8 +190,16 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const handleSaveProfile = async () => {
     setSaveStatus('saving')
     try {
-      const res = await signalApi.updateTasteProfile(tasteProfileInput)
+      const res = await signalApi.updateTasteProfile({
+        taste_profile: tasteProfileInput,
+        signal_candidate_limit: signalCandidateLimit,
+        signal_filter_prompt: signalFilterPrompt,
+        signal_synthesis_prompt: signalSynthesisPrompt,
+      })
       setTasteProfileInput(res.data.taste_profile)
+      setSignalCandidateLimit(res.data.signal_candidate_limit)
+      setSignalFilterPrompt(res.data.signal_filter_prompt !== null ? res.data.signal_filter_prompt : defaultFilterPrompt)
+      setSignalSynthesisPrompt(res.data.signal_synthesis_prompt !== null ? res.data.signal_synthesis_prompt : defaultSynthesisPrompt)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch (err) {
@@ -183,12 +209,19 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   }
 
   const handleResetProfile = async () => {
-    if (window.confirm('Reset Taste Profile to the recommended default instructions?')) {
-      setTasteProfileInput('')
+    if (window.confirm('Reset Taste Profile and prompts to the recommended default instructions?')) {
       setSaveStatus('saving')
       try {
-        const res = await signalApi.updateTasteProfile('')
+        const res = await signalApi.updateTasteProfile({
+          taste_profile: '',
+          signal_candidate_limit: null,
+          signal_filter_prompt: null,
+          signal_synthesis_prompt: null,
+        })
         setTasteProfileInput(res.data.taste_profile)
+        setSignalCandidateLimit(res.data.signal_candidate_limit)
+        setSignalFilterPrompt(defaultFilterPrompt)
+        setSignalSynthesisPrompt(defaultSynthesisPrompt)
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus('idle'), 2000)
       } catch (err) {
@@ -509,28 +542,171 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
               </button>
             </div>
 
-            {/* Profile editor form */}
-            <div className="flex-1 overflow-y-auto py-6 space-y-4">
-              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Preference Instructions
-              </label>
-              
-              <textarea
-                value={tasteProfileInput}
-                onChange={(e) => setTasteProfileInput(e.target.value)}
-                placeholder="Describe your taste, filtering guidelines, style, or specific domains of interest..."
-                className="w-full h-80 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
-              />
+            {/* Tabs Selector */}
+            <div className="flex border-b border-slate-200/60 dark:border-slate-800/60 mt-4">
+              <button
+                type="button"
+                onClick={() => setActiveSettingsTab('instructions')}
+                className={`flex-1 pb-3 text-sm font-medium border-b-2 transition ${
+                  activeSettingsTab === 'instructions'
+                    ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                Instructions
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSettingsTab('prompts')}
+                className={`flex-1 pb-3 text-sm font-medium border-b-2 transition ${
+                  activeSettingsTab === 'prompts'
+                    ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                Prompts
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSettingsTab('settings')}
+                className={`flex-1 pb-3 text-sm font-medium border-b-2 transition ${
+                  activeSettingsTab === 'settings'
+                    ? 'border-slate-900 text-slate-900 dark:border-slate-100 dark:text-slate-100'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                Settings
+              </button>
+            </div>
 
-              <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 space-y-2">
-                <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
-                  <Info className="h-3.5 w-3.5 text-slate-500" />
-                  Taste Profile Guidelines
+            {/* Profile editor form */}
+            <div className="flex-1 overflow-y-auto py-6">
+              {activeSettingsTab === 'instructions' && (
+                <div className="space-y-4">
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Preference Instructions
+                  </label>
+                  
+                  <textarea
+                    value={tasteProfileInput}
+                    onChange={(e) => setTasteProfileInput(e.target.value)}
+                    placeholder="Describe your taste, filtering guidelines, style, or specific domains of interest..."
+                    className="w-full h-80 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 resize-none"
+                  />
+
+                  <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 space-y-2">
+                    <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                      <Info className="h-3.5 w-3.5 text-slate-500" />
+                      Taste Profile Guidelines
+                    </div>
+                    <p>
+                      Explain exactly what insights you prioritize, what styles you favor, and what low-value content (e.g. clickbait, raw metrics, hype announcements) should be aggressively discarded.
+                    </p>
+                  </div>
                 </div>
-                <p>
-                  Explain exactly what insights you prioritize, what styles you favor, and what low-value content (e.g. clickbait, raw metrics, hype announcements) should be aggressively discarded.
-                </p>
-              </div>
+              )}
+
+              {activeSettingsTab === 'prompts' && (
+                <div className="space-y-4">
+                  {/* Prompt Sub-tabs */}
+                  <div className="flex gap-2 p-1 rounded-xl bg-slate-100 dark:bg-slate-900">
+                    <button
+                      type="button"
+                      onClick={() => setActivePromptSubTab('filter')}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition ${
+                        activePromptSubTab === 'filter'
+                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      Step 1: Filtering Prompt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActivePromptSubTab('synthesis')}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition ${
+                        activePromptSubTab === 'synthesis'
+                          ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      Step 2: Synthesis Prompt
+                    </button>
+                  </div>
+
+                  {activePromptSubTab === 'filter' ? (
+                    <div className="space-y-3">
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Filter Prompt Template
+                      </label>
+                      <textarea
+                        value={signalFilterPrompt}
+                        onChange={(e) => setSignalFilterPrompt(e.target.value)}
+                        placeholder="Filter prompt template..."
+                        className="w-full h-80 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
+                      />
+                      <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
+                        <span className="font-semibold">Required variables:</span>
+                        <p>
+                          Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_list_str}"}</code> for dynamic insertion.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Synthesis Prompt Template
+                      </label>
+                      <textarea
+                        value={signalSynthesisPrompt}
+                        onChange={(e) => setSignalSynthesisPrompt(e.target.value)}
+                        placeholder="Synthesis prompt template..."
+                        className="w-full h-80 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
+                      />
+                      <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
+                        <span className="font-semibold">Required variables:</span>
+                        <p>
+                          Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_contents_str}"}</code> for dynamic insertion.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeSettingsTab === 'settings' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Articles to Scan
+                    </label>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      Determine the limit of recent RSS articles to check before selecting high-signal entries.
+                    </p>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={signalCandidateLimit ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setSignalCandidateLimit(val === '' ? null : parseInt(val, 10))
+                    }}
+                    placeholder="100 (Default)"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40"
+                  />
+                  <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 space-y-2">
+                    <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                      <Info className="h-3.5 w-3.5 text-slate-500" />
+                      Candidate Limit Guidelines
+                    </div>
+                    <p>
+                      A higher limit lets Signal scan further back in your feeds but takes longer to run. The default scan pool limit is 100 articles. Set a custom number to fine tune this scan threshold.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Actions Footer */}
