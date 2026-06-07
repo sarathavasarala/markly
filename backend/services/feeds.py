@@ -404,3 +404,54 @@ def prune_feed_items(conn, user_id: str, feed_id: str, keep_latest: int | None =
         """,
         (user_id, feed_id, user_id, feed_id, keep_latest),
     )
+
+
+def embed_pending_feed_items_async(user_id: str):
+    """Submit a background task to embed feed_items that have no embedding yet.
+
+    Gated by Config.ENABLE_EMBEDDINGS. Runs on the shared enrichment executor so it
+    never touches the request path."""
+    if not Config.ENABLE_EMBEDDINGS:
+        return
+    from services.enrichment import get_executor
+
+    get_executor().submit(_embed_pending_feed_items, user_id)
+
+
+def _embed_pending_feed_items(user_id: str):
+    """Embed feed_items where embedding IS NULL using title + summary text.
+
+    Targets the user's entire backlog of unembedded items (not just the most
+    recent refresh), capped at Config.SIGNAL_EMBED_MAX_PER_RUN per run so a large
+    backlog drains across subsequent refreshes instead of bursting. Uses
+    text-embedding-3-large via AzureOpenAIService.generate_embedding. Network calls
+    happen outside write transactions; each row is updated in its own short
+    transaction to keep SQLite locks brief. No content is re-fetched or re-extracted."""
+    from database import db_session, serialize_value
+    from services.openai_service import AzureOpenAIService
+
+    try:
+        with db_session() as conn:
+            rows = conn.execute(
+                "SELECT id, title, summary FROM feed_items "
+                "WHERE user_id = ? AND embedding IS NULL "
+                "ORDER BY COALESCE(published_at, first_seen_at) DESC LIMIT ?",
+                (user_id, Config.SIGNAL_EMBED_MAX_PER_RUN),
+            ).fetchall()
+
+        for row in rows:
+            text = " ".join(filter(None, [row["title"], row["summary"]])).strip()
+            if not text:
+                continue
+            try:
+                embedding = AzureOpenAIService.generate_embedding(text)
+            except Exception as exc:
+                logger.warning("Feed item embedding failed for %s (non-fatal): %s", row["id"], exc)
+                continue
+            with db_session() as conn:
+                conn.execute(
+                    "UPDATE feed_items SET embedding = ?, updated_at = ? WHERE id = ?",
+                    (serialize_value(embedding), utc_now(), row["id"]),
+                )
+    except Exception:
+        logger.exception("Background feed-item embedding task failed for user %s", user_id)

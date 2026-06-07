@@ -192,6 +192,8 @@ def initialize_database():
                 content_format TEXT,
                 status TEXT NOT NULL DEFAULT 'new',
                 bookmark_id TEXT REFERENCES bookmarks(id) ON DELETE SET NULL,
+                embedding TEXT,
+                last_briefed_at TEXT,
                 first_seen_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 UNIQUE(feed_id, guid),
@@ -291,6 +293,10 @@ def initialize_database():
             cursor.execute("ALTER TABLE feed_items ADD COLUMN content TEXT")
         if "content_format" not in feed_item_columns:
             cursor.execute("ALTER TABLE feed_items ADD COLUMN content_format TEXT")
+        if "embedding" not in feed_item_columns:
+            cursor.execute("ALTER TABLE feed_items ADD COLUMN embedding TEXT")
+        if "last_briefed_at" not in feed_item_columns:
+            cursor.execute("ALTER TABLE feed_items ADD COLUMN last_briefed_at TEXT")
 
         # Lightweight migration to add taste_profile to users if missing
         cursor.execute("PRAGMA table_info(users)")
