@@ -1,5 +1,4 @@
-import json
-from database import db_session, new_id, upsert_user, utc_now
+from database import db_session, upsert_user, utc_now
 from tests.test_feeds import _insert_feed, _insert_feed_item
 
 AUTH_HEADERS = {"Authorization": "Bearer dummy-token"}
@@ -223,4 +222,3 @@ def test_reset_taste_profile_customizations(client):
     assert data["signal_synthesis_prompt"] is None
     assert "You are an expert analyst assistant." in data["default_filter_prompt"]
     assert "You are a top-tier analyst" in data["default_synthesis_prompt"]
-

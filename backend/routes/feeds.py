@@ -1,11 +1,14 @@
 """Feed Radar routes."""
 from __future__ import annotations
 
+import logging
 from flask import Blueprint, g, jsonify, request
 
 from database import get_db, row_to_dict, rows_to_dicts, utc_now
 from middleware.auth import require_auth
 from services.feeds import FeedError, add_feed, refresh_feeds
+
+logger = logging.getLogger(__name__)
 
 feeds_bp = Blueprint("feeds", __name__)
 
