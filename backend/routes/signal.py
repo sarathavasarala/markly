@@ -98,7 +98,7 @@ Here are the selected high-signal articles:
 \"\"\"
 
 Instructions:
-1. Group articles into themes only where the connection is real and load-bearing. It is fine to treat a strong standalone story on its own. Prefer a few genuine clusters plus standalone items over forcing everything into one unified narrative. Do not manufacture rhymes or throughlines between unrelated pieces.
+1. Group articles into themes only where the connection is real. It is fine to treat a strong standalone story on its own. Prefer a few genuine clusters plus standalone items over forcing everything into one unified narrative. Do not manufacture rhymes or throughlines between unrelated pieces.
 2. Explain what actually mattered, what changed underneath the surface, what smart practitioners would notice, where the important tensions or disagreements are, what second-order implications emerge, and which narratives seem overstated versus genuinely meaningful.
 3. Writing Style:
    - Use clean, direct prose and simple language while carrying substantial depth.
