@@ -22,6 +22,3 @@ feedparser==6.0.11
 # Utilities
 uuid6==2024.1.12
 validators==0.22.0
-pyyaml==6.0.1
-markdown==3.5.1
-

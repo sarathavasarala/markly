@@ -95,9 +95,7 @@ def initialize_database():
                 signal_candidate_limit INTEGER,
                 signal_filter_prompt TEXT,
                 signal_synthesis_prompt TEXT,
-                signal_web_search_enabled INTEGER DEFAULT 1,
-                last_feed_refresh_at TEXT,
-                last_brief_generated_at TEXT
+                signal_web_search_enabled INTEGER DEFAULT 1
             );
 
             CREATE TABLE IF NOT EXISTS folders (
@@ -318,10 +316,6 @@ def initialize_database():
             cursor.execute("ALTER TABLE users ADD COLUMN signal_synthesis_prompt TEXT")
         if "signal_web_search_enabled" not in user_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN signal_web_search_enabled INTEGER DEFAULT 1")
-        if "last_feed_refresh_at" not in user_columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN last_feed_refresh_at TEXT")
-        if "last_brief_generated_at" not in user_columns:
-            cursor.execute("ALTER TABLE users ADD COLUMN last_brief_generated_at TEXT")
 
         # Lightweight migration to add article_count to signal_briefs if missing
         cursor.execute("PRAGMA table_info(signal_briefs)")
