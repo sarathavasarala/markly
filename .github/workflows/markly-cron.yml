@@ -1,0 +1,49 @@
+name: Markly Scheduled Tasks
+
+on:
+  schedule:
+    # Feed refresh twice a day (every 12 hours)
+    - cron: '0 */12 * * *'
+    # Brief generation once a day at 00:00 UTC (5:30 AM IST)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Scheduled task to run manually'
+        required: true
+        default: 'refresh'
+        type: choice
+        options:
+          - refresh
+          - brief
+
+jobs:
+  run-scheduled-task:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine Target Route
+        id: route
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "route=${{ github.event.inputs.task }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "0 0 * * *" ]; then
+            echo "route=brief" >> $GITHUB_OUTPUT
+          else
+            echo "route=refresh" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Execute HTTP POST request
+        run: |
+          if [ -z "${{ secrets.MARKLY_APP_URL }}" ]; then
+            echo "Error: secrets.MARKLY_APP_URL is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.MARKLY_CRON_SECRET }}" ]; then
+            echo "Error: secrets.MARKLY_CRON_SECRET is not set"
+            exit 1
+          fi
+          
+          curl -X POST "${{ secrets.MARKLY_APP_URL }}/api/cron/${{ steps.route.outputs.route }}" \
+            -H "Authorization: Bearer ${{ secrets.MARKLY_CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f
