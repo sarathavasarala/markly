@@ -112,6 +112,20 @@ test.describe('Refresh and Polling Logic', () => {
             await route.fulfill({ status: 200, body: JSON.stringify({ tags: [] }) });
         });
 
+        // Mock the feeds refresh API
+        await page.route('**/api/feeds/refresh', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    feeds_checked: 0,
+                    feeds_skipped: 0,
+                    feeds_failed: 0,
+                    feeds_unchanged: 0,
+                    items_added: 0
+                })
+            });
+        });
     });
 
     test('adding a bookmark updates the list and count', async ({ page }) => {

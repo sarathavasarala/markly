@@ -125,6 +125,21 @@ test.describe('Dashboard Views', () => {
                 })
             });
         });
+
+        // Mock the feeds refresh API
+        await page.route('**/api/feeds/refresh', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    feeds_checked: 0,
+                    feeds_skipped: 0,
+                    feeds_failed: 0,
+                    feeds_unchanged: 0,
+                    items_added: 0
+                })
+            });
+        });
     });
 
     test('folders toggle button is visible', async ({ page }) => {
@@ -262,6 +277,21 @@ test.describe('Dashboard Views - Dark Mode', () => {
                 status: 200,
                 contentType: 'application/json',
                 body: JSON.stringify({ tags: [] })
+            });
+        });
+
+        // Mock the feeds refresh API
+        await page.route('**/api/feeds/refresh', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    feeds_checked: 0,
+                    feeds_skipped: 0,
+                    feeds_failed: 0,
+                    feeds_unchanged: 0,
+                    items_added: 0
+                })
             });
         });
 
