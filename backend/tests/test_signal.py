@@ -499,7 +499,3 @@ def test_generate_brief_stream_success(client, mocker):
     assert "researched" in stages
     assert "synthesizing" in stages
     assert "complete" in stages
-
-
-
-
