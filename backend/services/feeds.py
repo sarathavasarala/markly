@@ -421,22 +421,34 @@ def embed_pending_feed_items_async(user_id: str):
 def _embed_pending_feed_items(user_id: str):
     """Embed feed_items where embedding IS NULL using title + summary text.
 
-    Targets the user's entire backlog of unembedded items (not just the most
-    recent refresh), capped at Config.SIGNAL_EMBED_MAX_PER_RUN per run so a large
-    backlog drains across subsequent refreshes instead of bursting. Uses
-    text-embedding-3-large via AzureOpenAIService.generate_embedding. Network calls
-    happen outside write transactions; each row is updated in its own short
-    transaction to keep SQLite locks brief. No content is re-fetched or re-extracted."""
+    Targets the user's active backlog of unembedded items within the top 500 most
+    recent items across all feeds, capped at Config.SIGNAL_EMBED_MAX_PER_RUN per
+    run. Discards (nulls out) embeddings for any items older than the top 500
+    to prevent database bloat. Uses text-embedding-3-large via
+    AzureOpenAIService.generate_embedding. Network calls happen outside write
+    transactions; each row is updated in its own short transaction to keep
+    SQLite locks brief. No content is re-fetched or re-extracted."""
     from database import db_session, serialize_value
     from services.openai_service import AzureOpenAIService
+
+    eligible_limit = 500
 
     try:
         with db_session() as conn:
             rows = conn.execute(
-                "SELECT id, title, summary FROM feed_items "
-                "WHERE user_id = ? AND embedding IS NULL "
-                "ORDER BY COALESCE(published_at, first_seen_at) DESC LIMIT ?",
-                (user_id, Config.SIGNAL_EMBED_MAX_PER_RUN),
+                """
+                SELECT id, title, summary FROM feed_items
+                WHERE user_id = ? AND embedding IS NULL
+                  AND id IN (
+                      SELECT id FROM feed_items
+                      WHERE user_id = ?
+                      ORDER BY COALESCE(published_at, first_seen_at) DESC
+                      LIMIT ?
+                  )
+                ORDER BY COALESCE(published_at, first_seen_at) DESC
+                LIMIT ?
+                """,
+                (user_id, user_id, eligible_limit, Config.SIGNAL_EMBED_MAX_PER_RUN),
             ).fetchall()
 
         for row in rows:
@@ -453,5 +465,22 @@ def _embed_pending_feed_items(user_id: str):
                     "UPDATE feed_items SET embedding = ?, updated_at = ? WHERE id = ?",
                     (serialize_value(embedding), utc_now(), row["id"]),
                 )
+
+        # Proactively null out embeddings for items that have fallen out of the top 500
+        with db_session() as conn:
+            conn.execute(
+                """
+                UPDATE feed_items
+                SET embedding = NULL, updated_at = ?
+                WHERE user_id = ? AND embedding IS NOT NULL
+                  AND id NOT IN (
+                      SELECT id FROM feed_items
+                      WHERE user_id = ?
+                      ORDER BY COALESCE(published_at, first_seen_at) DESC
+                      LIMIT ?
+                  )
+                """,
+                (utc_now(), user_id, user_id, eligible_limit),
+            )
     except Exception:
         logger.exception("Background feed-item embedding task failed for user %s", user_id)

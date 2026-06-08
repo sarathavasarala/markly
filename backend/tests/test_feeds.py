@@ -306,3 +306,69 @@ def test_get_feed_item_content(client, mocker):
         row = conn.execute("SELECT content, content_format FROM feed_items WHERE id = ?", (item_id,)).fetchone()
         assert row["content"] == "Clean extracted text content"
         assert row["content_format"] == "markdown"
+
+
+def test_embed_pending_feed_items_limits_and_prunes(mocker):
+    from datetime import datetime, timezone, timedelta
+    from services.feeds import _embed_pending_feed_items
+    user = upsert_user("embed-test@example.com")
+    feed_id = _insert_feed(user["id"])
+
+    # Mock AzureOpenAIService.generate_embedding
+    mocker.patch("services.openai_service.AzureOpenAIService.generate_embedding", return_value=[0.1, 0.2, 0.3])
+
+    # We insert 505 items. 
+    # Items with index 0 to 504.
+    # We will insert them with descending published_at so index 0 is newest, 504 is oldest.
+    now = datetime.now(timezone.utc)
+    with db_session() as conn:
+        for i in range(505):
+            item_id = f"item-{i}"
+            pub_at = (now - timedelta(minutes=i)).isoformat()
+            # For item-503 and item-504, let's seed them with an existing embedding to test pruning/nulling out
+            embedding_val = "[0.9, 0.9, 0.9]" if i >= 503 else None
+            conn.execute(
+                """
+                INSERT INTO feed_items (
+                    id, user_id, feed_id, guid, url, title, published_at, status, embedding, first_seen_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?)
+                """,
+                (
+                    item_id,
+                    user["id"],
+                    feed_id,
+                    f"guid-{i}",
+                    f"https://example.com/{i}",
+                    f"Title {i}",
+                    pub_at,
+                    embedding_val,
+                    pub_at,
+                    pub_at
+                )
+            )
+
+    # Let's call _embed_pending_feed_items
+    _embed_pending_feed_items(user["id"])
+
+    with db_session() as conn:
+        # Check top 500 items (items 0 to 499)
+        # Some of them should have the mocked embedding
+        rows_top = conn.execute(
+            "SELECT id, embedding FROM feed_items WHERE user_id = ? ORDER BY COALESCE(published_at, first_seen_at) DESC LIMIT 500",
+            (user["id"],)
+        ).fetchall()
+
+        # Verify first item has embedding
+        assert rows_top[0]["embedding"] is not None
+
+        # Check items outside top 500 (indices 500 to 504)
+        rows_outside = conn.execute(
+            "SELECT id, embedding FROM feed_items WHERE user_id = ? ORDER BY COALESCE(published_at, first_seen_at) DESC LIMIT 10 OFFSET 500",
+            (user["id"],)
+        ).fetchall()
+
+        assert len(rows_outside) == 5
+        for row in rows_outside:
+            # All items outside the top 500 must have embedding = NULL (either because they were never embedded, or they were pruned)
+            assert row["embedding"] is None
