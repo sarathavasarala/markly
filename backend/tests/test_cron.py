@@ -1,5 +1,5 @@
 import os
-from database import db_session, upsert_user, utc_now
+from database import db_session, upsert_user
 from tests.test_feeds import _insert_feed, _insert_feed_item
 
 
