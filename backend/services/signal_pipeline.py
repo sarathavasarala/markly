@@ -42,7 +42,9 @@ DEFAULT_TASTE_PROFILE = (
     "that contains meaningful insight, strategic relevance, operational lessons, novel perspectives, "
     "or evidence of important shifts.\n\n"
     "When a term, product category, or acronym is likely unfamiliar to a smart generalist, define it in one "
-    "short clause on first use before analyzing it. A single sentence of plain grounding is allowed and "
+    "short clause on first use before analyzing it. Similarly, before analyzing a specific theme or story "
+    "(especially for hardware, infrastructure, or topics outside core software/AI), briefly introduce "
+    "what the author is talking about. A single sentence of plain grounding context is allowed and "
     "encouraged. This is not a summary, it is context so the analysis lands. Assume I am sharp but not a "
     "specialist in every domain the feeds cover, so never lean on insider vocabulary without explaining it once.\n\n"
     "Only connect separate items when the link is real and load-bearing. If two pieces do not genuinely inform "
@@ -477,20 +479,82 @@ def persist_content_updates(conn, updates):
 
 
 # ---------------------------------------------------------------------------
-# Stage 5: synthesis
+# Stage 5: research (web search grounding)
 # ---------------------------------------------------------------------------
 
-def synthesize(selected_items, taste_profile, synthesis_template, web_search_enabled=True):
+RESEARCH_PROMPT_TEMPLATE = """You are a research assistant preparing background context for a daily intelligence briefing.
+
+You are given a set of high-signal articles selected from RSS feeds. Your job is NOT to analyze or summarize them. Your job is to identify the critical questions and follow-ups that an intelligent Executive or a smart business operator would ask in response to the news in these articles, and find factual answers to those questions using web search.
+
+Here are the articles:
+\"\"\"
+{articles_contents_str}
+\"\"\"
+
+Instructions:
+1. Read through all the articles. Think like an intelligent Executive or a smart operator reading these notes: what gaps, follow-up questions, or forward-looking implications (e.g., product release dates, competitor status, regulatory decisions, financial impact) would they want answered?
+2. Formulate at least 3, and up to 8, smart, highly strategic questions or query terms that address these executive/operator follow-ups.
+3. For each of these questions/terms (you must identify and perform searches for at least 3), use the web_search tool to look up the latest public information.
+4. For each question/term you research, produce a short factual grounding entry (2-4 sentences max) that answers the question with the latest factual context. Include a source URL if available.
+5. Do NOT analyze the articles themselves. Do NOT provide opinions or strategic commentary of your own. Only provide factual answers/grounding retrieved from the search.
+6. If all terms and news in the articles are completely clear and require no executive-level follow-ups or queries, return a brief note saying no additional context is needed.
+
+Output Format:
+Return a plain text document with each research entry as a short paragraph. Use this format:
+
+**[Question/Concept]**: [Factual grounding and answer, 2-4 sentences]. Source: [URL if available]
+
+Keep the total output concise — no more than ~800 words.
+"""
+
+
+def research(selected_items, web_search_enabled=True):
+    """Run web search grounding on the selected articles and return a research brief and queries list.
+
+    When web_search_enabled is False, this step is skipped and returns ("", []).
+    Uses the default (cheaper) model with the Responses API for web search.
+    """
+    if not web_search_enabled:
+        return "", []
+
+    articles_contents_str = _build_articles_contents_str(selected_items)
+    research_prompt = RESEARCH_PROMPT_TEMPLATE.replace(
+        "{articles_contents_str}", articles_contents_str
+    )
+
+    system_content = (
+        "You are an elite research assistant. Think like an intelligent Executive or smart operator. "
+        "Formulate smart search queries to answer critical follow-up questions about the articles, "
+        "and retrieve factual grounding. Do not analyze or editorialize."
+    )
+
+    try:
+        research_brief, queries = AzureOpenAIService.generate_research_with_search(
+            research_prompt, system_content
+        )
+        return research_brief.strip(), queries
+    except Exception as exc:
+        logger.warning("Research step failed, proceeding without research brief: %s", exc)
+        return "", []
+
+
+# ---------------------------------------------------------------------------
+# Stage 6: synthesis
+# ---------------------------------------------------------------------------
+
+def synthesize(selected_items, taste_profile, synthesis_template, research_brief=""):
     """Run the synthesis LLM call and return cleaned brief text.
 
-    Uses Azure OpenAI's native Responses API with web search, falling back
-    to standard completions if needed."""
+    This is a pure writing step — no tools, no web search. If a research brief
+    is provided, it is injected into the prompt for the model to reference.
+    """
     articles_contents_str = _build_articles_contents_str(selected_items)
     
     # Safely format the template (in case they have other custom placeholders)
     fmt_args = {
         "taste_profile": taste_profile,
         "articles_contents_str": articles_contents_str,
+        "research_brief": research_brief,
     }
     import string
     formatter = string.Formatter()
@@ -501,21 +565,25 @@ def synthesize(selected_items, taste_profile, synthesis_template, web_search_ena
         synthesis_prompt = synthesis_template.format(**fmt_args)
     except Exception as exc:
         logger.warning(f"Error formatting synthesis template: {exc}. Falling back to default format.")
-        synthesis_prompt = synthesis_template.replace("{taste_profile}", taste_profile).replace("{articles_contents_str}", articles_contents_str)
+        synthesis_prompt = (
+            synthesis_template.replace("{taste_profile}", taste_profile)
+            .replace("{articles_contents_str}", articles_contents_str)
+            .replace("{research_brief}", research_brief)
+        )
 
     system_content = "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."
     
-    if web_search_enabled:
-        content = AzureOpenAIService.generate_brief_with_search(synthesis_prompt, system_content)
-    else:
-        deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME
-        content = AzureOpenAIService.generate_brief_completions_fallback(synthesis_prompt, system_content, deployment)
+    # Always use plain completions — no Responses API, no tools
+    deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME
+    content = AzureOpenAIService.generate_brief_completions_fallback(
+        synthesis_prompt, system_content, deployment
+    )
         
     return _clean_brief_text(content)
 
 
 # ---------------------------------------------------------------------------
-# Stage 6: persist brief
+# Stage 7: persist brief
 # ---------------------------------------------------------------------------
 
 def save_brief(conn, user_id, content, selected_items):

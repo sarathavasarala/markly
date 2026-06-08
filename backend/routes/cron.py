@@ -127,12 +127,16 @@ def cron_brief():
             with db_session() as conn:
                 signal_pipeline.persist_content_updates(conn, updates)
 
-            # 5. Synthesize report (model call)
+            # 5. Research & Synthesize report (model call)
+            research_brief, _ = signal_pipeline.research(
+                selected_items,
+                web_search_enabled=web_search_enabled,
+            )
             content = signal_pipeline.synthesize(
                 selected_items,
                 taste_profile,
                 synthesis_template,
-                web_search_enabled=web_search_enabled,
+                research_brief=research_brief,
             )
 
             # 6. Save final brief

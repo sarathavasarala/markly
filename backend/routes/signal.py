@@ -52,6 +52,11 @@ Here are the selected high-signal articles:
 {articles_contents_str}
 \"\"\"
 
+Background Research (factual context gathered via web search):
+\"\"\"
+{research_brief}
+\"\"\"
+
 Instructions:
 1. Group articles into themes only where the connection is real. It is fine to treat a strong standalone story on its own. Prefer a few genuine clusters plus standalone items over forcing everything into one unified narrative. Do not manufacture rhymes or throughlines between unrelated pieces.
 2. Explain what actually mattered, what changed underneath the surface, what smart practitioners would notice, where the important tensions or disagreements are, what second-order implications emerge, and which narratives seem overstated versus genuinely meaningful.
@@ -71,11 +76,11 @@ Instructions:
    - Weave links naturally into the prose. For example: "As [this analysis from Stratechery](https://example.com/article) argues, the real shift is...".
    - Do not group all sources at the end. Embed them where they are most contextually relevant.
    - Every thematic section should contain at least one source link.
-5. Web Search Grounding and Active Research:
-   - Identify gaps in the provided RSS articles where more context is needed. This includes unexplained specialist terms, new product announcements, references to ongoing industry events, or technical claims that would benefit from latest public details or grounding.
-   - Actively use the `web_search` tool to execute search queries to retrieve the latest public context, background, and updates for these points.
-   - Integrate these web search findings naturally into your briefing prose to ground the analysis and explain background realities.
-   - For all information or insights retrieved via web search, include inline citation hyperlinks to the source: [descriptive anchor text](URL) using the actual search result URL.
+5. Background Context:
+   - Use the Background Research section above to ground your analysis with factual context.
+   - When referencing research findings, cite the source URLs provided in the research.
+   - Before analyzing a specific theme or story (especially for hardware, infrastructure, or topics outside core software/AI), briefly introduce what the author is talking about. A single sentence of plain grounding context is allowed and encouraged to orient the reader.
+   - If the Background Research section is empty, proceed using only the article content and your own knowledge.
 6. Output Format:
    - Provide the response in Markdown format.
    - Use simple headers (e.g. `##` for conversation clusters) to organize the memo.
@@ -193,12 +198,17 @@ def generate_brief():
     updates = signal_pipeline.run_extract_contents(selected_items)
     signal_pipeline.persist_content_updates(conn, updates)
 
+    research_brief, _ = signal_pipeline.research(
+        selected_items,
+        web_search_enabled=settings["web_search_enabled"],
+    )
+
     try:
         content = signal_pipeline.synthesize(
             selected_items,
             taste_profile,
             settings["synthesis_template"],
-            web_search_enabled=settings["web_search_enabled"],
+            research_brief=research_brief,
         )
     except Exception as exc:
         logger.error(f"Error in signal brief synthesis LLM call: {exc}")
@@ -288,16 +298,30 @@ def _generate_brief_stream(user_id: str):
         signal_pipeline.persist_content_updates(conn, updates)
 
         if settings.get("web_search_enabled", True):
-            yield _sse_event({"stage": "synthesizing", "message": "Researching web and writing your daily brief..."})
+            yield _sse_event({
+                "stage": "researching",
+                "message": "Researching background context..."
+            })
+            research_brief, queries = signal_pipeline.research(selected_items, web_search_enabled=True)
+            yield _sse_event({
+                "stage": "researched",
+                "message": f"Background research complete ({len(queries)} queries run)" if queries else "Background research complete",
+                "titles": queries
+            })
         else:
-            yield _sse_event({"stage": "synthesizing", "message": "Writing your daily brief..."})
+            research_brief = ""
+
+        yield _sse_event({
+            "stage": "synthesizing",
+            "message": "Writing your daily brief..."
+        })
 
         try:
             content = signal_pipeline.synthesize(
                 selected_items,
                 taste_profile,
                 settings["synthesis_template"],
-                web_search_enabled=settings.get("web_search_enabled", True),
+                research_brief=research_brief,
             )
         except Exception as exc:
             logger.error(f"Error in signal brief synthesis LLM call: {exc}")

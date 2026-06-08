@@ -113,9 +113,15 @@ def test_cron_brief_success(client, mocker):
         ]
         mock_openai_client.chat.completions.create.side_effect = [mock_response_filter]
         
+        # Mocking research
+        mocker.patch(
+            "services.openai_service.AzureOpenAIService.generate_research_with_search",
+            return_value=("**Concept**: factual grounding", ["query 1"])
+        )
+
         # Mocking synthesis
         mocker.patch(
-            "services.openai_service.AzureOpenAIService.generate_brief_with_search",
+            "services.openai_service.AzureOpenAIService.generate_brief_completions_fallback",
             return_value="## Scheduled Brief Synthesis\nEverything matches the Taste Profile."
         )
 

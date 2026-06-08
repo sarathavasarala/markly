@@ -17,12 +17,18 @@ interface PipelineStep {
   titles?: string[]
 }
 
-const INITIAL_STEPS: PipelineStep[] = [
-  { id: 'scanning', label: 'Scanning sources', status: 'pending' },
-  { id: 'filtering', label: 'Applying taste profile', status: 'pending' },
-  { id: 'extracting', label: 'Extracting full text', status: 'pending' },
-  { id: 'synthesizing', label: 'Writing your daily brief', status: 'pending' },
-]
+const getInitialSteps = (webSearchEnabled: boolean): PipelineStep[] => {
+  const steps: PipelineStep[] = [
+    { id: 'scanning', label: 'Scanning sources', status: 'pending' },
+    { id: 'filtering', label: 'Applying taste profile', status: 'pending' },
+    { id: 'extracting', label: 'Extracting full text', status: 'pending' },
+  ]
+  if (webSearchEnabled) {
+    steps.push({ id: 'researching', label: 'Researching background context', status: 'pending' })
+  }
+  steps.push({ id: 'synthesizing', label: 'Writing your daily brief', status: 'pending' })
+  return steps
+}
 
 export default function SignalSection({ onGenerateSuccess }: SignalSectionProps) {
   const [briefs, setBriefs] = useState<SignalBrief[]>([])
@@ -40,7 +46,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
 
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(INITIAL_STEPS)
+  const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(getInitialSteps(true))
   const [isTasteProfileOpen, setIsTasteProfileOpen] = useState(false)
   
   const [error, setError] = useState<string | null>(null)
@@ -88,7 +94,15 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
 
   const markStepDone = (stepId: string, detail?: string, titles?: string[]) => {
     setPipelineSteps(prev => prev.map(s => {
-      if (s.id === stepId) return { ...s, status: 'done' as const, detail, titles }
+      if (s.id === stepId) {
+        return {
+          ...s,
+          status: 'done' as const,
+          // Preserve existing detail/titles if new ones aren't provided
+          detail: detail ?? s.detail,
+          titles: titles ?? s.titles,
+        }
+      }
       return s
     }))
   }
@@ -104,7 +118,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
     setIsGenerating(true)
     setError(null)
     setInfoMessage(null)
-    setPipelineSteps(INITIAL_STEPS.map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
+    setPipelineSteps(getInitialSteps(signalWebSearchEnabled).map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
 
     try {
       const response = await signalApi.generateBriefStream()
@@ -161,7 +175,15 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 markStepActive('extracting', event.message)
                 updateStep('extracting', { detail: event.message })
                 break
+              case 'researching':
+                markStepDone('extracting')
+                markStepActive('researching', event.message)
+                break
+              case 'researched':
+                markStepDone('researching', event.message, event.titles)
+                break
               case 'synthesizing':
+                markStepDone('researching')
                 markStepDone('extracting')
                 markStepActive('synthesizing', event.message)
                 break
@@ -454,12 +476,12 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                         }`}>
                           {step.detail || step.label}
                         </p>
-                        {/* Show filtered titles */}
-                        {step.id === 'filtering' && step.status === 'done' && step.titles && step.titles.length > 0 && (
+                        {/* Show step details if present (e.g. titles or queries) */}
+                        {((step.id === 'filtering' || step.id === 'researching') && step.status === 'done' && step.titles && step.titles.length > 0) && (
                           <div className="mt-2 space-y-1">
                             {step.titles.map((title, i) => (
                               <p key={i} className="text-xs text-slate-400 dark:text-slate-500 truncate pl-2 border-l-2 border-slate-200 dark:border-slate-700">
-                                {title}
+                                {step.id === 'researching' ? `🔍 ${title}` : title}
                               </p>
                             ))}
                           </div>
@@ -692,10 +714,10 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                   <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
                       <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        Web Search Grounding
+                        Background Research
                       </label>
                       <p className="text-xs text-slate-400 dark:text-slate-500">
-                        Synthesize your brief with real-time web searches and source citations.
+                        Run a separate web research step to gather factual context before writing your brief.
                       </p>
                     </div>
                     

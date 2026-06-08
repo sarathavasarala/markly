@@ -89,6 +89,8 @@ class Config:
 
     # Optional services
     JINA_READER_API_KEY = os.getenv("JINA_READER_API_KEY")
+    PARALLEL_API_KEY = os.getenv("PARALLEL_API_KEY")
+
     
     @classmethod
     def validate(cls):

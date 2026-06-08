@@ -235,6 +235,209 @@ class AzureOpenAIService:
         return validated
 
     @classmethod
+    def _extract_queries_from_item(cls, item: Any) -> list[str]:
+        """Extract web search query strings recursively from any Responses API item structure."""
+        queries = []
+        if not isinstance(item, dict):
+            return queries
+
+        item_type = item.get("type")
+
+        # 1. Native web_search_call structure
+        if item_type == "web_search_call":
+            action = item.get("action", {})
+            if isinstance(action, dict):
+                q = action.get("query")
+                if q:
+                    queries.append(q)
+
+        # 2. MCP tool call structure (from Responses API with remote MCP servers)
+        elif item_type == "mcp_call":
+            # MCP calls have: name, arguments, server_label
+            args = item.get("arguments", {})
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except Exception:
+                    pass
+            if isinstance(args, dict):
+                # Parallel Search MCP uses "search_queries" (array) and "objective" (string)
+                search_queries = args.get("search_queries")
+                objective = args.get("objective")
+                q = args.get("query") or args.get("queries") or args.get("q")
+                
+                # Prefer objective as the human-readable label
+                if objective:
+                    queries.append(str(objective))
+                elif search_queries and isinstance(search_queries, list):
+                    queries.extend([str(x) for x in search_queries])
+                elif q:
+                    if isinstance(q, list):
+                        queries.extend([str(x) for x in q])
+                    else:
+                        queries.append(str(q))
+
+        # 3. General tool_call or function_call at the top level
+        elif item_type in ("tool_call", "function_call"):
+            # Check name / tool_type
+            name = item.get("name") or item.get("tool_name") or item.get("tool_type")
+            if name in ("web_search", "parallel-search", "search"):
+                args = item.get("arguments", {})
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except Exception:
+                        pass
+                if isinstance(args, dict):
+                    q = args.get("query") or args.get("queries") or args.get("q")
+                    if q:
+                        if isinstance(q, list):
+                            queries.extend([str(x) for x in q])
+                        else:
+                            queries.append(str(q))
+
+        # 4. Message items containing nested contents
+        elif item_type == "message" and item.get("role") == "assistant":
+            contents = item.get("content", [])
+            for content_item in contents:
+                if isinstance(content_item, dict):
+                    content_type = content_item.get("type")
+                    if content_type in ("tool_call", "function_call", "mcp_call"):
+                        tc = content_item.get("tool_call") or content_item.get("function_call") or content_item
+                        if isinstance(tc, dict):
+                            name = tc.get("name") or tc.get("tool_name") or tc.get("tool_type")
+                            if name in ("web_search", "parallel-search", "search"):
+                                args = tc.get("arguments", {})
+                                if isinstance(args, str):
+                                    try:
+                                        args = json.loads(args)
+                                    except Exception:
+                                        pass
+                                if isinstance(args, dict):
+                                    q = args.get("query") or args.get("queries") or args.get("q")
+                                    if q:
+                                        if isinstance(q, list):
+                                            queries.extend([str(x) for x in q])
+                                        else:
+                                            queries.append(str(q))
+
+        # 5. Fallback/Recursive traversal: search for any nested dicts or lists
+        for k, v in item.items():
+            if isinstance(v, dict):
+                queries.extend(cls._extract_queries_from_item(v))
+            elif isinstance(v, list):
+                for elem in v:
+                    if isinstance(elem, dict):
+                        queries.extend(cls._extract_queries_from_item(elem))
+
+        # Remove duplicates and preserve order
+        unique_queries = []
+        for query in queries:
+            if query not in unique_queries:
+                unique_queries.append(query)
+        return unique_queries
+
+    @classmethod
+    def generate_research_with_search(cls, prompt: str, instructions: str) -> tuple[str, list[str]]:
+        """Run web search research using the default (cheaper) model via Responses API.
+
+        Falls back to a plain completions call (without search) if the Responses API
+        is unavailable. Uses the default Azure OpenAI endpoint and deployment, not
+        the Signal-specific overrides.
+        """
+        import requests
+
+        endpoint = Config.AZURE_OPENAI_ENDPOINT
+        api_key = Config.AZURE_OPENAI_API_KEY
+        deployment = Config.AZURE_OPENAI_DEPLOYMENT_NAME
+
+        if not endpoint or not api_key:
+            logger.warning("Azure OpenAI endpoint or API key not configured. Falling back to standard Completions.")
+            client = cls.get_chat_client()
+            response = client.chat.completions.create(
+                model=deployment,
+                messages=[
+                    {"role": "system", "content": instructions},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            return response.choices[0].message.content, []
+
+        base_endpoint = endpoint.strip().rstrip("/")
+        if not base_endpoint.endswith("/openai/v1"):
+            if base_endpoint.endswith("/openai"):
+                url = f"{base_endpoint}/v1/responses"
+            else:
+                url = f"{base_endpoint}/openai/v1/responses"
+        else:
+            url = f"{base_endpoint}/responses"
+
+        headers = {
+            "api-key": api_key,
+            "Content-Type": "application/json"
+        }
+
+        # Configure the Parallel Search MCP tool definition
+        mcp_tool = {
+            "type": "mcp",
+            "server_label": "parallel-search",
+            "server_url": "https://search.parallel.ai/mcp",
+            "require_approval": "never"
+        }
+        if Config.PARALLEL_API_KEY:
+            mcp_tool["headers"] = {"Authorization": f"Bearer {Config.PARALLEL_API_KEY}"}
+
+        data = {
+            "model": deployment,
+            "tools": [mcp_tool],
+            "instructions": instructions,
+            "input": prompt
+        }
+
+        try:
+            logger.info("Calling Azure OpenAI Responses API for research with Parallel Search MCP...")
+            res = requests.post(url, headers=headers, json=data, timeout=120)
+            if res.status_code == 200:
+                res_data = res.json()
+                output_items = res_data.get("output", [])
+                
+                text = ""
+                queries = []
+                for item in output_items:
+                    # Parse queries recursively
+                    queries.extend(cls._extract_queries_from_item(item))
+                    if item.get("type") == "message" and item.get("role") == "assistant":
+                        contents = item.get("content", [])
+                        for content_item in contents:
+                            if content_item.get("type") == "output_text":
+                                text = content_item.get("text", "")
+                
+                # Remove duplicates preserving order
+                queries = list(dict.fromkeys(queries))
+                
+                if text:
+                    logger.info("Responses API research successful. Extracted %d queries.", len(queries))
+                    return text, queries
+                else:
+                    logger.warning("Responses API returned 200 but empty assistant text.")
+            else:
+                logger.warning("Responses API returned %d for research: %s", res.status_code, res.text[:500])
+        except Exception as e:
+            logger.warning("Responses API research call failed: %s", e)
+
+        logger.info("Falling back to standard Chat Completions research generation...")
+        client = cls.get_chat_client()
+        response = client.chat.completions.create(
+            model=deployment,
+            messages=[
+                {"role": "system", "content": instructions},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return response.choices[0].message.content, []
+
+
+    @classmethod
     def generate_brief_with_search(cls, prompt: str, instructions: str) -> str:
         """
         Generate Signal Daily Brief using Azure OpenAI's native Responses API with web search.
