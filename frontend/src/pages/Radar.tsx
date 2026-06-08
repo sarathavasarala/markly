@@ -29,6 +29,10 @@ export default function Radar() {
   const [isSourcesExpanded, setIsSourcesExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<'queue' | 'signal'>('queue')
 
+  const PAGE_SIZE = 30
+  const [hasMore, setHasMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
   const openAddModal = useUIStore((state) => state.openAddModal)
 
   const loadRadar = useCallback(async () => {
@@ -37,11 +41,12 @@ export default function Radar() {
     try {
       const [feedsRes, inboxRes] = await Promise.all([
         feedsApi.list(),
-        feedsApi.inbox({ limit: 100, feed_id: selectedFeedId || undefined }),
+        feedsApi.inbox({ limit: PAGE_SIZE, offset: 0, feed_id: selectedFeedId || undefined }),
       ])
       setFeeds(feedsRes.data.feeds)
       setItems(inboxRes.data.items)
       setTotal(inboxRes.data.total)
+      setHasMore(inboxRes.data.items.length < inboxRes.data.total)
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load Radar')
     } finally {
@@ -58,6 +63,28 @@ export default function Radar() {
       ...prev,
       [itemId]: !prev[itemId],
     }))
+  }
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return
+    setIsLoadingMore(true)
+    setError(null)
+    try {
+      const nextOffset = items.length
+      const inboxRes = await feedsApi.inbox({
+        limit: PAGE_SIZE,
+        offset: nextOffset,
+        feed_id: selectedFeedId || undefined,
+      })
+      const newItems = inboxRes.data.items
+      setItems((prev) => [...prev, ...newItems])
+      setTotal(inboxRes.data.total)
+      setHasMore(nextOffset + newItems.length < inboxRes.data.total)
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to load more items')
+    } finally {
+      setIsLoadingMore(false)
+    }
   }
 
   const handleOpenReader = useCallback(async (item: FeedItem) => {
@@ -363,73 +390,94 @@ export default function Radar() {
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {items.map((item) => (
-                <article
-                  key={item.id}
-                  className="rounded-3xl border border-slate-200/70 bg-white/80 p-4 shadow-sm transition hover:shadow-md dark:border-slate-800/80 dark:bg-slate-900/60"
-                >
-                  <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
-                    {item.feed_favicon_url && (
-                      <img src={item.feed_favicon_url} alt="" className="h-4 w-4 rounded" />
-                    )}
-                    <span>{item.feed_title || item.feed_site_url || 'Feed source'}</span>
-                    {formatDate(item.published_at || item.first_seen_at) && (
-                      <>
-                        <span>&middot;</span>
-                        <span>{formatDate(item.published_at || item.first_seen_at)}</span>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleOpenReader(item)}
-                    className="block w-full text-left font-display text-lg font-normal leading-snug text-slate-950 transition hover:underline dark:text-slate-50 break-words"
+            <div className="space-y-6">
+              <div className="space-y-2">
+                {items.map((item) => (
+                  <article
+                    key={item.id}
+                    className="rounded-3xl border border-slate-200/70 bg-white/80 p-4 shadow-sm transition hover:shadow-md dark:border-slate-800/80 dark:bg-slate-900/60"
                   >
-                    {item.title}
-                  </button>
-                  {item.summary && (
-                    <div className="mt-1.5">
-                      <p className={`text-sm leading-5 text-slate-600 dark:text-slate-300 break-words ${expandedItems[item.id] ? '' : 'line-clamp-2'}`}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ p: 'span' }}>
-                          {item.summary}
-                        </ReactMarkdown>
-                      </p>
-                      {item.summary.length > 140 && (
-                        <button
-                          onClick={() => toggleExpandItem(item.id)}
-                          className="mt-1 text-xs font-semibold text-slate-600 hover:text-slate-950 hover:underline dark:text-slate-400 dark:hover:text-slate-50 transition-colors"
-                        >
-                          {expandedItems[item.id] ? 'Show less' : 'Show more'}
-                        </button>
+                    <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                      {item.feed_favicon_url && (
+                        <img src={item.feed_favicon_url} alt="" className="h-4 w-4 rounded" />
+                      )}
+                      <span>{item.feed_title || item.feed_site_url || 'Feed source'}</span>
+                      {formatDate(item.published_at || item.first_seen_at) && (
+                        <>
+                          <span>&middot;</span>
+                          <span>{formatDate(item.published_at || item.first_seen_at)}</span>
+                        </>
                       )}
                     </div>
-                  )}
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
-                      onClick={() => saveItem(item)}
-                      className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                      onClick={() => handleOpenReader(item)}
+                      className="block w-full text-left font-display text-lg font-normal leading-snug text-slate-950 transition hover:underline dark:text-slate-50 break-words"
                     >
-                      Save to Library
+                      {item.title}
                     </button>
-                    <button
-                      onClick={() => dismissItem(item)}
-                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Dismiss
-                    </button>
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Open Link
-                    </a>
-                  </div>
-                </article>
-              ))}
+                    {item.summary && (
+                      <div className="mt-1.5">
+                        <p className={`text-sm leading-5 text-slate-600 dark:text-slate-300 break-words ${expandedItems[item.id] ? '' : 'line-clamp-2'}`}>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ p: 'span' }}>
+                            {item.summary}
+                          </ReactMarkdown>
+                        </p>
+                        {item.summary.length > 140 && (
+                          <button
+                            onClick={() => toggleExpandItem(item.id)}
+                            className="mt-1 text-xs font-semibold text-slate-600 hover:text-slate-950 hover:underline dark:text-slate-400 dark:hover:text-slate-50 transition-colors"
+                          >
+                            {expandedItems[item.id] ? 'Show less' : 'Show more'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => saveItem(item)}
+                        className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                      >
+                        Save to Library
+                      </button>
+                      <button
+                        onClick={() => dismissItem(item)}
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Dismiss
+                      </button>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open Link
+                      </a>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={isLoadingMore}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800/80 dark:hover:text-slate-100"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading more...
+                      </>
+                    ) : (
+                      'Load More'
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
