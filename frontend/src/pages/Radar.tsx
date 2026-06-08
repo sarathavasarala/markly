@@ -343,7 +343,7 @@ export default function Radar() {
           </div>
         </aside>
 
-        <section className="space-y-3">
+        <section className="space-y-3 min-w-0">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">
               {selectedFeed ? selectedFeed.title || 'Selected source' : 'New from your sources'} ({isLoading ? '...' : total})
@@ -383,13 +383,13 @@ export default function Radar() {
                   </div>
                   <button
                     onClick={() => handleOpenReader(item)}
-                    className="block text-left font-display text-lg font-normal leading-snug text-slate-950 transition hover:underline dark:text-slate-50"
+                    className="block w-full text-left font-display text-lg font-normal leading-snug text-slate-950 transition hover:underline dark:text-slate-50 break-words"
                   >
                     {item.title}
                   </button>
                   {item.summary && (
                     <div className="mt-1.5">
-                      <p className={`text-sm leading-5 text-slate-600 dark:text-slate-300 ${expandedItems[item.id] ? '' : 'line-clamp-2'}`}>
+                      <p className={`text-sm leading-5 text-slate-600 dark:text-slate-300 break-words ${expandedItems[item.id] ? '' : 'line-clamp-2'}`}>
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ p: 'span' }}>
                           {item.summary}
                         </ReactMarkdown>
