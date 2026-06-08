@@ -1,0 +1,27 @@
+name: Markly Refresh Feeds
+
+on:
+  schedule:
+    # Twice a day (every 12 hours) at off-peak minutes
+    - cron: '27 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  refresh-feeds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute HTTP POST request
+        run: |
+          if [ -z "${{ secrets.MARKLY_APP_URL }}" ]; then
+            echo "Error: secrets.MARKLY_APP_URL is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.MARKLY_CRON_SECRET }}" ]; then
+            echo "Error: secrets.MARKLY_CRON_SECRET is not set"
+            exit 1
+          fi
+          
+          curl -X POST "${{ secrets.MARKLY_APP_URL }}/api/cron/refresh" \
+            -H "Authorization: Bearer ${{ secrets.MARKLY_CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f

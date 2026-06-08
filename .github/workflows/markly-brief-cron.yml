@@ -1,0 +1,27 @@
+name: Markly Generate Brief
+
+on:
+  schedule:
+    # Once a day close to 5:30 AM IST (00:00 UTC) at an off-peak minute (00:12 UTC)
+    - cron: '12 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  generate-brief:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute HTTP POST request
+        run: |
+          if [ -z "${{ secrets.MARKLY_APP_URL }}" ]; then
+            echo "Error: secrets.MARKLY_APP_URL is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.MARKLY_CRON_SECRET }}" ]; then
+            echo "Error: secrets.MARKLY_CRON_SECRET is not set"
+            exit 1
+          fi
+          
+          curl -X POST "${{ secrets.MARKLY_APP_URL }}/api/cron/brief" \
+            -H "Authorization: Bearer ${{ secrets.MARKLY_CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f
