@@ -681,3 +681,56 @@ def test_signal_telemetry_logging(client, mocker):
     assert len(telemetry_data["telemetry"]) >= 1
     assert telemetry_data["telemetry"][0]["stage"] == "filtering"
     assert telemetry_data["telemetry"][0]["error_message"] == "LLM Service Unavailable"
+
+
+def test_parse_and_clean_brief():
+    from services.signal_pipeline import parse_and_clean_brief
+
+    # 1. Test # Theme: format
+    content_1 = "# Theme: Apple Intelligence Shifts\n\n## Section 1\nSome content here."
+    title, clean = parse_and_clean_brief(content_1)
+    assert title == "Apple Intelligence Shifts"
+    assert clean == "## Section 1\nSome content here."
+
+    # 2. Test #Theme: format (no space)
+    content_2 = "#Theme: Nvidia Blackwell Costs\nSome content here."
+    title, clean = parse_and_clean_brief(content_2)
+    assert title == "Nvidia Blackwell Costs"
+    assert clean == "Some content here."
+
+    # 3. Test generic # format
+    content_3 = "# Tech Innovations 2026\n## Cluster A\nDetails."
+    title, clean = parse_and_clean_brief(content_3)
+    assert title == "Tech Innovations 2026"
+    assert clean == "## Cluster A\nDetails."
+
+    # 4. Test fallback when no H1 title header
+    content_4 = "## Cluster A\nDetails without main title."
+    title, clean = parse_and_clean_brief(content_4)
+    assert title is None
+    assert clean == content_4
+
+    # 5. Test clean formatting (e.g. bold wrappers inside header title)
+    content_5 = "# Theme: **AMD MI300 Performance**\nContent here."
+    title, clean = parse_and_clean_brief(content_5)
+    assert title == "AMD MI300 Performance"
+    assert clean == "Content here."
+
+
+def test_save_brief_with_title():
+    from database import db_session, upsert_user
+    from services.signal_pipeline import save_brief
+
+    user = upsert_user("test@example.com", full_name="Test User")
+    content = "# Theme: My Dynamic Title\n\n## Subtheme\nBody details"
+
+    with db_session() as conn:
+        brief = save_brief(conn, user["id"], content, [])
+        assert brief["title"] == "My Dynamic Title"
+        assert brief["content"] == "## Subtheme\nBody details"
+
+        # Check DB directly
+        row = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (brief["id"],)).fetchone()
+        assert row["title"] == "My Dynamic Title"
+        assert row["content"] == "## Subtheme\nBody details"
+

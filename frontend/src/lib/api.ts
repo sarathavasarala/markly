@@ -268,6 +268,7 @@ export interface SignalBrief {
   id: string
   user_id: string
   content: string
+  title: string | null
   article_count: number | null
   created_at: string
 }

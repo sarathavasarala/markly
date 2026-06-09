@@ -210,6 +210,7 @@ def initialize_database():
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 content TEXT NOT NULL,
+                title TEXT,
                 article_count INTEGER,
                 created_at TEXT NOT NULL
             );
@@ -330,11 +331,13 @@ def initialize_database():
         if "signal_web_search_enabled" not in user_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN signal_web_search_enabled INTEGER DEFAULT 1")
 
-        # Lightweight migration to add article_count to signal_briefs if missing
+        # Lightweight migration to add article_count and title to signal_briefs if missing
         cursor.execute("PRAGMA table_info(signal_briefs)")
         signal_columns = [row["name"] for row in cursor.fetchall()]
         if "article_count" not in signal_columns:
             cursor.execute("ALTER TABLE signal_briefs ADD COLUMN article_count INTEGER")
+        if "title" not in signal_columns:
+            cursor.execute("ALTER TABLE signal_briefs ADD COLUMN title TEXT")
 
 
 def serialize_value(value: Any) -> Any:

@@ -561,6 +561,33 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
     return _clean_brief_text(content)
 
 
+def parse_and_clean_brief(content: str) -> tuple[str | None, str]:
+    """Extract the title from the first line if it starts with '# Theme:' or '# ' and return (title, clean_content)."""
+    if not content:
+        return None, content
+
+    lines = content.strip().splitlines()
+    if not lines:
+        return None, content
+
+    first_line = lines[0].strip()
+    if first_line.startswith("# Theme:") or first_line.startswith("#Theme:") or first_line.startswith("# "):
+        if first_line.startswith("# Theme:"):
+            title = first_line[8:].strip()
+        elif first_line.startswith("#Theme:"):
+            title = first_line[7:].strip()
+        else:
+            title = first_line[2:].strip()
+        
+        # Strip any markdown bold/italic formatting from the title
+        title = title.strip("*_").strip()
+        
+        clean_content = "\n".join(lines[1:]).lstrip()
+        return title, clean_content
+
+    return None, content
+
+
 # ---------------------------------------------------------------------------
 # Stage 7: persist brief
 # ---------------------------------------------------------------------------
@@ -574,9 +601,11 @@ def save_brief(conn, user_id, content, selected_items):
     brief_id = new_id()
     created_at = utc_now()
 
+    title, clean_content = parse_and_clean_brief(content)
+
     conn.execute(
-        "INSERT INTO signal_briefs (id, user_id, content, article_count, created_at) VALUES (?, ?, ?, ?, ?)",
-        (brief_id, user_id, content, article_count, created_at),
+        "INSERT INTO signal_briefs (id, user_id, content, title, article_count, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (brief_id, user_id, clean_content, title, article_count, created_at),
     )
 
     briefed_ids = [item["id"] for item in selected_items]
@@ -591,3 +620,4 @@ def save_brief(conn, user_id, content, selected_items):
 
     row = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (brief_id,)).fetchone()
     return row_to_dict(row)
+

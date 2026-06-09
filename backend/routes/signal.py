@@ -99,8 +99,9 @@ Instructions:
    - If the Background Research section is empty, proceed using only the article content and your own knowledge.
 6. Output Format:
    - Provide the response in Markdown format.
-   - Use simple headers (e.g. `##` for conversation clusters) to organize the memo.
-   - Do not include any greeting, introduction, signature, or filler. Start directly with the first thematic header.
+   - The very first line of the memo MUST be a title summarizing the key themes or focal point of the brief, formatted as a markdown H1 starting with `# Theme: ` (e.g., `# Theme: Apple Intelligence & Nvidia Blackwell Costs`).
+   - Use simple headers (e.g. `##` for conversation clusters) to organize the memo body.
+   - Do not include any greeting, introduction, signature, or filler.
 """
 
 

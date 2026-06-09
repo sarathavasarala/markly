@@ -421,11 +421,14 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">
-                          {formatShortDate(brief.created_at)}
+                        <p className="text-sm font-medium truncate" title={brief.title || formatShortDate(brief.created_at) || undefined}>
+                          {brief.title || formatShortDate(brief.created_at)}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500 truncate">
-                          {brief.article_count ? `${brief.article_count} articles analyzed` : 'Synthesized memo'}
+                          {brief.title 
+                            ? formatShortDate(brief.created_at) 
+                            : (brief.article_count ? `${brief.article_count} articles analyzed` : 'Synthesized memo')
+                          }
                         </p>
                       </div>
                       <ChevronRight className={`h-4 w-4 flex-shrink-0 ml-2 ${isSelected ? 'text-slate-600 dark:text-slate-400' : 'text-slate-300'}`} />
@@ -640,10 +643,10 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 {/* Header info */}
                 <div className="border-b border-slate-100 pb-4 mb-6 dark:border-slate-900">
                   <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                    Daily Briefing Memo
+                    {selectedBrief.title ? formatDate(selectedBrief.created_at) : 'Daily Briefing Memo'}
                   </div>
                   <h2 className="font-display text-2xl font-normal text-slate-900 dark:text-slate-50">
-                    {formatDate(selectedBrief.created_at)}
+                    {selectedBrief.title || formatDate(selectedBrief.created_at)}
                   </h2>
                 </div>
 
