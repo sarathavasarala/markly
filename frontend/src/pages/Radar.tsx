@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { ExternalLink, Loader2, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Bookmark, Feed, FeedItem, feedsApi } from '../lib/api'
 import { useUIStore } from '../stores/uiStore'
 import SignalSection from '../components/SignalSection'
@@ -19,6 +20,11 @@ export default function Radar() {
   const [lastRefreshSummary, setLastRefreshSummary] = useState<string | null>(null)
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null)
 
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = (searchParams.get('tab') as 'queue' | 'signal') || 'queue'
+  const readItemId = searchParams.get('read')
+
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
   const [activeReaderItem, setActiveReaderItem] = useState<FeedItem | null>(null)
   const [readerContent, setReaderContent] = useState<string | null>(null)
@@ -27,13 +33,20 @@ export default function Radar() {
   const [readerError, setReaderError] = useState<string | null>(null)
   const [isExtractingClean, setIsExtractingClean] = useState(false)
   const [isSourcesExpanded, setIsSourcesExpanded] = useState(false)
-  const [activeTab, setActiveTab] = useState<'queue' | 'signal'>('queue')
 
   const PAGE_SIZE = 30
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   const openAddModal = useUIStore((state) => state.openAddModal)
+
+  const setActiveTab = (tab: 'queue' | 'signal') => {
+    setSearchParams((prev) => {
+      const newParams = new URLSearchParams(prev)
+      newParams.set('tab', tab)
+      return newParams
+    }, { replace: true })
+  }
 
   const loadRadar = useCallback(async () => {
     setIsLoading(true)
@@ -87,21 +100,50 @@ export default function Radar() {
     }
   }
 
-  const handleOpenReader = useCallback(async (item: FeedItem) => {
-    setActiveReaderItem(item)
-    setIsReaderLoading(true)
-    setReaderError(null)
-    setReaderContent(null)
-    try {
-      const res = await feedsApi.getItemContent(item.id)
-      setReaderContent(res.data.content)
-      setReaderFormat(res.data.content_format || 'html')
-    } catch (err: any) {
-      setReaderError(err.response?.data?.error || 'Failed to load article content.')
-    } finally {
-      setIsReaderLoading(false)
+  const handleOpenReader = useCallback((item: FeedItem) => {
+    setSearchParams((prev) => {
+      const newParams = new URLSearchParams(prev)
+      newParams.set('read', item.id)
+      return newParams
+    })
+  }, [setSearchParams])
+
+  const handleCloseReader = useCallback(() => {
+    if (window.history.length > 1) {
+      navigate(-1)
+    } else {
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev)
+        newParams.delete('read')
+        return newParams
+      }, { replace: true })
     }
-  }, [])
+  }, [navigate, setSearchParams])
+
+  useEffect(() => {
+    if (readItemId) {
+      const item = items.find((i) => i.id === readItemId)
+      if (item) {
+        setActiveReaderItem(item)
+        setIsReaderLoading(true)
+        setReaderError(null)
+        setReaderContent(null)
+        feedsApi.getItemContent(item.id)
+          .then((res) => {
+            setReaderContent(res.data.content)
+            setReaderFormat(res.data.content_format || 'html')
+          })
+          .catch((err: any) => {
+            setReaderError(err.response?.data?.error || 'Failed to load article content.')
+          })
+          .finally(() => {
+            setIsReaderLoading(false)
+          })
+      }
+    } else {
+      setActiveReaderItem(null)
+    }
+  }, [readItemId, items])
 
   const handleExtractCleanContent = async () => {
     if (!activeReaderItem) return
@@ -493,7 +535,7 @@ export default function Radar() {
         <div className="fixed inset-0 z-[60] flex justify-end bg-slate-950/40 backdrop-blur-sm transition-opacity animate-in fade-in-0 duration-200">
           <div 
             className="fixed inset-0" 
-            onClick={() => setActiveReaderItem(null)} 
+            onClick={handleCloseReader} 
           />
           <aside className="relative z-10 flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl transition-transform dark:bg-slate-950 border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-300">
             {/* Drawer Header */}
@@ -516,7 +558,7 @@ export default function Radar() {
                 <button
                   onClick={() => {
                     saveItem(activeReaderItem)
-                    setActiveReaderItem(null)
+                    handleCloseReader()
                   }}
                   className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
                 >
@@ -525,7 +567,7 @@ export default function Radar() {
                 <button
                   onClick={() => {
                     dismissItem(activeReaderItem)
-                    setActiveReaderItem(null)
+                    handleCloseReader()
                   }}
                   className="inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
                   title="Dismiss from Radar"
@@ -544,7 +586,7 @@ export default function Radar() {
                   <span className="hidden sm:inline">Open Link</span>
                 </a>
                 <button
-                  onClick={() => setActiveReaderItem(null)}
+                  onClick={handleCloseReader}
                   className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   title="Close Reader"
                 >
