@@ -262,11 +262,13 @@ def _generate_brief_stream(user_id: str):
             return
 
         source_names = list({item["feed_title"] or "Unknown" for item in items})
+        candidate_words = sum(len((item.get("title") or "").split()) + len((item.get("summary") or "").split()) for item in items)
         yield _sse_event({
             "stage": "scanning",
             "message": f"Scanning {len(items)} articles across {len(source_names)} sources",
             "article_count": len(items),
             "source_count": len(source_names),
+            "candidate_word_count": candidate_words,
         })
 
         yield _sse_event({"stage": "filtering", "message": "Applying taste profile filter..."})
@@ -281,6 +283,7 @@ def _generate_brief_stream(user_id: str):
             "message": f"Selected {len(selected_items)} high-signal articles",
             "count": len(selected_items),
             "titles": [item["title"] for item in selected_items],
+            "candidate_word_count": candidate_words,
         })
 
         extract_total = len(selected_items)
@@ -297,23 +300,36 @@ def _generate_brief_stream(user_id: str):
 
         signal_pipeline.persist_content_updates(conn, updates)
 
+        extracted_words = sum(len((item.get("content") or "").split()) for item in selected_items)
+
         if settings.get("web_search_enabled", True):
             yield _sse_event({
                 "stage": "researching",
-                "message": "Researching background context..."
+                "message": "Researching background context...",
+                "extracted_word_count": extracted_words,
             })
             research_brief, queries = signal_pipeline.research(selected_items, web_search_enabled=True)
+            research_words = len((research_brief or "").split())
             yield _sse_event({
                 "stage": "researched",
                 "message": f"Background research complete ({len(queries)} queries run)" if queries else "Background research complete",
-                "titles": queries
+                "titles": queries,
+                "research_word_count": research_words,
+                "extracted_word_count": extracted_words,
             })
         else:
             research_brief = ""
+            research_words = 0
+
+        articles_contents_str = signal_pipeline._build_articles_contents_str(selected_items)
+        synthesis_words = len((articles_contents_str or "").split()) + research_words
 
         yield _sse_event({
             "stage": "synthesizing",
-            "message": "Writing your daily brief..."
+            "message": "Writing your daily brief...",
+            "extracted_word_count": extracted_words,
+            "research_word_count": research_words,
+            "synthesis_word_count": synthesis_words,
         })
 
         try:
@@ -329,7 +345,12 @@ def _generate_brief_stream(user_id: str):
             return
 
         brief = signal_pipeline.save_brief(conn, user_id, content, selected_items)
-        yield _sse_event({"stage": "complete", "brief": brief})
+        synthesis_output_words = len((content or "").split())
+        yield _sse_event({
+            "stage": "complete",
+            "brief": brief,
+            "synthesis_output_word_count": synthesis_output_words
+        })
 
 
 @signal_bp.route("/briefs/generate", methods=["POST"])

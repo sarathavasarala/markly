@@ -484,7 +484,7 @@ def persist_content_updates(conn, updates):
 
 RESEARCH_PROMPT_TEMPLATE = """You are a research assistant preparing background context for a daily intelligence briefing.
 
-You are given a set of high-signal articles selected from RSS feeds. Your job is NOT to analyze or summarize them. Your job is to identify the critical questions and follow-ups that an intelligent Executive or a smart business operator would ask in response to the news in these articles, and find factual answers to those questions using web search.
+You are given a set of high-signal articles selected from RSS feeds. Your job is NOT to analyze or summarize them. Your job is to identify the critical questions and follow-ups that an intelligent Executive or a smart business operator would ask in response to the news in these articles, and find factual answers to those questions using web search and page content extraction.
 
 Here are the articles:
 \"\"\"
@@ -494,10 +494,15 @@ Here are the articles:
 Instructions:
 1. Read through all the articles. Think like an intelligent Executive or a smart operator reading these notes: what gaps, follow-up questions, or forward-looking implications (e.g., product release dates, competitor status, regulatory decisions, financial impact) would they want answered?
 2. Formulate at least 3, and up to 8, smart, highly strategic questions or query terms that address these executive/operator follow-ups.
-3. For each of these questions/terms (you must identify and perform searches for at least 3), use the web_search tool to look up the latest public information.
-4. For each question/term you research, produce a short factual grounding entry (2-4 sentences max) that answers the question with the latest factual context. Include a source URL if available.
-5. Do NOT analyze the articles themselves. Do NOT provide opinions or strategic commentary of your own. Only provide factual answers/grounding retrieved from the search.
-6. If all terms and news in the articles are completely clear and require no executive-level follow-ups or queries, return a brief note saying no additional context is needed.
+3. For these questions, you have two tools available:
+   - `web_search`: Use this first to search the web for candidates, matching URLs, and initial snippets.
+   - `web_fetch`: Use this to fetch the full text (in token-efficient markdown format) of specific search result URLs to get detailed grounding context.
+4. For each main question you research:
+   - Run `web_search` to find candidates.
+   - Then, use `web_fetch` to retrieve the full contents of the top 1 to 3 most relevant URLs to verify details and pull high-quality facts.
+5. For each question/term you research, produce a short factual grounding entry (2-4 sentences max) that answers the question with the latest factual context. Include a source URL if available.
+6. Do NOT analyze the articles themselves. Do NOT provide opinions or strategic commentary of your own. Only provide factual answers/grounding retrieved from the search and fetch tools.
+7. If all terms and news in the articles are completely clear and require no executive-level follow-ups or queries, return a brief note saying no additional context is needed.
 
 Output Format:
 Return a plain text document with each research entry as a short paragraph. Use this format:
@@ -573,10 +578,9 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
 
     system_content = "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."
     
-    # Always use plain completions — no Responses API, no tools
-    deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME
-    content = AzureOpenAIService.generate_brief_completions_fallback(
-        synthesis_prompt, system_content, deployment
+    # Use Responses API with high verbosity for final memo generation
+    content = AzureOpenAIService.generate_brief_with_verbosity(
+        synthesis_prompt, system_content, verbosity="high"
     )
         
     return _clean_brief_text(content)

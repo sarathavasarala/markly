@@ -367,6 +367,23 @@ def test_extract_queries_from_item():
     }
     assert AzureOpenAIService._extract_queries_from_item(item_mcp_string) == ["Find latest public information on Anthropic sandboxing"]
 
+    # 7. Test web_fetch and fetch calls with url parameters
+    item_mcp_url = {
+        "type": "mcp_call",
+        "arguments": {
+            "url": "https://example.com/nvidia-blackwell"
+        }
+    }
+    assert AzureOpenAIService._extract_queries_from_item(item_mcp_url) == ["Fetch: https://example.com/nvidia-blackwell"]
+
+    item_tool_url = {
+        "type": "tool_call",
+        "tool_type": "web_fetch",
+        "arguments": '{"url": "https://example.com/claude-3-7"}'
+    }
+    assert AzureOpenAIService._extract_queries_from_item(item_tool_url) == ["Fetch: https://example.com/claude-3-7"]
+
+
 
 def test_generate_research_with_search_success(mocker):
     from services.openai_service import AzureOpenAIService
@@ -445,6 +462,81 @@ def test_generate_research_with_search_api_failure_fallback(mocker):
     mock_openai_client.chat.completions.create.assert_called_once()
 
 
+def test_generate_brief_with_verbosity_success(mocker):
+    from services.openai_service import AzureOpenAIService
+    from config import Config
+
+    # Reset any SIGNAL-specific environment overrides to force fallback to standard endpoints
+    Config.SIGNAL_AZURE_OPENAI_ENDPOINT = None
+    Config.SIGNAL_AZURE_OPENAI_API_KEY = None
+    Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME = None
+
+    Config.AZURE_OPENAI_ENDPOINT = "https://my-endpoint.openai.azure.com"
+    Config.AZURE_OPENAI_API_KEY = "my-key"
+    Config.AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-5"
+
+    mock_response = mocker.MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "output_text", "text": "Detailed daily brief content with high verbosity"}
+                ]
+            }
+        ]
+    }
+    
+    mock_post = mocker.patch("requests.post", return_value=mock_response)
+    
+    brief = AzureOpenAIService.generate_brief_with_verbosity("prompt", "instructions", verbosity="high")
+    
+    assert brief == "Detailed daily brief content with high verbosity"
+    mock_post.assert_called_once()
+    
+    args, kwargs = mock_post.call_args
+    assert kwargs["headers"]["api-key"] == "my-key"
+    assert kwargs["json"]["text"]["verbosity"] == "high"
+    assert "tools" not in kwargs["json"]
+
+
+def test_generate_brief_with_verbosity_fallback(mocker):
+    from services.openai_service import AzureOpenAIService
+    from config import Config
+
+    # Reset any SIGNAL-specific environment overrides to force fallback to standard endpoints
+    Config.SIGNAL_AZURE_OPENAI_ENDPOINT = None
+    Config.SIGNAL_AZURE_OPENAI_API_KEY = None
+    Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME = None
+
+    Config.AZURE_OPENAI_ENDPOINT = "https://my-endpoint.openai.azure.com"
+    Config.AZURE_OPENAI_API_KEY = "my-key"
+    Config.AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-5"
+
+    # Mock post error to trigger fallback
+    mock_post = mocker.patch("requests.post", side_effect=Exception("API Error"))
+    
+    # Mock fallback standard chat completion client
+    mock_openai_client = mocker.MagicMock()
+    mocker.patch(
+        "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+        return_value=(mock_openai_client, "gpt-5")
+    )
+    mock_completion_res = mocker.MagicMock()
+    mock_completion_res.choices = [
+        mocker.MagicMock(message=mocker.MagicMock(content="fallback standard completions brief"))
+    ]
+    mock_openai_client.chat.completions.create.return_value = mock_completion_res
+
+    brief = AzureOpenAIService.generate_brief_with_verbosity("prompt", "instructions", verbosity="high")
+
+    assert brief == "fallback standard completions brief"
+    mock_post.assert_called_once()
+    mock_openai_client.chat.completions.create.assert_called_once()
+
+
 def test_generate_brief_stream_success(client, mocker):
     user = upsert_user("test@example.com", full_name="Test User")
     feed_id = _insert_feed(user["id"])
@@ -490,7 +582,9 @@ def test_generate_brief_stream_success(client, mocker):
     
     assert len(events) >= 8
     import json
-    stages = [json.loads(e.removeprefix("data: "))["stage"] for e in events]
+    parsed_events = [json.loads(e.removeprefix("data: ")) for e in events]
+    stages = [evt["stage"] for evt in parsed_events]
+    
     assert "scanning" in stages
     assert "filtering" in stages
     assert "filtered" in stages
@@ -499,3 +593,31 @@ def test_generate_brief_stream_success(client, mocker):
     assert "researched" in stages
     assert "synthesizing" in stages
     assert "complete" in stages
+
+    # Verify telemetry word counts are calculated and streamed
+    scanning_evt = next(evt for evt in parsed_events if evt["stage"] == "scanning")
+    assert "candidate_word_count" in scanning_evt
+    assert scanning_evt["candidate_word_count"] > 0
+
+    filtered_evt = next(evt for evt in parsed_events if evt["stage"] == "filtered")
+    assert "candidate_word_count" in filtered_evt
+    assert filtered_evt["candidate_word_count"] > 0
+
+    researching_evt = next(evt for evt in parsed_events if evt["stage"] == "researching")
+    assert "extracted_word_count" in researching_evt
+    assert researching_evt["extracted_word_count"] > 0
+
+    researched_evt = next(evt for evt in parsed_events if evt["stage"] == "researched")
+    assert "research_word_count" in researched_evt
+    assert researched_evt["research_word_count"] > 0
+    assert "extracted_word_count" in researched_evt
+
+    synthesizing_evt = next(evt for evt in parsed_events if evt["stage"] == "synthesizing")
+    assert "synthesis_word_count" in synthesizing_evt
+    assert synthesizing_evt["synthesis_word_count"] > 0
+    assert "extracted_word_count" in synthesizing_evt
+    assert "research_word_count" in synthesizing_evt
+
+    complete_evt = next(evt for evt in parsed_events if evt["stage"] == "complete")
+    assert "synthesis_output_word_count" in complete_evt
+    assert complete_evt["synthesis_output_word_count"] > 0

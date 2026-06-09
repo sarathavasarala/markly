@@ -265,6 +265,7 @@ class AzureOpenAIService:
                 search_queries = args.get("search_queries")
                 objective = args.get("objective")
                 q = args.get("query") or args.get("queries") or args.get("q")
+                url = args.get("url")
                 
                 # Prefer objective as the human-readable label
                 if objective:
@@ -276,12 +277,14 @@ class AzureOpenAIService:
                         queries.extend([str(x) for x in q])
                     else:
                         queries.append(str(q))
+                elif url:
+                    queries.append(f"Fetch: {url}")
 
         # 3. General tool_call or function_call at the top level
         elif item_type in ("tool_call", "function_call"):
             # Check name / tool_type
             name = item.get("name") or item.get("tool_name") or item.get("tool_type")
-            if name in ("web_search", "parallel-search", "search"):
+            if name in ("web_search", "parallel-search", "search", "web_fetch", "fetch"):
                 args = item.get("arguments", {})
                 if isinstance(args, str):
                     try:
@@ -290,11 +293,14 @@ class AzureOpenAIService:
                         pass
                 if isinstance(args, dict):
                     q = args.get("query") or args.get("queries") or args.get("q")
+                    url = args.get("url")
                     if q:
                         if isinstance(q, list):
                             queries.extend([str(x) for x in q])
                         else:
                             queries.append(str(q))
+                    elif url:
+                        queries.append(f"Fetch: {url}")
 
         # 4. Message items containing nested contents
         elif item_type == "message" and item.get("role") == "assistant":
@@ -306,7 +312,7 @@ class AzureOpenAIService:
                         tc = content_item.get("tool_call") or content_item.get("function_call") or content_item
                         if isinstance(tc, dict):
                             name = tc.get("name") or tc.get("tool_name") or tc.get("tool_type")
-                            if name in ("web_search", "parallel-search", "search"):
+                            if name in ("web_search", "parallel-search", "search", "web_fetch", "fetch"):
                                 args = tc.get("arguments", {})
                                 if isinstance(args, str):
                                     try:
@@ -315,11 +321,14 @@ class AzureOpenAIService:
                                         pass
                                 if isinstance(args, dict):
                                     q = args.get("query") or args.get("queries") or args.get("q")
+                                    url = args.get("url")
                                     if q:
                                         if isinstance(q, list):
                                             queries.extend([str(x) for x in q])
                                         else:
                                             queries.append(str(q))
+                                    elif url:
+                                        queries.append(f"Fetch: {url}")
 
         # 5. Fallback/Recursive traversal: search for any nested dicts or lists
         for k, v in item.items():
@@ -492,6 +501,74 @@ class AzureOpenAIService:
                                 break
                 if text:
                     logger.info("Responses API brief generation successful.")
+                    return text
+                else:
+                    logger.warning("Responses API returned successful code but empty assistant text.")
+            else:
+                logger.warning(f"Responses API returned non-200 code: {res.status_code}. Response: {res.text}")
+        except Exception as e:
+            logger.warning(f"Responses API call failed with exception: {e}")
+            
+        logger.info("Falling back to standard Chat Completions daily brief generation...")
+        return cls.generate_brief_completions_fallback(prompt, instructions, deployment)
+
+    @classmethod
+    def generate_brief_with_verbosity(cls, prompt: str, instructions: str, verbosity: str = "high") -> str:
+        """
+        Generate Signal Daily Brief using Azure OpenAI's native Responses API with the specified verbosity.
+        No tools are passed since this is a pure synthesis step.
+        Falls back to standard Chat Completions if Responses API fails.
+        """
+        import requests
+        
+        endpoint = Config.SIGNAL_AZURE_OPENAI_ENDPOINT or Config.AZURE_OPENAI_ENDPOINT
+        api_key = Config.SIGNAL_AZURE_OPENAI_API_KEY or Config.AZURE_OPENAI_API_KEY
+        deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME
+        
+        if not endpoint or not api_key:
+            logger.warning("Azure OpenAI endpoint or API key not configured. Falling back to standard Completions.")
+            return cls.generate_brief_completions_fallback(prompt, instructions, deployment)
+            
+        base_endpoint = endpoint.strip().rstrip("/")
+        if not base_endpoint.endswith("/openai/v1"):
+            if base_endpoint.endswith("/openai"):
+                url = f"{base_endpoint}/v1/responses"
+            else:
+                url = f"{base_endpoint}/openai/v1/responses"
+        else:
+            url = f"{base_endpoint}/responses"
+            
+        headers = {
+            "api-key": api_key,
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": deployment,
+            "instructions": instructions,
+            "input": prompt,
+            "text": {
+                "verbosity": verbosity
+            }
+        }
+        
+        try:
+            logger.info("Calling Azure OpenAI Responses API with verbosity %s...", verbosity)
+            res = requests.post(url, headers=headers, json=data, timeout=120)
+            if res.status_code == 200:
+                res_data = res.json()
+                output_items = res_data.get("output", [])
+                text = ""
+                # Find the assistant's output message
+                for item in output_items:
+                    if item.get("type") == "message" and item.get("role") == "assistant":
+                        contents = item.get("content", [])
+                        for content_item in contents:
+                            if content_item.get("type") == "output_text":
+                                text = content_item.get("text", "")
+                                break
+                if text:
+                    logger.info("Responses API brief generation successful with verbosity %s.", verbosity)
                     return text
                 else:
                     logger.warning("Responses API returned successful code but empty assistant text.")

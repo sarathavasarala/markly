@@ -53,6 +53,12 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
+  const [candidateWords, setCandidateWords] = useState<number | null>(null)
+  const [extractedWords, setExtractedWords] = useState<number | null>(null)
+  const [researchWords, setResearchWords] = useState<number | null>(null)
+  const [synthesisWords, setSynthesisWords] = useState<number | null>(null)
+  const [synthesisOutputWords, setSynthesisOutputWords] = useState<number | null>(null)
+
   const loadSignalData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
@@ -118,6 +124,11 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
     setIsGenerating(true)
     setError(null)
     setInfoMessage(null)
+    setCandidateWords(null)
+    setExtractedWords(null)
+    setResearchWords(null)
+    setSynthesisWords(null)
+    setSynthesisOutputWords(null)
     setPipelineSteps(getInitialSteps(signalWebSearchEnabled).map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
 
     try {
@@ -161,6 +172,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
             switch (event.stage) {
               case 'scanning':
                 markStepActive('scanning', event.message)
+                if (event.candidate_word_count !== undefined) setCandidateWords(event.candidate_word_count)
                 // Immediately mark done since scanning is instant
                 setTimeout(() => markStepDone('scanning', event.message), 300)
                 break
@@ -170,6 +182,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 break
               case 'filtered':
                 markStepDone('filtering', event.message, event.titles)
+                if (event.candidate_word_count !== undefined) setCandidateWords(event.candidate_word_count)
                 break
               case 'extracting':
                 markStepActive('extracting', event.message)
@@ -178,20 +191,27 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
               case 'researching':
                 markStepDone('extracting')
                 markStepActive('researching', event.message)
+                if (event.extracted_word_count !== undefined) setExtractedWords(event.extracted_word_count)
                 break
               case 'researched':
                 markStepDone('researching', event.message, event.titles)
+                if (event.research_word_count !== undefined) setResearchWords(event.research_word_count)
+                if (event.extracted_word_count !== undefined) setExtractedWords(event.extracted_word_count)
                 break
               case 'synthesizing':
                 markStepDone('researching')
                 markStepDone('extracting')
                 markStepActive('synthesizing', event.message)
+                if (event.extracted_word_count !== undefined) setExtractedWords(event.extracted_word_count)
+                if (event.research_word_count !== undefined) setResearchWords(event.research_word_count)
+                if (event.synthesis_word_count !== undefined) setSynthesisWords(event.synthesis_word_count)
                 break
               case 'complete': {
                 markStepDone('synthesizing')
                 const newBrief = event.brief as SignalBrief
                 setBriefs(prev => [newBrief, ...prev])
                 setSelectedBriefId(newBrief.id)
+                if (event.synthesis_output_word_count !== undefined) setSynthesisOutputWords(event.synthesis_output_word_count)
                 if (onGenerateSuccess) onGenerateSuccess()
                 break
               }
@@ -476,6 +496,31 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                         }`}>
                           {step.detail || step.label}
                         </p>
+                        {/* Word Count / Token Count Telemetry */}
+                        {step.status === 'done' && (
+                          <div className="mt-1">
+                            {step.id === 'filtering' && candidateWords !== null && (
+                              <p className="text-xs text-slate-400 dark:text-slate-500 font-sans">
+                                Filter input: ~{candidateWords.toLocaleString()} words (estimated tokens ~{Math.round(candidateWords * 1.35).toLocaleString()})
+                              </p>
+                            )}
+                            {step.id === 'extracting' && extractedWords !== null && (
+                              <p className="text-xs text-slate-400 dark:text-slate-500 font-sans">
+                                Extracted text: ~{extractedWords.toLocaleString()} words (estimated tokens ~{Math.round(extractedWords * 1.35).toLocaleString()})
+                              </p>
+                            )}
+                            {step.id === 'researching' && researchWords !== null && (
+                              <p className="text-xs text-slate-400 dark:text-slate-500 font-sans">
+                                Research context: ~{researchWords.toLocaleString()} words (estimated tokens ~{Math.round(researchWords * 1.35).toLocaleString()})
+                              </p>
+                            )}
+                            {step.id === 'synthesizing' && synthesisWords !== null && (
+                              <p className="text-xs text-slate-400 dark:text-slate-500 font-sans">
+                                Synthesis input: ~{synthesisWords.toLocaleString()} words (estimated tokens ~{Math.round(synthesisWords * 1.35).toLocaleString()})
+                              </p>
+                            )}
+                          </div>
+                        )}
                         {/* Show step details if present (e.g. titles or queries) */}
                         {((step.id === 'filtering' || step.id === 'researching') && step.status === 'done' && step.titles && step.titles.length > 0) && (
                           <div className="mt-2 space-y-1">
@@ -490,6 +535,104 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                     </div>
                   ))}
                 </div>
+
+                {/* Token Telemetry Collapsible Section */}
+                {(candidateWords || extractedWords || researchWords || synthesisWords) && (() => {
+                  const totalInputWords = (candidateWords || 0) + (signalWebSearchEnabled && extractedWords ? extractedWords : 0) + (synthesisWords || 0)
+                  const totalOutputWords = (signalWebSearchEnabled && researchWords ? researchWords : 0) + (synthesisOutputWords || 0)
+                  const totalInputTokens = Math.round(totalInputWords * 1.35)
+                  const totalOutputTokens = Math.round(totalOutputWords * 1.35)
+
+                  return (
+                    <details className="group mt-6 border-t border-slate-200/60 pt-4 dark:border-slate-800/60">
+                      <summary className="flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-300">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-slate-450 dark:text-slate-500 transition-transform group-open:rotate-45" />
+                          Token Telemetry
+                          <span className="text-[10px] lowercase text-slate-400 font-normal px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50">
+                            click to view breakdown
+                          </span>
+                        </span>
+                        <span className="normal-case text-slate-500 dark:text-slate-400 font-normal font-sans">
+                          {synthesisOutputWords !== null ? (
+                            `est. tokens: ~${totalInputTokens.toLocaleString()} input / ~${totalOutputTokens.toLocaleString()} output`
+                          ) : (
+                            `est. tokens: ~${totalInputTokens.toLocaleString()} input / ~${totalOutputTokens.toLocaleString()} output (so far)`
+                          )}
+                        </span>
+                      </summary>
+                      <div className="mt-3 space-y-2.5 text-xs text-slate-655 dark:text-slate-400 pl-5 divide-y divide-slate-100/50 dark:divide-slate-900/50">
+                        {/* Stage 1: Filtering */}
+                        {candidateWords !== null && (
+                          <div className="space-y-1.5 py-1.5">
+                            <span className="font-semibold text-slate-750 dark:text-slate-300 block">1. Taste Profile Filtering Stage</span>
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-450">
+                              <span>Input (Candidate summaries/metadata)</span>
+                              <span>~{candidateWords.toLocaleString()} words (est. tokens ~{Math.round(candidateWords * 1.35).toLocaleString()})</span>
+                            </div>
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-455">
+                              <span>Output (Selected IDs)</span>
+                              <span>negligible (approx. &lt;100 tokens)</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stage 2: Background Research (if web search is enabled) */}
+                        {signalWebSearchEnabled && extractedWords !== null && (
+                          <div className="space-y-1.5 py-2">
+                            <span className="font-semibold text-slate-750 dark:text-slate-300 block">2. Background Research Stage (Web Search)</span>
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-450">
+                              <span>Input (Extracted high-signal full body)</span>
+                              <span>~{extractedWords.toLocaleString()} words (est. tokens ~{Math.round(extractedWords * 1.35).toLocaleString()})</span>
+                            </div>
+                            {researchWords !== null && researchWords > 0 && (
+                              <div className="flex items-center justify-between pl-3 text-slate-550 dark:text-slate-400">
+                                <span className="font-medium text-slate-600 dark:text-slate-400">Output (Background Research Brief)</span>
+                                <span className="font-medium">~{researchWords.toLocaleString()} words (est. tokens ~{Math.round(researchWords * 1.35).toLocaleString()})</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Stage 3: Synthesis */}
+                        {synthesisWords !== null && (
+                          <div className="space-y-1.5 py-2">
+                            <span className="font-semibold text-slate-750 dark:text-slate-300 block">3. Writing Stage (Brief Synthesis)</span>
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-450">
+                              <span>Input (Extracted text + research brief context)</span>
+                              <span>~{synthesisWords.toLocaleString()} words (est. tokens ~{Math.round(synthesisWords * 1.35).toLocaleString()})</span>
+                            </div>
+                            {synthesisOutputWords !== null && (
+                              <div className="flex items-center justify-between pl-3 text-slate-550 dark:text-slate-400">
+                                <span className="font-medium text-slate-600 dark:text-slate-400">Output (Generated Daily Brief Content)</span>
+                                <span className="font-medium">~{synthesisOutputWords.toLocaleString()} words (est. tokens ~{Math.round(synthesisOutputWords * 1.35).toLocaleString()})</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Totals Summary */}
+                        {synthesisOutputWords !== null && (
+                          <div className="space-y-1.5 py-2.5 font-sans border-t border-slate-200 dark:border-slate-800">
+                            <span className="font-bold text-slate-800 dark:text-slate-200 block">Estimated Footprint Summary Totals</span>
+                            <div className="flex items-center justify-between pl-3">
+                              <span className="font-semibold text-slate-700 dark:text-slate-350">Total Prompt Input size</span>
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                ~{totalInputWords.toLocaleString()} words (estimated tokens ~{totalInputTokens.toLocaleString()})
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between pl-3">
+                              <span className="font-semibold text-slate-700 dark:text-slate-350">Total Generated Output size</span>
+                              <span className="font-bold text-slate-900 dark:text-slate-100">
+                                ~{totalOutputWords.toLocaleString()} words (estimated tokens ~{totalOutputTokens.toLocaleString()})
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  )
+                })()}
               </div>
             ) : selectedBrief ? (
               /* Brief Display Card */
