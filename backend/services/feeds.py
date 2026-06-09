@@ -8,6 +8,7 @@ from html import unescape
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
+import email.utils
 import feedparser
 import requests
 from bs4 import BeautifulSoup
@@ -284,6 +285,18 @@ def _should_skip_feed(feed: dict[str, Any], stale_after_minutes: int, force: boo
     return datetime.now(timezone.utc) - fetched_at < timedelta(minutes=stale_after_minutes)
 
 
+def _is_feed_in_backoff(feed: dict[str, Any], force: bool) -> bool:
+    if force or not feed.get("next_retry_at"):
+        return False
+    try:
+        next_retry = datetime.fromisoformat(feed["next_retry_at"])
+    except ValueError:
+        return False
+    if next_retry.tzinfo is None:
+        next_retry = next_retry.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) < next_retry
+
+
 def refresh_feeds(
     conn,
     user_id: str,
@@ -301,9 +314,12 @@ def refresh_feeds(
         (user_id,),
     ).fetchall()
 
-    checked = inserted = skipped = failed = unchanged = 0
+    checked = inserted = skipped = failed = unchanged = feeds_backoff = 0
     for row in rows:
         feed = row_to_dict(row)
+        if _is_feed_in_backoff(feed, force):
+            feeds_backoff += 1
+            continue
         if _should_skip_feed(feed, stale_after_minutes, force):
             skipped += 1
             continue
@@ -319,7 +335,15 @@ def refresh_feeds(
             if response.status_code == 304:
                 unchanged += 1
                 conn.execute(
-                    "UPDATE feeds SET last_fetched_at = ?, updated_at = ?, last_error = NULL WHERE id = ? AND user_id = ?",
+                    """
+                    UPDATE feeds
+                    SET last_fetched_at = ?,
+                        updated_at = ?,
+                        failure_count = 0,
+                        last_error = NULL,
+                        next_retry_at = NULL
+                    WHERE id = ? AND user_id = ?
+                    """,
                     (now, now, feed["id"], user_id),
                 )
                 continue
@@ -340,6 +364,7 @@ def refresh_feeds(
                     last_fetched_at = ?,
                     failure_count = 0,
                     last_error = NULL,
+                    next_retry_at = NULL,
                     updated_at = ?
                 WHERE id = ? AND user_id = ?
                 """,
@@ -357,21 +382,64 @@ def refresh_feeds(
         except Exception as exc:
             failed += 1
             logger.warning("Feed refresh failed for %s: %s", feed["feed_url"], exc)
+            
+            new_failure_count = feed["failure_count"] + 1
+            delay_minutes = min(
+                Config.FEED_BACKOFF_BASE_MINUTES * (2 ** (new_failure_count - 1)),
+                Config.FEED_BACKOFF_MAX_MINUTES
+            )
+            now_dt = datetime.fromisoformat(now)
+            if now_dt.tzinfo is None:
+                now_dt = now_dt.replace(tzinfo=timezone.utc)
+            
+            next_retry_dt = now_dt + timedelta(minutes=delay_minutes)
+            
+            retry_after_dt = None
+            if isinstance(exc, requests.HTTPError) and exc.response is not None:
+                if exc.response.status_code in (429, 503):
+                    retry_after_val = exc.response.headers.get("Retry-After")
+                    if retry_after_val:
+                        try:
+                            seconds = int(retry_after_val)
+                            retry_after_dt = now_dt + timedelta(seconds=seconds)
+                        except ValueError:
+                            try:
+                                dt = email.utils.parsedate_to_datetime(retry_after_val)
+                                if dt.tzinfo is None:
+                                    dt = dt.replace(tzinfo=timezone.utc)
+                                retry_after_dt = dt
+                            except Exception:
+                                logger.debug("Failed to parse Retry-After header: %s", retry_after_val)
+            
+            if retry_after_dt is not None:
+                next_retry_dt = retry_after_dt
+                
+            next_retry_at = next_retry_dt.isoformat()
+            
+            is_active = 1
+            error_msg = str(exc)[:500]
+            if new_failure_count >= Config.FEED_MAX_FAILURES:
+                is_active = 0
+                error_msg = f"disabled after {Config.FEED_MAX_FAILURES} failures: {error_msg}"[:500]
+                
             conn.execute(
                 """
                 UPDATE feeds
-                SET failure_count = failure_count + 1,
+                SET failure_count = ?,
                     last_error = ?,
                     last_fetched_at = ?,
+                    next_retry_at = ?,
+                    is_active = ?,
                     updated_at = ?
                 WHERE id = ? AND user_id = ?
                 """,
-                (str(exc)[:500], now, now, feed["id"], user_id),
+                (new_failure_count, error_msg, now, next_retry_at, is_active, now, feed["id"], user_id),
             )
 
     return {
         "feeds_checked": checked,
         "feeds_skipped": skipped,
+        "feeds_backoff": feeds_backoff,
         "feeds_failed": failed,
         "feeds_unchanged": unchanged,
         "items_added": inserted,

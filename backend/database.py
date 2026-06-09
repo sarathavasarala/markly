@@ -178,6 +178,7 @@ def initialize_database():
                 last_error TEXT,
                 is_active INTEGER NOT NULL DEFAULT 1,
                 retention_limit INTEGER NOT NULL DEFAULT 100,
+                next_retry_at TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 UNIQUE(user_id, feed_url)
@@ -290,6 +291,8 @@ def initialize_database():
         feed_columns = [row["name"] for row in cursor.fetchall()]
         if "retention_limit" not in feed_columns:
             cursor.execute("ALTER TABLE feeds ADD COLUMN retention_limit INTEGER NOT NULL DEFAULT 100")
+        if "next_retry_at" not in feed_columns:
+            cursor.execute("ALTER TABLE feeds ADD COLUMN next_retry_at TEXT")
 
         # Lightweight migration to add content and content_format to feed_items if missing
         cursor.execute("PRAGMA table_info(feed_items)")

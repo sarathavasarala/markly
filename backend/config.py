@@ -63,6 +63,9 @@ class Config:
 
     # Feed Radar settings
     FEED_RADAR_ITEMS_PER_SOURCE = int(os.getenv("FEED_RADAR_ITEMS_PER_SOURCE", "100"))
+    FEED_MAX_FAILURES = int(os.getenv("FEED_MAX_FAILURES", "10"))
+    FEED_BACKOFF_BASE_MINUTES = int(os.getenv("FEED_BACKOFF_BASE_MINUTES", "30"))
+    FEED_BACKOFF_MAX_MINUTES = int(os.getenv("FEED_BACKOFF_MAX_MINUTES", "1440"))
 
     # Signal settings
     SIGNAL_CANDIDATE_LIMIT = int(os.getenv("SIGNAL_CANDIDATE_LIMIT", "75"))

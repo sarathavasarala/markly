@@ -372,3 +372,136 @@ def test_embed_pending_feed_items_limits_and_prunes(mocker):
         for row in rows_outside:
             # All items outside the top 500 must have embedding = NULL (either because they were never embedded, or they were pruned)
             assert row["embedding"] is None
+
+
+def test_feed_backoff_and_retry_after(mocker):
+    from datetime import datetime, timezone
+    from services.feeds import refresh_feeds
+    
+    user = upsert_user("backoff-test@example.com")
+    feed_id = _insert_feed(user["id"], feed_url="https://example.com/backoff.xml")
+    
+    # 1. Mock failure first to check backoff setting
+    mocker.patch("services.feeds._fetch", side_effect=Exception("Connection timed out"))
+    
+    with db_session() as conn:
+        res = refresh_feeds(conn, user["id"])
+        
+    assert res["feeds_checked"] == 1
+    assert res["feeds_failed"] == 1
+    assert res["feeds_backoff"] == 0
+    
+    # Check that failure_count is 1, next_retry_at is set
+    with db_session() as conn:
+        feed = conn.execute("SELECT * FROM feeds WHERE id = ?", (feed_id,)).fetchone()
+        assert feed["failure_count"] == 1
+        assert feed["next_retry_at"] is not None
+        next_retry = datetime.fromisoformat(feed["next_retry_at"])
+        assert next_retry > datetime.now(timezone.utc)
+        
+    # Check that immediate second refresh skips the feed due to backoff
+    with db_session() as conn:
+        res2 = refresh_feeds(conn, user["id"])
+        
+    assert res2["feeds_checked"] == 0
+    assert res2["feeds_backoff"] == 1
+    
+    # Check that force=True bypasses the backoff
+    mocker.patch("services.feeds._fetch", return_value=FakeResponse())
+    mocker.patch("services.feeds.feedparser.parse", return_value=ParsedFeed())
+    
+    with db_session() as conn:
+        res3 = refresh_feeds(conn, user["id"], force=True)
+        
+    assert res3["feeds_checked"] == 1
+    assert res3["feeds_backoff"] == 0
+    
+    # After success, failure_count and next_retry_at should be reset
+    with db_session() as conn:
+        feed = conn.execute("SELECT * FROM feeds WHERE id = ?", (feed_id,)).fetchone()
+        assert feed["failure_count"] == 0
+        assert feed["next_retry_at"] is None
+        assert feed["last_error"] is None
+
+
+def test_feed_retry_after_handling(mocker):
+    from datetime import datetime, timezone, timedelta
+    from services.feeds import refresh_feeds
+    import requests
+    
+    user = upsert_user("retry-test@example.com")
+    feed_id = _insert_feed(user["id"], feed_url="https://example.com/retry.xml")
+    
+    # Helper to create requests.HTTPError
+    def raise_http_error(status_code, headers):
+        resp = requests.Response()
+        resp.status_code = status_code
+        resp.headers = headers
+        exc = requests.HTTPError(response=resp)
+        raise exc
+
+    # A. 429 with numeric Retry-After (seconds)
+    mocker.patch("services.feeds._fetch", side_effect=lambda *a, **k: raise_http_error(429, {"Retry-After": "300"}))
+    
+    with db_session() as conn:
+        refresh_feeds(conn, user["id"])
+        
+    with db_session() as conn:
+        feed = conn.execute("SELECT * FROM feeds WHERE id = ?", (feed_id,)).fetchone()
+        assert feed["next_retry_at"] is not None
+        next_retry = datetime.fromisoformat(feed["next_retry_at"])
+        # Should be roughly now + 5 minutes
+        expected_time = datetime.now(timezone.utc) + timedelta(seconds=300)
+        assert abs((next_retry - expected_time).total_seconds()) < 5
+
+    # B. 503 with HTTP date Retry-After
+    future_date = datetime.now(timezone.utc) + timedelta(hours=1)
+    import email.utils
+    http_date_str = email.utils.format_datetime(future_date)
+    
+    with db_session() as conn:
+        conn.execute("UPDATE feeds SET failure_count = 0, next_retry_at = NULL, last_fetched_at = NULL WHERE id = ?", (feed_id,))
+        
+    mocker.patch("services.feeds._fetch", side_effect=lambda *a, **k: raise_http_error(503, {"Retry-After": http_date_str}))
+    
+    with db_session() as conn:
+        refresh_feeds(conn, user["id"])
+        
+    with db_session() as conn:
+        feed = conn.execute("SELECT * FROM feeds WHERE id = ?", (feed_id,)).fetchone()
+        assert feed["next_retry_at"] is not None
+        next_retry = datetime.fromisoformat(feed["next_retry_at"])
+        # Should match future_date
+        assert abs((next_retry - future_date).total_seconds()) < 5
+
+
+def test_feed_exponential_backoff_scaling_and_disable(mocker):
+    from datetime import datetime, timezone, timedelta
+    from config import Config
+    from services.feeds import refresh_feeds
+    
+    user = upsert_user("scale-test@example.com")
+    feed_id = _insert_feed(user["id"], feed_url="https://example.com/scale.xml")
+    
+    mocker.patch("services.feeds._fetch", side_effect=Exception("Failed"))
+    
+    for i in range(Config.FEED_MAX_FAILURES):
+        with db_session() as conn:
+            res = refresh_feeds(conn, user["id"], force=True)
+            assert res["feeds_failed"] == 1
+            
+        with db_session() as conn:
+            feed = conn.execute("SELECT * FROM feeds WHERE id = ?", (feed_id,)).fetchone()
+            assert feed["failure_count"] == i + 1
+            
+            # Check backoff calculation
+            next_retry = datetime.fromisoformat(feed["next_retry_at"])
+            expected_delay_min = min(Config.FEED_BACKOFF_BASE_MINUTES * (2 ** (feed["failure_count"] - 1)), Config.FEED_BACKOFF_MAX_MINUTES)
+            expected_time = datetime.now(timezone.utc) + timedelta(minutes=expected_delay_min)
+            assert abs((next_retry - expected_time).total_seconds()) < 10
+            
+            if i + 1 < Config.FEED_MAX_FAILURES:
+                assert feed["is_active"] == 1
+            else:
+                assert feed["is_active"] == 0
+                assert feed["last_error"].startswith("disabled after")
