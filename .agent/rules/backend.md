@@ -20,6 +20,8 @@ This document contains rules and conventions to guide any AI or human developing
 * ✅ **Thin Wrappers**: Blueprints in `backend/routes/` should be relatively thin, delegating core business logic to `backend/services/` (e.g., parsing, Jina reader extraction, LLM synthesis).
 * ✅ **Authorization**: Decorate protected routes with `@require_auth`. This populates `g.user` with the current authenticated user's details.
 * ✅ **Error Logging**: Use standard logger `logger = logging.getLogger(__name__)`. Always catch external service failures (Azure OpenAI/Jina) and return structured JSON error responses with appropriate HTTP codes.
+* ✅ **Telemetry logging**: Markly logs failed stream/generation stages into the `telemetry_logs` database table. The backend exposes `/api/signal/telemetry` for authenticated users to retrieve recent generation errors.
+  * **Troubleshooting errors**: If a user reports an issue or error, you can inspect the `telemetry_logs` table locally in `markly.db` using sqlite3, or instruct the user to visit `/api/signal/telemetry` in production and paste the output.
 
 ## Pytest Mocking & Execution Rules
 * ✅ **Isolated Scope**: Tests live in `backend/tests/` and run with `npm run test:backend`. They must run in isolation without writing to production `markly.db`.

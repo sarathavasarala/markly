@@ -5,7 +5,7 @@ import json
 import logging
 from flask import Blueprint, Response, g, jsonify, request, stream_with_context
 
-from database import db_session, get_db, utc_now, rows_to_dicts
+from database import db_session, get_db, utc_now, rows_to_dicts, new_id
 from middleware.auth import require_auth
 from services import signal_pipeline
 from services.signal_pipeline import DEFAULT_TASTE_PROFILE, _resolve_taste_profile
@@ -13,6 +13,22 @@ from services.signal_pipeline import DEFAULT_TASTE_PROFILE, _resolve_taste_profi
 logger = logging.getLogger(__name__)
 
 signal_bp = Blueprint("signal", __name__)
+
+
+def log_telemetry_error(user_id: str, stage: str, exc: Exception):
+    import traceback
+    tb = traceback.format_exc()
+    error_msg = str(exc)
+    log_id = new_id()
+    created_at = utc_now()
+    try:
+        with db_session() as conn:
+            conn.execute(
+                "INSERT INTO telemetry_logs (id, user_id, stage, error_message, traceback, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (log_id, user_id, stage, error_msg, tb, created_at)
+            )
+    except Exception as db_exc:
+        logger.error(f"Failed to save telemetry log to database: {db_exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -168,55 +184,53 @@ def list_briefs():
 @require_auth
 def generate_brief():
     conn = get_db()
-
-    settings = signal_pipeline.load_user_settings(
-        conn,
-        g.user.id,
-        default_filter_template=FILTER_PROMPT_TEMPLATE,
-        default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
-    )
-    taste_profile = settings["taste_profile"]
-
-    items = signal_pipeline.select_candidates(
-        conn, g.user.id, settings["candidate_limit"], taste_profile=taste_profile
-    )
-    if not items:
-        return jsonify({
-            "success": False,
-            "reason": "no_content",
-            "message": "No recent RSS feed content found to analyze. Try adding some feeds first in the Radar tab!"
-        }), 200
-
-    selected_items = signal_pipeline.llm_filter(items, taste_profile, settings["filter_template"])
-    if not selected_items:
-        return jsonify({
-            "success": False,
-            "reason": "no_high_signal_content",
-            "message": "We analyzed recent feeds, but none of them matched your Taste Profile. Adjust your profile or add more high-quality feeds!"
-        }), 200
-
-    updates = signal_pipeline.run_extract_contents(selected_items)
-    signal_pipeline.persist_content_updates(conn, updates)
-
-    research_brief, _ = signal_pipeline.research(
-        selected_items,
-        web_search_enabled=settings["web_search_enabled"],
-    )
-
     try:
+        settings = signal_pipeline.load_user_settings(
+            conn,
+            g.user.id,
+            default_filter_template=FILTER_PROMPT_TEMPLATE,
+            default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
+        )
+        taste_profile = settings["taste_profile"]
+
+        items = signal_pipeline.select_candidates(
+            conn, g.user.id, settings["candidate_limit"], taste_profile=taste_profile
+        )
+        if not items:
+            return jsonify({
+                "success": False,
+                "reason": "no_content",
+                "message": "No recent RSS feed content found to analyze. Try adding some feeds first in the Radar tab!"
+            }), 200
+
+        selected_items = signal_pipeline.llm_filter(items, taste_profile, settings["filter_template"])
+        if not selected_items:
+            return jsonify({
+                "success": False,
+                "reason": "no_high_signal_content",
+                "message": "We analyzed recent feeds, but none of them matched your Taste Profile. Adjust your profile or add more high-quality feeds!"
+            }), 200
+
+        updates = signal_pipeline.run_extract_contents(selected_items)
+        signal_pipeline.persist_content_updates(conn, updates)
+
+        research_brief, _ = signal_pipeline.research(
+            selected_items,
+            web_search_enabled=settings["web_search_enabled"],
+        )
+
         content = signal_pipeline.synthesize(
             selected_items,
             taste_profile,
             settings["synthesis_template"],
             research_brief=research_brief,
         )
+        brief = signal_pipeline.save_brief(conn, g.user.id, content, selected_items)
+        return jsonify(brief), 201
     except Exception as exc:
-        logger.error(f"Error in signal brief synthesis LLM call: {exc}")
-        return jsonify({"error": f"Failed to generate brief content: {str(exc)}"}), 500
-
-    brief = signal_pipeline.save_brief(conn, g.user.id, content, selected_items)
-    return jsonify(brief), 201
-
+        logger.exception("Error in non-streaming signal brief generation")
+        log_telemetry_error(g.user.id, "non-streaming-generation", exc)
+        return jsonify({"error": f"Failed to generate brief: {str(exc)}"}), 500
 
 
 @signal_bp.route("/briefs/<brief_id>", methods=["DELETE"])
@@ -234,6 +248,19 @@ def delete_brief(brief_id: str):
     return jsonify({"success": True}), 200
 
 
+@signal_bp.route("/telemetry", methods=["GET"])
+@require_auth
+def get_telemetry():
+    """Retrieve the recent telemetry error logs for debugging."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, stage, error_message, traceback, created_at FROM telemetry_logs "
+        "WHERE user_id = ? ORDER BY created_at DESC LIMIT 50",
+        (g.user.id,)
+    ).fetchall()
+    return jsonify({"telemetry": rows_to_dicts(rows)})
+
+
 # ---------------------------------------------------------------------------
 # SSE Streaming Endpoint
 # ---------------------------------------------------------------------------
@@ -245,50 +272,64 @@ def _sse_event(data: dict) -> str:
 
 def _generate_brief_stream(user_id: str):
     """Generator that yields SSE events as the shared pipeline runs."""
-    with db_session() as conn:
-        settings = signal_pipeline.load_user_settings(
-            conn,
-            user_id,
-            default_filter_template=FILTER_PROMPT_TEMPLATE,
-            default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
-        )
-        taste_profile = settings["taste_profile"]
+    try:
+        with db_session() as conn:
+            settings = signal_pipeline.load_user_settings(
+                conn,
+                user_id,
+                default_filter_template=FILTER_PROMPT_TEMPLATE,
+                default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
+            )
+            taste_profile = settings["taste_profile"]
 
-        items = signal_pipeline.select_candidates(
-            conn, user_id, settings["candidate_limit"], taste_profile=taste_profile
-        )
-        if not items:
-            yield _sse_event({"stage": "error", "message": "No recent RSS feed content found to analyze. Try adding some feeds first in the Radar tab!"})
-            return
+            items = signal_pipeline.select_candidates(
+                conn, user_id, settings["candidate_limit"], taste_profile=taste_profile
+            )
+            if not items:
+                yield _sse_event({"stage": "error", "message": "No recent RSS feed content found to analyze. Try adding some feeds first in the Radar tab!"})
+                return
 
-        source_names = list({item["feed_title"] or "Unknown" for item in items})
-        candidate_words = sum(len((item.get("title") or "").split()) + len((item.get("summary") or "").split()) for item in items)
-        yield _sse_event({
-            "stage": "scanning",
-            "message": f"Scanning {len(items)} articles across {len(source_names)} sources",
-            "article_count": len(items),
-            "source_count": len(source_names),
-            "candidate_word_count": candidate_words,
-        })
+            source_names = list({item["feed_title"] or "Unknown" for item in items})
+            candidate_words = sum(len((item.get("title") or "").split()) + len((item.get("summary") or "").split()) for item in items)
+            yield _sse_event({
+                "stage": "scanning",
+                "message": f"Scanning {len(items)} articles across {len(source_names)} sources",
+                "article_count": len(items),
+                "source_count": len(source_names),
+                "candidate_word_count": candidate_words,
+            })
+    except Exception as exc:
+        logger.exception("Error during scanning/setting loading")
+        log_telemetry_error(user_id, "scanning", exc)
+        yield _sse_event({"stage": "error", "message": f"Failed during initial scan: {str(exc)}"})
+        return
 
-        yield _sse_event({"stage": "filtering", "message": "Applying taste profile filter..."})
+    yield _sse_event({"stage": "filtering", "message": "Applying taste profile filter..."})
 
+    try:
         selected_items = signal_pipeline.llm_filter(items, taste_profile, settings["filter_template"])
-        if not selected_items:
-            yield _sse_event({"stage": "error", "message": "We analyzed recent feeds, but none of them matched your Taste Profile. Adjust your profile or add more high-quality feeds!"})
-            return
+    except Exception as exc:
+        logger.exception("Error in signal filtering LLM call")
+        log_telemetry_error(user_id, "filtering", exc)
+        yield _sse_event({"stage": "error", "message": f"Failed during filtering: {str(exc)}"})
+        return
 
-        yield _sse_event({
-            "stage": "filtered",
-            "message": f"Selected {len(selected_items)} high-signal articles",
-            "count": len(selected_items),
-            "titles": [item["title"] for item in selected_items],
-            "candidate_word_count": candidate_words,
-        })
+    if not selected_items:
+        yield _sse_event({"stage": "error", "message": "We analyzed recent feeds, but none of them matched your Taste Profile. Adjust your profile or add more high-quality feeds!"})
+        return
 
-        extract_total = len(selected_items)
-        yield _sse_event({"stage": "extracting", "message": "Extracting full text...", "current": 0, "total": extract_total})
+    yield _sse_event({
+        "stage": "filtered",
+        "message": f"Selected {len(selected_items)} high-signal articles",
+        "count": len(selected_items),
+        "titles": [item["title"] for item in selected_items],
+        "candidate_word_count": candidate_words,
+    })
 
+    extract_total = len(selected_items)
+    yield _sse_event({"stage": "extracting", "message": "Extracting full text...", "current": 0, "total": extract_total})
+
+    try:
         gen = signal_pipeline.extract_contents(selected_items)
         updates = []
         try:
@@ -297,17 +338,32 @@ def _generate_brief_stream(user_id: str):
                 yield _sse_event({"stage": "extracting", "message": f"Extracting full text... {done} of {total}", "current": done, "total": total})
         except StopIteration as stop:
             updates = stop.value or []
+    except Exception as exc:
+        logger.exception("Error during content extraction")
+        log_telemetry_error(user_id, "extracting", exc)
+        yield _sse_event({"stage": "error", "message": f"Failed during content extraction: {str(exc)}"})
+        return
 
-        signal_pipeline.persist_content_updates(conn, updates)
+    try:
+        with db_session() as conn:
+            signal_pipeline.persist_content_updates(conn, updates)
+    except Exception as exc:
+        logger.exception("Error persisting content updates")
+        log_telemetry_error(user_id, "extracting_persist", exc)
+        yield _sse_event({"stage": "error", "message": f"Failed to save extracted content: {str(exc)}"})
+        return
 
-        extracted_words = sum(len((item.get("content") or "").split()) for item in selected_items)
+    extracted_words = sum(len((item.get("content") or "").split()) for item in selected_items)
 
-        if settings.get("web_search_enabled", True):
-            yield _sse_event({
-                "stage": "researching",
-                "message": "Researching background context...",
-                "extracted_word_count": extracted_words,
-            })
+    research_brief = ""
+    research_words = 0
+    if settings.get("web_search_enabled", True):
+        yield _sse_event({
+            "stage": "researching",
+            "message": "Researching background context...",
+            "extracted_word_count": extracted_words,
+        })
+        try:
             research_brief, queries = signal_pipeline.research(selected_items, web_search_enabled=True)
             research_words = len((research_brief or "").split())
             yield _sse_event({
@@ -317,40 +373,51 @@ def _generate_brief_stream(user_id: str):
                 "research_word_count": research_words,
                 "extracted_word_count": extracted_words,
             })
-        else:
-            research_brief = ""
-            research_words = 0
-
-        articles_contents_str = signal_pipeline._build_articles_contents_str(selected_items)
-        synthesis_words = len((articles_contents_str or "").split()) + research_words
-
-        yield _sse_event({
-            "stage": "synthesizing",
-            "message": "Writing your daily brief...",
-            "extracted_word_count": extracted_words,
-            "research_word_count": research_words,
-            "synthesis_word_count": synthesis_words,
-        })
-
-        try:
-            content = signal_pipeline.synthesize(
-                selected_items,
-                taste_profile,
-                settings["synthesis_template"],
-                research_brief=research_brief,
-            )
         except Exception as exc:
-            logger.error(f"Error in signal brief synthesis LLM call: {exc}")
-            yield _sse_event({"stage": "error", "message": f"Failed to generate brief content: {str(exc)}"})
+            logger.exception("Error during background research")
+            log_telemetry_error(user_id, "researching", exc)
+            yield _sse_event({"stage": "error", "message": f"Failed during background research: {str(exc)}"})
             return
 
-        brief = signal_pipeline.save_brief(conn, user_id, content, selected_items)
-        synthesis_output_words = len((content or "").split())
-        yield _sse_event({
-            "stage": "complete",
-            "brief": brief,
-            "synthesis_output_word_count": synthesis_output_words
-        })
+    articles_contents_str = signal_pipeline._build_articles_contents_str(selected_items)
+    synthesis_words = len((articles_contents_str or "").split()) + research_words
+
+    yield _sse_event({
+        "stage": "synthesizing",
+        "message": "Writing your daily brief...",
+        "extracted_word_count": extracted_words,
+        "research_word_count": research_words,
+        "synthesis_word_count": synthesis_words,
+    })
+
+    try:
+        content = signal_pipeline.synthesize(
+            selected_items,
+            taste_profile,
+            settings["synthesis_template"],
+            research_brief=research_brief,
+        )
+    except Exception as exc:
+        logger.exception("Error in signal brief synthesis LLM call")
+        log_telemetry_error(user_id, "synthesizing", exc)
+        yield _sse_event({"stage": "error", "message": f"Failed to generate brief content: {str(exc)}"})
+        return
+
+    try:
+        with db_session() as conn:
+            brief = signal_pipeline.save_brief(conn, user_id, content, selected_items)
+    except Exception as exc:
+        logger.exception("Error saving brief to database")
+        log_telemetry_error(user_id, "saving", exc)
+        yield _sse_event({"stage": "error", "message": f"Failed to save generated brief: {str(exc)}"})
+        return
+
+    synthesis_output_words = len((content or "").split())
+    yield _sse_event({
+        "stage": "complete",
+        "brief": brief,
+        "synthesis_output_word_count": synthesis_output_words
+    })
 
 
 @signal_bp.route("/briefs/generate", methods=["POST"])

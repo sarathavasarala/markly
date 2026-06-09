@@ -621,3 +621,63 @@ def test_generate_brief_stream_success(client, mocker):
     complete_evt = next(evt for evt in parsed_events if evt["stage"] == "complete")
     assert "synthesis_output_word_count" in complete_evt
     assert complete_evt["synthesis_output_word_count"] > 0
+
+
+def test_signal_telemetry_logging(client, mocker):
+    user = upsert_user("test@example.com", full_name="Test User")
+    feed_id = _insert_feed(user["id"])
+    _insert_feed_item(
+        user["id"],
+        feed_id,
+        id="item-telemetry-1",
+        title="Telemetry Test Item",
+        summary="A summary",
+        content="Full content",
+        content_format="html",
+        status="new"
+    )
+
+    # Mock settings and mock a failure in llm_filter
+    mocker.patch("services.signal_pipeline.load_user_settings", return_value={
+        "taste_profile": "custom taste",
+        "candidate_limit": 10,
+        "filter_template": "filter {taste_profile}",
+        "synthesis_template": "synthesis {taste_profile}",
+        "web_search_enabled": True
+    })
+    mocker.patch("services.signal_pipeline.llm_filter", side_effect=ValueError("LLM Service Unavailable"))
+
+    # Generate brief stream (should fail during filtering)
+    response = client.post("/api/signal/briefs/generate", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "text/event-stream"
+
+    # Read events to check if "error" stage was reached
+    data = response.get_data(as_text=True)
+    events = [line for line in data.split("\n") if line.startswith("data:")]
+    assert len(events) > 0
+    
+    import json
+    parsed_events = [json.loads(e.removeprefix("data: ")) for e in events]
+    stages = [evt["stage"] for evt in parsed_events]
+    assert "error" in stages
+    
+    error_evt = next(evt for evt in parsed_events if evt["stage"] == "error")
+    assert "Failed during filtering: LLM Service Unavailable" in error_evt["message"]
+
+    # Verify that the telemetry database log exists
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM telemetry_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 1", (user["id"],)).fetchone()
+        assert row is not None
+        assert row["stage"] == "filtering"
+        assert row["error_message"] == "LLM Service Unavailable"
+        assert "ValueError" in row["traceback"]
+
+    # Check querying via the API route
+    response_telemetry = client.get("/api/signal/telemetry", headers=AUTH_HEADERS)
+    assert response_telemetry.status_code == 200
+    telemetry_data = response_telemetry.get_json()
+    assert "telemetry" in telemetry_data
+    assert len(telemetry_data["telemetry"]) >= 1
+    assert telemetry_data["telemetry"][0]["stage"] == "filtering"
+    assert telemetry_data["telemetry"][0]["error_message"] == "LLM Service Unavailable"

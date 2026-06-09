@@ -214,6 +214,15 @@ def initialize_database():
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS telemetry_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                stage TEXT NOT NULL,
+                error_message TEXT NOT NULL,
+                traceback TEXT,
+                created_at TEXT NOT NULL
+            );
+
             CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
                 bookmark_id UNINDEXED,
                 user_id UNINDEXED,
@@ -232,6 +241,7 @@ def initialize_database():
             CREATE INDEX IF NOT EXISTS idx_feed_items_inbox ON feed_items(user_id, status, published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_feed_items_feed ON feed_items(feed_id, published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_signal_briefs_user_created ON signal_briefs(user_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_telemetry_logs_user_created ON telemetry_logs(user_id, created_at DESC);
             """
         )
 
