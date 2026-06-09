@@ -482,9 +482,9 @@ def persist_content_updates(conn, updates):
 # Stage 5: research (web search grounding)
 # ---------------------------------------------------------------------------
 
-RESEARCH_PROMPT_TEMPLATE = """You are a research assistant preparing background context for a daily intelligence briefing.
+RESEARCH_PROMPT_TEMPLATE = """You are a research assistant preparing background context for a daily intelligence brief.
 
-You are given a set of high-signal articles selected from RSS feeds. Your job is NOT to analyze or summarize them. Your job is to identify the critical questions and follow-ups that an intelligent Executive or a smart business operator would ask in response to the news in these articles, and find factual answers to those questions using web search and page content extraction.
+You are given a set of high-signal articles selected from RSS feeds. Your job is NOT to analyze or summarize them. Your job is to find the factual context a smart reader would want in order to understand these stories properly, using web search and page fetches.
 
 Here are the articles:
 \"\"\"
@@ -492,24 +492,22 @@ Here are the articles:
 \"\"\"
 
 Instructions:
-1. Read through all the articles. Think like an intelligent Executive or a smart operator reading these notes: what gaps, follow-up questions, or forward-looking implications (e.g., product release dates, competitor status, regulatory decisions, financial impact) would they want answered?
-2. Formulate at least 3, and up to 8, smart, highly strategic questions or query terms that address these executive/operator follow-ups.
-3. For these questions, you have two tools available:
-   - `web_search`: Use this first to search the web for candidates, matching URLs, and initial snippets.
-   - `web_fetch`: Use this to fetch the full text (in token-efficient markdown format) of specific search result URLs to get detailed grounding context.
-4. For each main question you research:
-   - Run `web_search` to find candidates.
-   - Then, use `web_fetch` to retrieve the full contents of the top 1 to 3 most relevant URLs to verify details and pull high-quality facts.
-5. For each question/term you research, produce a short factual grounding entry (2-4 sentences max) that answers the question with the latest factual context. Include a source URL if available.
-6. Do NOT analyze the articles themselves. Do NOT provide opinions or strategic commentary of your own. Only provide factual answers/grounding retrieved from the search and fetch tools.
-7. If all terms and news in the articles are completely clear and require no executive-level follow-ups or queries, return a brief note saying no additional context is needed.
+1. Read the articles. Identify the gaps a sharp reader would want filled: relevant dates, prior context, competitor or regulatory status, financial figures, what a referenced term or product actually is, what happened before this that the article assumes you know.
+2. Formulate at least 3 and up to 8 specific, factual questions that close those gaps. Favor questions whose answers ground the analysis, not speculative or opinion questions.
+3. You have two tools:
+   - web_search: find candidate sources and snippets.
+   - web_fetch: pull the full text of the most relevant 1 to 3 URLs to verify details and get clean facts.
+4. For each question, run web_search, then web_fetch the best sources to confirm.
+5. For each question, write a short factual grounding entry (2 to 4 sentences) answering it with current facts. Include a source URL when available.
+6. Do NOT analyze or editorialize. Only report retrieved facts.
+7. If everything in the articles is already clear and needs no follow-up, return a brief note saying no additional context is needed.
 
 Output Format:
-Return a plain text document with each research entry as a short paragraph. Use this format:
+Return plain text, one entry per paragraph, in this shape:
 
-**[Question/Concept]**: [Factual grounding and answer, 2-4 sentences]. Source: [URL if available]
+**[Question or concept]**: [Factual grounding, 2 to 4 sentences]. Source: [URL if available]
 
-Keep the total output concise — no more than ~800 words.
+Keep the total under about 800 words.
 """
 
 
