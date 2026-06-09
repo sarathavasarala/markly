@@ -339,6 +339,33 @@ def initialize_database():
         if "title" not in signal_columns:
             cursor.execute("ALTER TABLE signal_briefs ADD COLUMN title TEXT")
 
+        # Backfill signal_briefs title column if NULL
+        rows = cursor.execute("SELECT id, content FROM signal_briefs WHERE title IS NULL").fetchall()
+        for row in rows:
+            content = row["content"]
+            lines = content.strip().splitlines()
+            if not lines:
+                continue
+            first_line = lines[0].strip()
+            extracted_title = None
+            if first_line.startswith("# Theme:") or first_line.startswith("#Theme:") or first_line.startswith("# "):
+                if first_line.startswith("# Theme:"):
+                    extracted_title = first_line[8:].strip()
+                elif first_line.startswith("#Theme:"):
+                    extracted_title = first_line[7:].strip()
+                else:
+                    extracted_title = first_line[2:].strip()
+            elif first_line.startswith("## "):
+                extracted_title = first_line[3:].strip()
+
+            if extracted_title:
+                extracted_title = extracted_title.strip("*_").strip()
+                cursor.execute(
+                    "UPDATE signal_briefs SET title = ? WHERE id = ?",
+                    (extracted_title, row["id"])
+                )
+
+
 
 def serialize_value(value: Any) -> Any:
     """Serialize Python values before writing to SQLite."""
