@@ -1,17 +1,26 @@
 import { useNavigate } from 'react-router-dom'
 import { BookMarked, AlertCircle } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function Login() {
   const navigate = useNavigate()
   const { signInWithGoogle, isAuthenticated, isLoading, error, clearError } = useAuthStore()
+
+  const [activeSlide, setActiveSlide] = useState(0)
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/')
     }
   }, [isAuthenticated, navigate])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev === 0 ? 1 : 0))
+    }, 6000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     document.title = 'markly - your daily reading brief'
@@ -76,41 +85,110 @@ export default function Login() {
             </p>
           </div>
         </div>
-      </div>
-
-      {/* Right: sample card preview */}
+      </div>      {/* Right: sample card preview */}
       <div className="hidden md:flex flex-1 items-center justify-center p-12 lg:p-20">
         <div className="w-full max-w-md space-y-6">
-          <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-6 space-y-5 text-left">
-            <div className="border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">Wednesday</span>
-              <h3 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
-                Today's brief
-              </h3>
-            </div>
-            <div className="rounded-2xl bg-slate-50/50 px-4 py-3 dark:bg-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-800/50">
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span>, synthesized from recent articles across your feeds. Below are the themes and developments that stood out today.
-              </p>
-            </div>
-            <div className="space-y-4 text-sm text-slate-800 dark:text-slate-300 leading-relaxed font-sans">
-              <div className="space-y-1">
-                <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Systems Architecture</h4>
-                <p>
-                  On Apple's AI strategy: <a href="https://machinelearning.apple.com" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Apple Research</a> highlights a split architecture of local, on-device models for everyday tasks alongside Private Cloud Compute for complex requests, treating AI as a systems problem.
-                </p>
+          <div className="min-h-[480px] flex flex-col justify-between">
+            {activeSlide === 0 ? (
+              <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-6 text-left flex-1 flex flex-col justify-between animate-in fade-in duration-500">
+                <div>
+                  <div className="border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">Wednesday</span>
+                    <h3 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
+                      Today's brief
+                    </h3>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50/50 px-4 py-3 mt-4 dark:bg-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-800/50">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span>, synthesized from recent articles across your feeds. Below are the themes and developments that stood out today.
+                    </p>
+                  </div>
+                  <div className="space-y-4 mt-5 text-sm text-slate-800 dark:text-slate-300 leading-relaxed font-sans">
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Systems Architecture</h4>
+                      <p className="text-xs sm:text-sm">
+                        On Apple's AI strategy: <a href="https://machinelearning.apple.com" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Apple Research</a> highlights a split architecture of local, on-device models for everyday tasks alongside Private Cloud Compute for complex requests, treating AI as a systems problem.
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Enterprise AI</h4>
+                      <p className="text-xs sm:text-sm">
+                        On Anthropic's Claude Fable: <a href="https://simonwillison.net" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Simon Willison's analysis</a> suggests reliability and governance are becoming product features in their own right, separating raw capability from predictable operational controls.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Enterprise AI</h4>
-                <p>
-                  On Anthropic's Claude Fable: <a href="https://simonwillison.net" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Simon Willison's analysis</a> suggests reliability and governance are becoming product features in their own right, separating raw capability from predictable operational controls.
-                </p>
+            ) : (
+              <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-6 text-left flex-1 flex flex-col justify-between animate-in fade-in duration-500">
+                <div>
+                  <div className="border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">How it works</span>
+                    <h3 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
+                      The reading loop
+                    </h3>
+                  </div>
+                  
+                  {/* Explainer Steps */}
+                  <div className="mt-8 space-y-6 px-2">
+                    {/* Step 1 */}
+                    <div className="flex gap-4 relative">
+                      <div className="absolute left-3 top-6 -bottom-6 w-px bg-slate-200 dark:bg-slate-800" />
+                      <div className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                        1
+                      </div>
+                      <div className="space-y-0.5 text-left">
+                        <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Follow</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-450">Add the blogs and newsletters you already read.</p>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="flex gap-4 relative">
+                      <div className="absolute left-3 top-6 -bottom-6 w-px bg-slate-200 dark:bg-slate-800" />
+                      <div className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                        2
+                      </div>
+                      <div className="space-y-0.5 text-left">
+                        <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Read</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-455">markly turns them into one short brief.</p>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="flex gap-4 relative">
+                      <div className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                        3
+                      </div>
+                      <div className="space-y-0.5 text-left">
+                        <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Keep and share</h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-450">Save what's worth keeping, and your reading becomes a list others can follow.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
-          <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-            The good stuff from your feeds, every day.
-          </p>
+
+          {/* Carousel Pagination Dots */}
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex justify-center gap-2">
+              <button
+                onClick={() => setActiveSlide(0)}
+                className={`h-2 w-2 rounded-full transition-all duration-300 ${activeSlide === 0 ? 'bg-slate-800 dark:bg-slate-200 w-4' : 'bg-slate-350 dark:bg-slate-700 hover:bg-slate-400'}`}
+                aria-label="View daily brief preview"
+              />
+              <button
+                onClick={() => setActiveSlide(1)}
+                className={`h-2 w-2 rounded-full transition-all duration-300 ${activeSlide === 1 ? 'bg-slate-800 dark:bg-slate-200 w-4' : 'bg-slate-350 dark:bg-slate-700 hover:bg-slate-400'}`}
+                aria-label="View features diagram"
+              />
+            </div>
+            <p className="text-center text-xs text-slate-450 dark:text-slate-500">
+              The good stuff from your feeds, every day.
+            </p>
+          </div>
         </div>
       </div>
     </div>
