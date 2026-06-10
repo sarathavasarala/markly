@@ -514,9 +514,10 @@ def generate_cluster_report(user_id: str, cluster_id: str) -> dict[str, Any]:
             JOIN feeds f ON f.id = i.feed_id AND f.user_id = i.user_id
             JOIN signal_cluster_items sci ON sci.feed_item_id = i.id
             WHERE sci.cluster_id = ?
-            ORDER BY COALESCE(i.published_at, i.first_seen_at) DESC
+            ORDER BY sci.relevance_score DESC, COALESCE(i.published_at, i.first_seen_at) DESC
+            LIMIT ?
             """,
-            (cluster_id,)
+            (cluster_id, Config.CLUSTER_MAX_SYNTHESIS_ARTICLES)
         ).fetchall()
         cluster_items = [dict(r) for r in item_rows]
 

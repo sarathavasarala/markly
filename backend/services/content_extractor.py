@@ -49,43 +49,36 @@ class ContentExtractor:
         except Exception:
             pass
         
-        jina_future = None
-        bs_future = None
-        
-        # We run Jina and BeautifulSoup in parallel to speed things up
-        # BS often finishes faster and gives us the favicon/meta which Jina might miss
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            # 1. Jina Reader API
-            if Config.JINA_READER_API_KEY:
-                jina_future = executor.submit(cls._extract_via_jina, url)
-            
-            # 2. BeautifulSoup / Newspaper Fallback
-            bs_future = executor.submit(cls._extract_via_beautifulsoup, url)
-            
-            jina_res = {}
-            if jina_future:
-                try:
-                    jina_res = jina_future.result()
-                except Exception as e:
-                    print(f"Jina extraction failed: {e}")
-                    
-            bs_res = {}
-            if bs_future:
-                try:
-                    bs_res = bs_future.result()
-                except Exception as e:
-                    print(f"BeautifulSoup extraction failed: {e}")
-
-        # Merge results, prioritizing Jina for content if it succeeds
-        # 1. First merge BeautifulSoup results
-        for key, val in bs_res.items():
-            if val:
-                result[key] = val
+        jina_res = {}
+        # 1. Try Jina Reader API first if configured
+        if Config.JINA_READER_API_KEY:
+            try:
+                jina_res = cls._extract_via_jina(url)
+            except Exception as e:
+                print(f"Jina extraction failed: {e}")
                 
-        # 2. Then merge Jina results (takes precedence for content and format, and fills other empty values)
-        for key, val in jina_res.items():
-            if val:
-                result[key] = val
+        # If Jina succeeded and extracted content, we skip BeautifulSoup fallback
+        if jina_res.get("content"):
+            for key, val in jina_res.items():
+                if val:
+                    result[key] = val
+        else:
+            # 2. Try BeautifulSoup / Newspaper if Jina failed or is not configured
+            bs_res = {}
+            try:
+                bs_res = cls._extract_via_beautifulsoup(url)
+            except Exception as e:
+                print(f"BeautifulSoup extraction failed: {e}")
+                
+            # Merge BeautifulSoup results
+            for key, val in bs_res.items():
+                if val:
+                    result[key] = val
+                    
+            # Merge Jina metadata if any was retrieved (even if content failed)
+            for key, val in jina_res.items():
+                if val and not result.get(key):
+                    result[key] = val
 
         # Final fallback for favicon if still missing
         if not result.get("favicon_url") and result.get("domain"):

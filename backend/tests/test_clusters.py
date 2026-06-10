@@ -237,7 +237,7 @@ def test_generate_cluster_report_success(client, mocker):
 
     # Mock research and synthesis calls
     mocker.patch(
-        "services.signal_pipeline.research",
+        "services.clustering.research",
         return_value=("**Context**: factual research details", ["AMD chips query"])
     )
     mocker.patch(
@@ -320,7 +320,7 @@ def test_cluster_report_does_not_mutate_old_report_when_new_items_arrive(client,
 
     # Mock research and synthesis calls
     mocker.patch(
-        "services.signal_pipeline.research",
+        "services.clustering.research",
         return_value=("**Context**: research v1", [])
     )
     mocker.patch(
@@ -354,7 +354,7 @@ def test_cluster_report_does_not_mutate_old_report_when_new_items_arrive(client,
 
     # Mock research and synthesis for Report 2
     mocker.patch(
-        "services.signal_pipeline.research",
+        "services.clustering.research",
         return_value=("**Context**: research v2", [])
     )
     mocker.patch(

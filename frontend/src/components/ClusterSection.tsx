@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Sparkles, Loader2, Check, RefreshCw, Layers, X, BookOpen } from 'lucide-react'
+import { Sparkles, Loader2, RefreshCw, Layers, X, BookOpen } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { clustersApi, SignalCluster, SignalClusterReport, Bookmark, FeedItem, feedsApi } from '../lib/api'
@@ -47,8 +47,15 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
     try {
       const res = await clustersApi.refresh()
       setClusters(res.data.clusters)
-      const { created, updated, archived } = res.data
-      setInfoMessage(`Clustering refresh complete: ${created} new, ${updated} updated, ${archived} archived.`)
+      const { created, updated } = res.data
+      if (created === 0 && updated === 0) {
+        setInfoMessage('Your clusters are up to date. No new groups were found.')
+      } else {
+        const parts = []
+        if (created > 0) parts.push(`${created} new ${created === 1 ? 'cluster' : 'clusters'}`)
+        if (updated > 0) parts.push(`${updated} updated`)
+        setInfoMessage(`Radar updated: ${parts.join(' and ')}.`)
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to refresh clusters')
     } finally {
@@ -207,12 +214,9 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
       )}
 
       {infoMessage && (
-        <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300 ring-1 ring-emerald-250/50 dark:ring-emerald-900/20">
-          <Check className="h-5 w-5 flex-shrink-0 text-emerald-600 dark:text-emerald-500 mt-0.5" />
-          <div className="flex-1">
-            <p>{infoMessage}</p>
-          </div>
-        </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400 animate-in fade-in duration-200">
+          {infoMessage}
+        </p>
       )}
 
       {isLoading ? (
