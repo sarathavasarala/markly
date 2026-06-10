@@ -366,7 +366,7 @@ export default function Radar() {
               <span>All sources</span>
               <span className="text-xs tabular-nums text-slate-400 dark:text-slate-500">{allCount}</span>
             </button>
-            {folders.length === 0 && feeds.length === 0 ? (
+            {feeds.length === 0 ? (
               <div className="rounded-2xl border border-slate-200/70 bg-white/50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400">
                 Add your first source to start Radar.
               </div>
