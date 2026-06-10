@@ -39,9 +39,6 @@ export default function Login() {
           <div className="space-y-5">
             <div>
               <h2 className="font-display text-2xl text-slate-950 dark:text-slate-50">Sign in</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Continue with Google
-              </p>
             </div>
 
             {error && (
@@ -86,27 +83,27 @@ export default function Login() {
         <div className="w-full max-w-md space-y-6">
           <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-6 space-y-5 text-left">
             <div className="border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-450 block mb-0.5">Tuesday</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">Wednesday</span>
               <h3 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
                 Today's brief
               </h3>
             </div>
             <div className="rounded-2xl bg-slate-50/50 px-4 py-3 dark:bg-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-800/50">
-              <p className="text-xs text-slate-655 dark:text-slate-400 leading-relaxed">
-                <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span> — synthesized from recent articles across your feeds. Below are the themes and developments that stood out today.
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span>, synthesized from recent articles across your feeds. Below are the themes and developments that stood out today.
               </p>
             </div>
             <div className="space-y-4 text-sm text-slate-800 dark:text-slate-300 leading-relaxed font-sans">
               <div className="space-y-1">
-                <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Software Craft</h4>
+                <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Systems Architecture</h4>
                 <p>
-                  On team focus: <a href="https://linear.app" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Linear</a> argues that scaling a product team requires sweating the small details, writing docs, and shipping deliberately.
+                  On Apple's AI strategy: <a href="https://machinelearning.apple.com" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Apple Research</a> highlights a split architecture of local, on-device models for everyday tasks alongside Private Cloud Compute for complex requests, treating AI as a systems problem.
                 </p>
               </div>
               <div className="space-y-1">
-                <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Personal Libraries</h4>
+                <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Enterprise AI</h4>
                 <p>
-                  On digital curation: <a href="https://aworkinglibrary.com" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">A Working Library</a> suggests that a curated reading list reflects how we think, making a library feel more like a home than an algorithmic feed.
+                  On Anthropic's Claude Fable: <a href="https://simonwillison.net" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Simon Willison's analysis</a> suggests reliability and governance are becoming product features in their own right, separating raw capability from predictable operational controls.
                 </p>
               </div>
             </div>
