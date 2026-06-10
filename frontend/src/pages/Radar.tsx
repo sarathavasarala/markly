@@ -7,7 +7,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Bookmark, Feed, FeedItem, feedsApi } from '../lib/api'
 import { useUIStore } from '../stores/uiStore'
 import SignalSection from '../components/SignalSection'
-import ClusterSection from '../components/ClusterSection'
+// Clusters feature temporarily hidden — pending more testing before re-enabling.
+// import ClusterSection from '../components/ClusterSection'
 
 export default function Radar() {
   const [feeds, setFeeds] = useState<Feed[]>([])
