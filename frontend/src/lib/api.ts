@@ -171,6 +171,7 @@ export interface FeedItem {
   feed_title: string | null
   feed_site_url: string | null
   feed_favicon_url: string | null
+  bookmark_thumbnail_url?: string | null
 }
 
 export interface FeedRefreshResult {
@@ -298,4 +299,46 @@ export const signalApi = {
       headers: { 'Content-Type': 'application/json' },
     }),
   deleteBrief: (id: string) => api.delete<{ success: boolean }>(`/signal/briefs/${id}`),
+}
+
+export interface SignalCluster {
+  id: string
+  title: string
+  summary: string | null
+  topic_key: string | null
+  status: 'active' | 'archived'
+  article_count: number
+  source_count: number
+  first_seen_at: string
+  last_seen_at: string
+  last_report_generated_at: string | null
+  created_at: string
+  updated_at: string
+  new_since_last_report?: number
+  items?: FeedItem[]
+  latest_report?: SignalClusterReport | null
+}
+
+export interface SignalClusterDetail extends SignalCluster {
+  items: FeedItem[]
+  latest_report: SignalClusterReport | null
+}
+
+export interface SignalClusterReport {
+  id: string
+  cluster_id: string
+  title: string | null
+  content: string
+  article_count: number
+  source_count: number
+  generated_at: string
+}
+
+export const clustersApi = {
+  list: () => api.get<{ clusters: SignalCluster[] }>('/clusters'),
+  refresh: () => api.post<{ clusters: SignalCluster[]; created: number; updated: number; archived: number }>('/clusters/refresh'),
+  get: (id: string) => api.get<SignalClusterDetail>(`/clusters/${id}`),
+  listReports: (id: string) => api.get<{ reports: SignalClusterReport[] }>(`/clusters/${id}/reports`),
+  generateReport: (id: string) => api.post<SignalClusterReport>(`/clusters/${id}/reports/generate`),
+  delete: (id: string) => api.delete<{ success: boolean }>(`/clusters/${id}`),
 }

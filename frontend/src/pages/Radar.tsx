@@ -7,6 +7,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Bookmark, Feed, FeedItem, feedsApi } from '../lib/api'
 import { useUIStore } from '../stores/uiStore'
 import SignalSection from '../components/SignalSection'
+import ClusterSection from '../components/ClusterSection'
 
 export default function Radar() {
   const [feeds, setFeeds] = useState<Feed[]>([])
@@ -22,7 +23,7 @@ export default function Radar() {
 
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = (searchParams.get('tab') as 'queue' | 'signal') || 'queue'
+  const activeTab = (searchParams.get('tab') as 'queue' | 'clusters' | 'signal') || 'queue'
   const readItemId = searchParams.get('read')
 
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
@@ -40,7 +41,7 @@ export default function Radar() {
 
   const openAddModal = useUIStore((state) => state.openAddModal)
 
-  const setActiveTab = (tab: 'queue' | 'signal') => {
+  const setActiveTab = (tab: 'queue' | 'clusters' | 'signal') => {
     setSearchParams((prev) => {
       const newParams = new URLSearchParams(prev)
       newParams.set('tab', tab)
@@ -279,6 +280,16 @@ export default function Radar() {
           }`}
         >
           Queue ({isLoading ? '...' : allCount})
+        </button>
+        <button
+          onClick={() => setActiveTab('clusters')}
+          className={`pb-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+            activeTab === 'clusters'
+              ? 'border-slate-900 text-slate-950 dark:border-slate-100 dark:text-slate-50'
+              : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400'
+          }`}
+        >
+          Clusters
         </button>
         <button
           onClick={() => setActiveTab('signal')}
@@ -526,6 +537,8 @@ export default function Radar() {
 
       </div>
       </>
+      ) : activeTab === 'clusters' ? (
+        <ClusterSection onSavedSuccess={loadRadar} />
       ) : (
         <SignalSection onGenerateSuccess={loadRadar} />
       )}

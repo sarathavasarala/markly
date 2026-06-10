@@ -90,6 +90,14 @@ class Config:
     # smooths across multiple refreshes instead of bursting hundreds of calls at once.
     SIGNAL_EMBED_MAX_PER_RUN = int(os.getenv("SIGNAL_EMBED_MAX_PER_RUN", "200"))
 
+    # Radar Cluster settings
+    CLUSTER_LOOKBACK_DAYS = int(os.getenv("CLUSTER_LOOKBACK_DAYS", "14"))
+    CLUSTER_MAX_CANDIDATES = int(os.getenv("CLUSTER_MAX_CANDIDATES", "500"))
+    CLUSTER_MIN_ARTICLES = int(os.getenv("CLUSTER_MIN_ARTICLES", "5"))
+    CLUSTER_SIMILARITY_THRESHOLD = float(os.getenv("CLUSTER_SIMILARITY_THRESHOLD", "0.78"))
+    CLUSTER_ARCHIVE_AFTER_DAYS = int(os.getenv("CLUSTER_ARCHIVE_AFTER_DAYS", "14"))
+    CLUSTER_EMBED_MAX_PER_RUN = int(os.getenv("CLUSTER_EMBED_MAX_PER_RUN", "100"))
+
     # Optional services
     JINA_READER_API_KEY = os.getenv("JINA_READER_API_KEY")
     PARALLEL_API_KEY = os.getenv("PARALLEL_API_KEY")

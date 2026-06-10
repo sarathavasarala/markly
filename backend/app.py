@@ -51,6 +51,7 @@ def create_app():
     from routes.feeds import feeds_bp
     from routes.signal import signal_bp
     from routes.cron import cron_bp
+    from routes.clusters import clusters_bp
     
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(bookmarks_bp, url_prefix="/api/bookmarks")
@@ -61,6 +62,7 @@ def create_app():
     app.register_blueprint(feeds_bp, url_prefix="/api/feeds")
     app.register_blueprint(signal_bp, url_prefix="/api/signal")
     app.register_blueprint(cron_bp, url_prefix="/api/cron")
+    app.register_blueprint(clusters_bp, url_prefix="/api/clusters")
     
     # Health check endpoint
     @app.route("/api/health")

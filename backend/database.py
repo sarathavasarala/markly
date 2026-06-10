@@ -15,7 +15,7 @@ from flask import g
 from config import Config
 
 
-JSON_FIELDS = {"auto_tags", "key_quotes", "embedding"}
+JSON_FIELDS = {"auto_tags", "key_quotes", "embedding", "centroid_embedding"}
 
 
 def utc_now() -> str:
@@ -216,6 +216,42 @@ def initialize_database():
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS signal_clusters (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                summary TEXT,
+                topic_key TEXT,
+                centroid_embedding TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                article_count INTEGER NOT NULL DEFAULT 0,
+                source_count INTEGER NOT NULL DEFAULT 0,
+                first_seen_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL,
+                last_report_generated_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS signal_cluster_items (
+                cluster_id TEXT NOT NULL REFERENCES signal_clusters(id) ON DELETE CASCADE,
+                feed_item_id TEXT NOT NULL REFERENCES feed_items(id) ON DELETE CASCADE,
+                relevance_score REAL,
+                added_at TEXT NOT NULL,
+                PRIMARY KEY (cluster_id, feed_item_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS signal_cluster_reports (
+                id TEXT PRIMARY KEY,
+                cluster_id TEXT NOT NULL REFERENCES signal_clusters(id) ON DELETE CASCADE,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title TEXT,
+                content TEXT NOT NULL,
+                article_count INTEGER NOT NULL,
+                source_count INTEGER NOT NULL,
+                generated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS telemetry_logs (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -244,6 +280,9 @@ def initialize_database():
             CREATE INDEX IF NOT EXISTS idx_feed_items_feed ON feed_items(feed_id, published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_signal_briefs_user_created ON signal_briefs(user_id, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_telemetry_logs_user_created ON telemetry_logs(user_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_signal_clusters_user_status ON signal_clusters(user_id, status, last_seen_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_signal_cluster_items_feed_item ON signal_cluster_items(feed_item_id);
+            CREATE INDEX IF NOT EXISTS idx_signal_cluster_reports_cluster ON signal_cluster_reports(cluster_id, generated_at DESC);
             """
         )
 
