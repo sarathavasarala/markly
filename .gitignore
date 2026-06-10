@@ -36,4 +36,7 @@ frontend/.env.test
 # SQLite databases
 backend/markly.db
 *.db
+*.db.bak.*
+*.db-wal
+*.db-shm
 

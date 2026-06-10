@@ -19,6 +19,17 @@ def _dev_bypass_auth_enabled() -> bool:
     )
 
 
+def dev_bypass_user():
+    """Return the local dev bypass user.
+
+    The account is configured via DEV_BYPASS_EMAIL / DEV_BYPASS_NAME in your
+    local (gitignored) .env. Falls back to a generic dev user if unset.
+    """
+    email = os.getenv("DEV_BYPASS_EMAIL", "dev@local")
+    full_name = os.getenv("DEV_BYPASS_NAME", "Development User")
+    return upsert_user(email, full_name=full_name)
+
+
 def _as_user_object(user: dict):
     return SimpleNamespace(**user)
 
@@ -48,7 +59,7 @@ def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if _dev_bypass_auth_enabled():
-            user = upsert_user("dev@local", full_name="Development User")
+            user = dev_bypass_user()
         else:
             user = _load_session_user() or _load_test_user()
 

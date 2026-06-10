@@ -281,6 +281,7 @@ export default function Radar() {
         >
           Queue ({isLoading ? '...' : allCount})
         </button>
+        {/* Clusters feature temporarily hidden — pending more testing before re-enabling.
         <button
           onClick={() => setActiveTab('clusters')}
           className={`pb-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
@@ -291,6 +292,7 @@ export default function Radar() {
         >
           Clusters
         </button>
+        */}
         <button
           onClick={() => setActiveTab('signal')}
           className={`pb-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
@@ -537,8 +539,10 @@ export default function Radar() {
 
       </div>
       </>
+      /* Clusters feature temporarily hidden — pending more testing before re-enabling.
       ) : activeTab === 'clusters' ? (
         <ClusterSection onSavedSuccess={loadRadar} />
+      */
       ) : (
         <SignalSection onGenerateSuccess={loadRadar} />
       )}

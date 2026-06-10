@@ -28,9 +28,9 @@ def _callback_url() -> str:
 
 @auth_bp.route("/me", methods=["GET"])
 def me():
-    from middleware.auth import _dev_bypass_auth_enabled
+    from middleware.auth import _dev_bypass_auth_enabled, dev_bypass_user
     if _dev_bypass_auth_enabled():
-        user = upsert_user("dev@local", full_name="Development User")
+        user = dev_bypass_user()
         return jsonify({
             "user": {
                 "id": user["id"],
@@ -67,9 +67,9 @@ def me():
 
 @auth_bp.route("/google/login", methods=["GET"])
 def google_login():
-    from middleware.auth import _dev_bypass_auth_enabled
+    from middleware.auth import _dev_bypass_auth_enabled, dev_bypass_user
     if _dev_bypass_auth_enabled():
-        user = upsert_user("dev@local", full_name="Development User")
+        user = dev_bypass_user()
         session.clear()
         session.permanent = True
         session["user_id"] = user["id"]

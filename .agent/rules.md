@@ -7,6 +7,7 @@ Before making any changes, you **must** read and follow the specific guidelines 
 *   📁 **General Architecture & Data Flows**: [ARCHITECTURE.md](file:///Users/sarathavasarala/Desktop/Projects/markly/ARCHITECTURE.md)
 *   📁 **Backend (Flask, Python, SQLite)**: [.agent/rules/backend.md](file:///Users/sarathavasarala/Desktop/Projects/markly/.agent/rules/backend.md)
 *   📁 **Frontend (React, Vite, Zustand, Tailwind)**: [.agent/rules/frontend.md](file:///Users/sarathavasarala/Desktop/Projects/markly/.agent/rules/frontend.md)
+*   📁 **Azure Ops & Connection (deploy, prod DB pull/push)**: [.agent/rules/azure.md](file:///Users/sarathavasarala/Desktop/Projects/markly/.agent/rules/azure.md)
 *   📁 **Testing Harness & Scenarios**: [TEST_HARNESS.md](file:///Users/sarathavasarala/Desktop/Projects/markly/TEST_HARNESS.md)
 *   📁 **Session Handoff & Changelog**: [.agent/progress.md](file:///Users/sarathavasarala/Desktop/Projects/markly/.agent/progress.md)
 
