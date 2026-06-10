@@ -1,7 +1,7 @@
 {
-  "name": "markly - Never lose a great link again",
+  "name": "markly - your daily reading brief",
   "short_name": "markly",
-  "description": "Save links. AI summarizes them. Send a weekly digest to subscribers.",
+  "description": "markly turns the blogs and newsletters you follow into one short daily brief. Read what matters, keep what's worth it, share what you love.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

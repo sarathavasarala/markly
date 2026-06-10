@@ -321,7 +321,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
             document.title = `${firstName}'s Reading List - markly`
         }
         return () => {
-            document.title = 'markly - Never lose a great link again'
+            document.title = 'markly - your daily reading brief'
         }
     }, [username, fullName, firstName])
 

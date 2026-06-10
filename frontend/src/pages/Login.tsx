@@ -14,7 +14,7 @@ export default function Login() {
   }, [isAuthenticated, navigate])
 
   useEffect(() => {
-    document.title = 'markly - Never lose a great link again'
+    document.title = 'markly - your daily reading brief'
   }, [])
 
   const handleLogin = async () => {
@@ -32,7 +32,7 @@ export default function Login() {
             </div>
             <h1 className="font-display text-5xl text-slate-950 dark:text-slate-50 leading-none">markly</h1>
             <p className="mt-3 text-base text-slate-600 dark:text-slate-300">
-              A quiet home for the links you want to remember.
+              Your daily brief from the blogs and newsletters you follow.
             </p>
           </div>
 
@@ -40,7 +40,7 @@ export default function Login() {
             <div>
               <h2 className="font-display text-2xl text-slate-950 dark:text-slate-50">Sign in</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Continue with Google to access your library.
+                Continue with Google
               </p>
             </div>
 
@@ -84,20 +84,35 @@ export default function Login() {
       {/* Right: sample card preview */}
       <div className="hidden md:flex flex-1 items-center justify-center p-12 lg:p-20">
         <div className="w-full max-w-md space-y-6">
-          <SampleCard
-            title="Scaling product work without losing craft"
-            domain="linear.app"
-            summary="A quiet meditation on how small product teams keep shipping with care: write the doc, sweat the details, ship slowly."
-            tags={['product', 'craft', 'workflow']}
-          />
-          <SampleCard
-            title="The bookshelf as personal interface"
-            domain="aworkinglibrary.com"
-            summary="What a curated reading list says about how we think — and why a library, not an algorithm, still feels like home."
-            tags={['reading', 'design']}
-          />
+          <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-6 space-y-5 text-left">
+            <div className="border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-450 block mb-0.5">Tuesday</span>
+              <h3 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
+                Today's brief
+              </h3>
+            </div>
+            <div className="rounded-2xl bg-slate-50/50 px-4 py-3 dark:bg-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-800/50">
+              <p className="text-xs text-slate-655 dark:text-slate-400 leading-relaxed">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span> — synthesized from recent articles across your feeds. Below are the themes and developments that stood out today.
+              </p>
+            </div>
+            <div className="space-y-4 text-sm text-slate-800 dark:text-slate-300 leading-relaxed font-sans">
+              <div className="space-y-1">
+                <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Software Craft</h4>
+                <p>
+                  On team focus: <a href="https://linear.app" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Linear</a> argues that scaling a product team requires sweating the small details, writing docs, and shipping deliberately.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Personal Libraries</h4>
+                <p>
+                  On digital curation: <a href="https://aworkinglibrary.com" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">A Working Library</a> suggests that a curated reading list reflects how we think, making a library feel more like a home than an algorithmic feed.
+                </p>
+              </div>
+            </div>
+          </div>
           <p className="text-center text-sm text-slate-500 dark:text-slate-400">
-            Save links. Find them later. That's the whole thing.
+            The good stuff from your feeds, every day.
           </p>
         </div>
       </div>
@@ -105,26 +120,3 @@ export default function Login() {
   )
 }
 
-function SampleCard({ title, domain, summary, tags }: { title: string, domain: string, summary: string, tags: string[] }) {
-  return (
-    <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-5">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-9 h-9 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs font-medium">
-          {domain[0].toUpperCase()}
-        </div>
-        <span className="text-xs text-slate-500 dark:text-slate-400">{domain}</span>
-      </div>
-      <h3 className="font-display text-[1.4rem] text-slate-950 dark:text-slate-50 leading-tight">
-        {title}
-      </h3>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2">{summary}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {tags.map(tag => (
-          <span key={tag} className="px-2.5 py-0.5 rounded-full text-[11px] font-medium lowercase bg-white text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
-            {tag}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}

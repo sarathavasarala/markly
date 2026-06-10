@@ -63,11 +63,11 @@ export default function Layout({
         console.error('Feed refresh failed:', error)
       })
     } else {
-      document.title = 'markly - Your bookmark library'
+      document.title = 'markly - your daily reading brief'
     }
 
     return () => {
-      document.title = 'markly - Your bookmark library'
+      document.title = 'markly - your daily reading brief'
     }
   }, [userName, userEmail, fetchFolders, isAuthenticated])
 

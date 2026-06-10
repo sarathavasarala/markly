@@ -1,8 +1,8 @@
 # markly
 
-**A smarter way to save links.**
+**Your daily brief from the blogs and newsletters you follow.**
 
-markly is a personal bookmark library that turns saved links into searchable, organized reading lists. Paste a URL, optionally add your own notes or description, and markly extracts page metadata, enriches it with Azure OpenAI, suggests tags and folders, and keeps everything in a private SQLite-backed library that can also power a public profile.
+markly follows the blogs and newsletters you care about and turns them into one short brief, instead of another endless feed. Read what's worth your time, save what you want to keep, and let your saved reading become a list other people can follow.
 
 **Live app:** [markly.azurewebsites.net](https://markly.azurewebsites.net)
 
@@ -10,19 +10,19 @@ markly is a personal bookmark library that turns saved links into searchable, or
 
 ## What It Does
 
-**AI bookmark enrichment.** markly extracts titles, domains, favicons, thumbnails, readable page content, summaries, key quotes, tags, content type, intent, technical level, and suggested folders. Jina Reader can be enabled for stronger extraction, with BeautifulSoup as the built-in fallback.
-
-**Fast search and filtering.** Search currently defaults to keyword/SQLite FTS5 and records recent search history. Embeddings can still be generated and stored for future semantic search by enabling the feature flags.
-
-**Folder and topic organization.** Bookmarks can be grouped into folders, viewed as folder cards, grid cards, or list rows, and filtered by top tags globally or within a folder.
-
-**Public reading lists.** Each user gets a public `/@username` profile with public/private bookmark visibility, topic filters, subscriber capture, subscriber management for the owner, and social sharing metadata injected server-side for profile URLs.
-
-**Save from other profiles.** Authenticated visitors can save a public bookmark from someone else's profile into their own collection.
+**Signal daily brief.** Replaces endless feed scrolling with a synthesized daily briefing memo. Using a customizable Taste Profile, the system selects relevant articles, fetches full text, and uses a dedicated LLM to compile a clean, thematic briefing containing inline source links. Real-time generation progress is shown using a Server-Sent Events (SSE) pipeline tracker.
 
 **RSS Feed Radar.** Keep track of your favorite blogs, newsletters, and publications. The Radar tab consolidates followed RSS feeds, allows reading content inline, and lets you quickly bookmark or dismiss articles.
 
-**Signal daily brief.** Replaces endless feed scrolling with a synthesized daily briefing memo. Using a customizable Taste Profile, the system selects relevant articles, fetches full text, and uses a dedicated LLM to compile a clean, thematic briefing containing inline source links. Real-time generation progress is shown using a Server-Sent Events (SSE) pipeline tracker.
+**AI bookmark enrichment.** Save what is worth keeping. markly extracts titles, domains, favicons, thumbnails, readable page content, summaries, key quotes, tags, content type, intent, technical level, and suggested folders. Jina Reader can be enabled for stronger extraction, with BeautifulSoup as the built-in fallback.
+
+**Folder and topic organization.** Organize saved reading into folders, viewed as folder cards, grid cards, or list rows, and filtered by top tags globally or within a folder.
+
+**Fast search and filtering.** Search your saved library. It currently defaults to keyword/SQLite FTS5 and records recent search history. Embeddings can still be generated and stored for future semantic search by enabling the feature flags.
+
+**Public reading lists.** Let your saved reading become a list other people can follow. Each user gets a public `/@username` profile with public/private bookmark visibility, topic filters, subscriber capture, subscriber management for the owner, and social sharing metadata injected server-side for profile URLs.
+
+**Save from other profiles.** Authenticated visitors can save a public bookmark from someone else's profile into their own library.
 
 ## Tech Stack
 
