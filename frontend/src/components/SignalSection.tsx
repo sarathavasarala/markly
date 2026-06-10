@@ -48,6 +48,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [isGenerating, setIsGenerating] = useState(false)
   const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(getInitialSteps(true))
   const [isTasteProfileOpen, setIsTasteProfileOpen] = useState(false)
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
   
   const [error, setError] = useState<string | null>(null)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
@@ -319,7 +320,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setIsTasteProfileOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-850 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-750"
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
             title="Edit Taste Profile Settings"
           >
             <Settings className="h-4 w-4" />
@@ -358,8 +359,8 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       )}
 
       {isLoading ? (
-        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="space-y-2">
+        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)] w-full min-w-0">
+          <div className="space-y-2 w-full min-w-0">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-12 animate-pulse rounded-2xl bg-slate-200/70 dark:bg-slate-800/70" />
             ))}
@@ -397,22 +398,41 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
         </div>
       ) : (
         /* Signal Brief Viewport */
-        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)] w-full min-w-0">
           {/* Left Column: Brief History Sidebar */}
-          <aside className="space-y-3">
-            <div className="flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          <aside className="space-y-3 w-full min-w-0">
+            <button
+              type="button"
+              onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-left text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800/80 dark:bg-slate-900/50 dark:text-slate-300 xl:hidden"
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                <span className="text-slate-500 dark:text-slate-400 font-semibold">Brief History</span>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-400 font-medium">
+                  {selectedBrief ? formatShortDate(selectedBrief.created_at) : 'No briefs'}
+                </span>
+              </div>
+              <span className="text-xs text-slate-400 font-semibold">
+                {isHistoryExpanded ? 'Hide ▲' : 'Show ▼'}
+              </span>
+            </button>
+
+            <div className="hidden xl:flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               <Calendar className="h-3.5 w-3.5" />
               Brief History
             </div>
-            <div className="space-y-1">
+
+            <div className={`${isHistoryExpanded ? 'block animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden'} xl:block space-y-1 w-full min-w-0`}>
               {briefs.map((brief) => {
                 const isSelected = brief.id === selectedBriefId
                 return (
-                  <div key={brief.id} className="group flex items-center gap-1">
+                  <div key={brief.id} className="group flex items-center gap-1 w-full min-w-0">
                     <button
                       onClick={() => {
                         setSelectedBriefId(brief.id)
                         setInfoMessage(null)
+                        setIsHistoryExpanded(false)
                       }}
                       className={`min-w-0 flex-1 flex items-center justify-between rounded-2xl px-4 py-3 text-left transition ${
                         isSelected
@@ -460,7 +480,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
           </aside>
 
           {/* Right Column: Brief Viewer Area */}
-          <section className="space-y-4 min-w-0">
+          <section className="space-y-4 w-full min-w-0">
             {isGenerating ? (
               <div className="rounded-card border border-slate-200/70 bg-white/70 p-4 sm:p-8 dark:border-slate-800/80 dark:bg-slate-900/50 min-h-[400px] flex flex-col justify-center">
                 <h3 className="font-display text-lg font-medium text-slate-900 dark:text-slate-100 mb-6">

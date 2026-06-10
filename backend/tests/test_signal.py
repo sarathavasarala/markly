@@ -89,7 +89,7 @@ def test_generate_brief_success(client, mocker):
 
     # Mocking synthesis call
     mocker.patch(
-        "services.openai_service.AzureOpenAIService.generate_brief_completions_fallback",
+        "services.openai_service.AzureOpenAIService.generate_brief_with_verbosity",
         return_value="## AI Ecosystem Shift\nAI labs are optimizing for reliability and deployment economics — which is a major change."
     )
 
@@ -248,8 +248,8 @@ def test_signal_pipeline_research_and_synthesize(mocker):
     mock_research.assert_called_once()
 
     # 3. Test synthesize formatting and fallback
-    mock_fallback = mocker.patch(
-        "services.openai_service.AzureOpenAIService.generate_brief_completions_fallback",
+    mock_synthesis = mocker.patch(
+        "services.openai_service.AzureOpenAIService.generate_brief_with_verbosity",
         return_value="synthesis brief content"
     )
     # Custom template with research_brief placeholder
@@ -260,14 +260,14 @@ def test_signal_pipeline_research_and_synthesize(mocker):
         research_brief="test research"
     )
     assert res == "synthesis brief content"
-    mock_fallback.assert_called_once_with(
+    mock_synthesis.assert_called_once_with(
         "Brief: taste instructions Research: test research",
         "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown.",
-        mocker.ANY
+        verbosity="high"
     )
 
     # 4. Test synthesize with custom template WITHOUT research_brief placeholder (safe formatter handles it)
-    mock_fallback.reset_mock()
+    mock_synthesis.reset_mock()
     res = synthesize(
         selected_items=[{"id": "1", "title": "A", "feed_title": "B", "url": "http://a", "content": "body"}],
         taste_profile="taste instructions",
@@ -275,10 +275,10 @@ def test_signal_pipeline_research_and_synthesize(mocker):
         research_brief="test research"
     )
     assert res == "synthesis brief content"
-    mock_fallback.assert_called_once_with(
+    mock_synthesis.assert_called_once_with(
         "Brief: taste instructions",
         "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown.",
-        mocker.ANY
+        verbosity="high"
     )
 
 
@@ -729,8 +729,6 @@ def test_save_brief_with_title():
         assert brief["title"] == "My Dynamic Title"
         assert brief["content"] == "## Subtheme\nBody details"
 
-        # Check DB directly
         row = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (brief["id"],)).fetchone()
         assert row["title"] == "My Dynamic Title"
         assert row["content"] == "## Subtheme\nBody details"
-

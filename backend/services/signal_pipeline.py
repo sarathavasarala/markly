@@ -620,4 +620,3 @@ def save_brief(conn, user_id, content, selected_items):
 
     row = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (brief_id,)).fetchone()
     return row_to_dict(row)
-

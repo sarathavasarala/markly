@@ -121,7 +121,7 @@ def test_cron_brief_success(client, mocker):
 
         # Mocking synthesis
         mocker.patch(
-            "services.openai_service.AzureOpenAIService.generate_brief_completions_fallback",
+            "services.openai_service.AzureOpenAIService.generate_brief_with_verbosity",
             return_value="## Scheduled Brief Synthesis\nEverything matches the Taste Profile."
         )
 

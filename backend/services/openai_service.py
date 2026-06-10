@@ -555,6 +555,20 @@ class AzureOpenAIService:
         try:
             logger.info("Calling Azure OpenAI Responses API with verbosity %s...", verbosity)
             res = requests.post(url, headers=headers, json=data, timeout=120)
+            
+            # If "high" verbosity is unsupported, retry with "medium"
+            if res.status_code == 400 and verbosity == "high":
+                try:
+                    err_json = res.json()
+                    err_msg = err_json.get("error", {}).get("message", "")
+                    if "verbosity" in err_msg or "unsupported_value" in err_json.get("error", {}).get("code", ""):
+                        logger.warning("Verbosity 'high' unsupported by model. Retrying with 'medium'...")
+                        data["text"]["verbosity"] = "medium"
+                        verbosity = "medium"
+                        res = requests.post(url, headers=headers, json=data, timeout=120)
+                except Exception as parse_exc:
+                    logger.debug("Failed to parse 400 error JSON or retry: %s", parse_exc)
+
             if res.status_code == 200:
                 res_data = res.json()
                 output_items = res_data.get("output", [])

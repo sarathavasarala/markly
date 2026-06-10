@@ -330,8 +330,8 @@ export default function Radar() {
         <p className="text-sm text-slate-500 dark:text-slate-400">{lastRefreshSummary}</p>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="space-y-3 xl:sticky xl:top-20 xl:self-start">
+      <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] w-full min-w-0">
+        <aside className="space-y-3 xl:sticky xl:top-20 xl:self-start w-full min-w-0">
           <button
             type="button"
             onClick={() => setIsSourcesExpanded(!isSourcesExpanded)}
@@ -352,7 +352,7 @@ export default function Radar() {
             <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sources</h2>
           </div>
 
-          <div className={`${isSourcesExpanded ? 'block animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden'} xl:block space-y-1`}>
+          <div className={`${isSourcesExpanded ? 'block animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden'} xl:block space-y-1 w-full min-w-0`}>
             <button
               onClick={() => {
                 setSelectedFeedId(null)
@@ -366,13 +366,13 @@ export default function Radar() {
               <span>All sources</span>
               <span className="text-xs tabular-nums text-slate-400 dark:text-slate-500">{allCount}</span>
             </button>
-            {feeds.length === 0 ? (
+            {folders.length === 0 && feeds.length === 0 ? (
               <div className="rounded-2xl border border-slate-200/70 bg-white/50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400">
                 Add your first source to start Radar.
               </div>
             ) : (
               feeds.map((feed) => (
-                <div key={feed.id} className="group flex items-center gap-1">
+                <div key={feed.id} className="group flex items-center gap-1 w-full min-w-0">
                   <button
                     onClick={() => {
                       setSelectedFeedId(feed.id)
@@ -412,7 +412,7 @@ export default function Radar() {
           </div>
         </aside>
 
-        <section className="space-y-3 min-w-0">
+        <section className="space-y-3 w-full min-w-0">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">
               {selectedFeed ? selectedFeed.title || 'Selected source' : 'New from your sources'} ({isLoading ? '...' : total})
