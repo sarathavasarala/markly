@@ -129,7 +129,7 @@ test.describe('Refresh and Polling Logic', () => {
     });
 
     test('adding a bookmark updates the list and count', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/bookmarks');
 
         // Verify initial count
         await expect(page.getByText('Your bookmarks (1)')).toBeVisible();
@@ -174,7 +174,7 @@ test.describe('Refresh and Polling Logic', () => {
                     })
                 });
             } else {
-                await route.continue();
+                await route.fallback();
             }
         });
 
@@ -186,7 +186,7 @@ test.describe('Refresh and Polling Logic', () => {
     });
 
     test('deleting a bookmark updates the list and count', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/bookmarks');
 
         await expect(page.getByText('Your bookmarks (1)')).toBeVisible();
 

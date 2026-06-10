@@ -143,14 +143,14 @@ test.describe('Dashboard Views', () => {
     });
 
     test('folders toggle button is visible', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/bookmarks');
 
         const foldersToggle = page.getByTitle('Folders view');
         await expect(foldersToggle).toBeVisible();
     });
 
     test('clicking folders toggle shows folder cards', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/bookmarks');
 
         // Click the folders toggle
         const foldersToggle = page.getByTitle('Folders view');
@@ -169,7 +169,7 @@ test.describe('Dashboard Views', () => {
     });
 
     test('clicking a folder card navigates to folder contents', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/bookmarks');
 
         // Click the folders toggle
         const foldersToggle = page.getByTitle('Folders view');
@@ -187,7 +187,7 @@ test.describe('Dashboard Views', () => {
     });
 
     test('view preference persists after reload', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/bookmarks');
 
         // Click the folders toggle
         const foldersToggle = page.getByTitle('Folders view');
@@ -205,7 +205,7 @@ test.describe('Dashboard Views', () => {
     });
 
     test('header keeps bookmarks title in folders view', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/bookmarks');
 
         // Initially should show "Your bookmarks"
         await expect(page.getByRole('heading', { level: 1 })).toContainText('Your bookmarks');
@@ -302,7 +302,7 @@ test.describe('Dashboard Views - Dark Mode', () => {
     });
 
     test('folder cards have proper dark mode styling', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/bookmarks');
 
         // Click the folders toggle
         const foldersToggle = page.getByTitle('Folders view');

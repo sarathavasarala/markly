@@ -7,7 +7,7 @@ import {
     LayoutGrid,
     Radio,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useFolderStore } from '../stores/folderStore'
 import { useUIStore } from '../stores/uiStore'
 
@@ -15,6 +15,7 @@ export default function Sidebar() {
     const { folders, isLoading, selectedFolderId, setSelectedFolderId, createFolder, deleteFolder, updateFolder } = useFolderStore()
     const { isSidebarOpen, setIsSidebarOpen, setBookmarksViewMode } = useUIStore()
     const location = useLocation()
+    const navigate = useNavigate()
     const [isCreating, setIsCreating] = useState(false)
     const [newFolderName, setNewFolderName] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -58,9 +59,9 @@ export default function Sidebar() {
                 <div className="flex h-full flex-col p-4">
                     <div className="mb-6 flex-shrink-0 space-y-1">
                         <Link
-                            to="/"
+                            to="/bookmarks"
                             onClick={() => setSelectedFolderId(null)}
-                            className={`${itemBase} ${selectedFolderId === null && location.pathname === '/' ? itemActive : itemIdle}`}
+                            className={`${itemBase} ${selectedFolderId === null && location.pathname === '/bookmarks' ? itemActive : itemIdle}`}
                         >
                             <LayoutGrid className="h-4 w-4" />
                             Everything
@@ -124,14 +125,20 @@ export default function Sidebar() {
                                                 onClick={() => {
                                                     setSelectedFolderId(folder.id)
                                                     setBookmarksViewMode('cards')
+                                                    if (location.pathname !== '/bookmarks') {
+                                                        navigate('/bookmarks')
+                                                    }
                                                 }}
                                                 onKeyDown={(e) => {
                                                     if (e.key === 'Enter') {
                                                         setSelectedFolderId(folder.id)
                                                         setBookmarksViewMode('cards')
+                                                        if (location.pathname !== '/bookmarks') {
+                                                            navigate('/bookmarks')
+                                                        }
                                                     }
                                                 }}
-                                                className={`${itemBase} justify-between ${selectedFolderId === folder.id ? itemActive : itemIdle}`}
+                                                className={`${itemBase} justify-between ${selectedFolderId === folder.id && location.pathname === '/bookmarks' ? itemActive : itemIdle}`}
                                             >
                                                 <div className="flex min-w-0 flex-1 items-center gap-3 truncate">
                                                     <FolderIcon className="h-4 w-4 flex-shrink-0" />

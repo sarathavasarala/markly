@@ -91,7 +91,8 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Dashboard />} />
+        <Route index element={<Navigate to="/radar" replace />} />
+        <Route path="bookmarks" element={<Dashboard />} />
         <Route path="search" element={<Search />} />
         <Route path="radar" element={<Radar />} />
         <Route path="bookmarks/:id/read" element={<BookmarkReader />} />
