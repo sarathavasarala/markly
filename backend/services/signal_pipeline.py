@@ -166,9 +166,9 @@ def _recency_weight(timestamp: str | None) -> float:
 # ---------------------------------------------------------------------------
 
 def load_user_settings(conn, user_id, *, default_filter_template, default_synthesis_template):
-    """Load taste profile, candidate limit, and (custom or default) prompt templates."""
+    """Load taste profile, candidate limit, synthesis limit, and (custom or default) prompt templates."""
     user_row = conn.execute(
-        "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt, signal_web_search_enabled "
+        "SELECT taste_profile, signal_candidate_limit, signal_synthesis_limit, signal_filter_prompt, signal_synthesis_prompt, signal_web_search_enabled "
         "FROM users WHERE id = ?",
         (user_id,),
     ).fetchone()
@@ -178,6 +178,11 @@ def load_user_settings(conn, user_id, *, default_filter_template, default_synthe
         user_row["signal_candidate_limit"]
         if user_row and user_row["signal_candidate_limit"] is not None
         else Config.SIGNAL_CANDIDATE_LIMIT
+    )
+    synthesis_limit = (
+        user_row["signal_synthesis_limit"]
+        if user_row and user_row["signal_synthesis_limit"] is not None
+        else Config.SIGNAL_MAX_SYNTHESIS_ARTICLES
     )
     filter_template = (
         user_row["signal_filter_prompt"]
@@ -197,6 +202,7 @@ def load_user_settings(conn, user_id, *, default_filter_template, default_synthe
     return {
         "taste_profile": taste_profile,
         "candidate_limit": candidate_limit,
+        "synthesis_limit": synthesis_limit,
         "filter_template": filter_template,
         "synthesis_template": synthesis_template,
         "web_search_enabled": web_search_enabled,
@@ -349,7 +355,7 @@ def select_candidates(conn, user_id, candidate_limit, *, taste_profile):
 # Stage 3: LLM filter
 # ---------------------------------------------------------------------------
 
-def llm_filter(items, taste_profile, filter_template):
+def llm_filter(items, taste_profile, filter_template, synthesis_limit=None):
     """Run the taste-profile filter and return the selected items (best-first, capped)."""
     articles_list_str = _build_articles_list_str(items)
     filter_prompt = filter_template.format(
@@ -374,7 +380,9 @@ def llm_filter(items, taste_profile, filter_template):
         logger.error(f"Error in signal filtering LLM call: {exc}")
         selected_ids = [item["id"] for item in items[:10]]
 
-    selected_ids = selected_ids[: Config.SIGNAL_MAX_SYNTHESIS_ARTICLES]
+    if synthesis_limit is None:
+        synthesis_limit = Config.SIGNAL_MAX_SYNTHESIS_ARTICLES
+    selected_ids = selected_ids[:synthesis_limit]
     items_by_id = {item["id"]: item for item in items}
     return [items_by_id[sid] for sid in selected_ids if sid in items_by_id]
 

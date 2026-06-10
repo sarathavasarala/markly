@@ -176,6 +176,7 @@ def test_update_taste_profile_customizations(client):
     payload = {
         "taste_profile": "My custom taste profile instructions.",
         "signal_candidate_limit": 50,
+        "signal_synthesis_limit": 10,
         "signal_filter_prompt": "Custom filter prompt {taste_profile} {articles_list_str}",
         "signal_synthesis_prompt": "Custom synthesis prompt {taste_profile} {articles_contents_str}"
     }
@@ -186,6 +187,7 @@ def test_update_taste_profile_customizations(client):
     assert data["success"] is True
     assert data["taste_profile"] == payload["taste_profile"]
     assert data["signal_candidate_limit"] == 50
+    assert data["signal_synthesis_limit"] == 10
     assert data["signal_filter_prompt"] == payload["signal_filter_prompt"]
     assert data["signal_synthesis_prompt"] == payload["signal_synthesis_prompt"]
 
@@ -195,6 +197,7 @@ def test_update_taste_profile_customizations(client):
     data = response.get_json()
     assert data["taste_profile"] == payload["taste_profile"]
     assert data["signal_candidate_limit"] == 50
+    assert data["signal_synthesis_limit"] == 10
     assert data["signal_filter_prompt"] == payload["signal_filter_prompt"]
     assert data["signal_synthesis_prompt"] == payload["signal_synthesis_prompt"]
 
@@ -204,6 +207,7 @@ def test_reset_taste_profile_customizations(client):
     payload = {
         "taste_profile": "",
         "signal_candidate_limit": None,
+        "signal_synthesis_limit": None,
         "signal_filter_prompt": "",
         "signal_synthesis_prompt": ""
     }
@@ -216,6 +220,7 @@ def test_reset_taste_profile_customizations(client):
     # When reset, taste_profile falls back to default, limit is null/None, templates are null/None
     assert "I want analysis, not summaries" in data["taste_profile"]
     assert data["signal_candidate_limit"] is None
+    assert data["signal_synthesis_limit"] is None
     assert data["signal_filter_prompt"] is None
     assert data["signal_synthesis_prompt"] is None
 
@@ -225,6 +230,7 @@ def test_reset_taste_profile_customizations(client):
     data = response.get_json()
     assert "I want analysis, not summaries" in data["taste_profile"]
     assert data["signal_candidate_limit"] is None
+    assert data["signal_synthesis_limit"] is None
     assert data["signal_filter_prompt"] is None
     assert data["signal_synthesis_prompt"] is None
     assert "You are an expert analyst assistant." in data["default_filter_prompt"]

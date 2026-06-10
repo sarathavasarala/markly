@@ -113,7 +113,9 @@ def cron_brief():
                 continue
 
             # 3. LLM Filter
-            selected_items = signal_pipeline.llm_filter(items, taste_profile, filter_template)
+            selected_items = signal_pipeline.llm_filter(
+                items, taste_profile, filter_template, synthesis_limit=settings.get("synthesis_limit")
+            )
             if not selected_items:
                 results[email] = {
                     "status": "skipped",

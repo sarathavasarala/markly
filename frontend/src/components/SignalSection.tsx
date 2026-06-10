@@ -36,10 +36,12 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [tasteProfileInput, setTasteProfileInput] = useState<string>('')
   
   const [signalCandidateLimit, setSignalCandidateLimit] = useState<number | null>(null)
+  const [signalSynthesisLimit, setSignalSynthesisLimit] = useState<number | null>(null)
   const [signalFilterPrompt, setSignalFilterPrompt] = useState<string>('')
   const [signalSynthesisPrompt, setSignalSynthesisPrompt] = useState<string>('')
   const [defaultFilterPrompt, setDefaultFilterPrompt] = useState<string>('')
   const [defaultSynthesisPrompt, setDefaultSynthesisPrompt] = useState<string>('')
+  const [defaultSynthesisLimit, setDefaultSynthesisLimit] = useState<number>(15)
   const [signalWebSearchEnabled, setSignalWebSearchEnabled] = useState<boolean>(true)
   
   const [activeSettingsTab, setActiveSettingsTab] = useState<'instructions' | 'prompts' | 'settings'>('instructions')
@@ -71,11 +73,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       setBriefs(briefsRes.data.briefs)
       setTasteProfileInput(profileRes.data.taste_profile)
       setSignalCandidateLimit(profileRes.data.signal_candidate_limit)
+      setSignalSynthesisLimit(profileRes.data.signal_synthesis_limit)
       
       const defaultFilter = profileRes.data.default_filter_prompt || ''
       const defaultSynth = profileRes.data.default_synthesis_prompt || ''
       setDefaultFilterPrompt(defaultFilter)
       setDefaultSynthesisPrompt(defaultSynth)
+      setDefaultSynthesisLimit(profileRes.data.default_synthesis_limit ?? 15)
       
       setSignalFilterPrompt(profileRes.data.signal_filter_prompt !== null ? profileRes.data.signal_filter_prompt : defaultFilter)
       setSignalSynthesisPrompt(profileRes.data.signal_synthesis_prompt !== null ? profileRes.data.signal_synthesis_prompt : defaultSynth)
@@ -238,12 +242,14 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       const res = await signalApi.updateTasteProfile({
         taste_profile: tasteProfileInput,
         signal_candidate_limit: signalCandidateLimit,
+        signal_synthesis_limit: signalSynthesisLimit,
         signal_filter_prompt: signalFilterPrompt,
         signal_synthesis_prompt: signalSynthesisPrompt,
         signal_web_search_enabled: signalWebSearchEnabled,
       })
       setTasteProfileInput(res.data.taste_profile)
       setSignalCandidateLimit(res.data.signal_candidate_limit)
+      setSignalSynthesisLimit(res.data.signal_synthesis_limit)
       setSignalFilterPrompt(res.data.signal_filter_prompt !== null ? res.data.signal_filter_prompt : defaultFilterPrompt)
       setSignalSynthesisPrompt(res.data.signal_synthesis_prompt !== null ? res.data.signal_synthesis_prompt : defaultSynthesisPrompt)
       setSignalWebSearchEnabled(res.data.signal_web_search_enabled !== undefined ? !!res.data.signal_web_search_enabled : true)
@@ -262,12 +268,14 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
         const res = await signalApi.updateTasteProfile({
           taste_profile: '',
           signal_candidate_limit: null,
+          signal_synthesis_limit: null,
           signal_filter_prompt: null,
           signal_synthesis_prompt: null,
           signal_web_search_enabled: true,
         })
         setTasteProfileInput(res.data.taste_profile)
         setSignalCandidateLimit(res.data.signal_candidate_limit)
+        setSignalSynthesisLimit(res.data.signal_synthesis_limit)
         setSignalFilterPrompt(defaultFilterPrompt)
         setSignalSynthesisPrompt(defaultSynthesisPrompt)
         setSignalWebSearchEnabled(true)
@@ -872,6 +880,38 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                     </div>
                     <p>
                       A higher limit lets Signal scan further back in your feeds but takes longer to run. The default scan pool limit is 100 articles. Set a custom number to fine tune this scan threshold.
+                    </p>
+                  </div>
+
+                  <hr className="border-slate-200/60 dark:border-slate-800/60 my-4" />
+
+                  <div className="flex flex-col gap-1">
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Articles to Synthesize
+                    </label>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">
+                      Determine the limit of high-signal articles to include in the final daily brief.
+                    </p>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={signalSynthesisLimit ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setSignalSynthesisLimit(val === '' ? null : parseInt(val, 10))
+                    }}
+                    placeholder={`${defaultSynthesisLimit} (Default)`}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40"
+                  />
+                  <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 space-y-2">
+                    <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                      <Info className="h-3.5 w-3.5 text-slate-500" />
+                      Synthesis Limit Guidelines
+                    </div>
+                    <p>
+                      A higher limit includes more high-signal stories in your brief, but will consume more AI tokens. The default synthesis limit is {defaultSynthesisLimit} articles.
                     </p>
                   </div>
 

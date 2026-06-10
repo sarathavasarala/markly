@@ -108,9 +108,10 @@ Instructions:
 @signal_bp.route("/taste-profile", methods=["GET"])
 @require_auth
 def get_taste_profile():
+    from config import Config
     conn = get_db()
     row = conn.execute(
-        "SELECT taste_profile, signal_candidate_limit, signal_filter_prompt, signal_synthesis_prompt, signal_web_search_enabled "
+        "SELECT taste_profile, signal_candidate_limit, signal_synthesis_limit, signal_filter_prompt, signal_synthesis_prompt, signal_web_search_enabled "
         "FROM users WHERE id = ?",
         (g.user.id,)
     ).fetchone()
@@ -118,11 +119,13 @@ def get_taste_profile():
     return jsonify({
         "taste_profile": _resolve_taste_profile(row),
         "signal_candidate_limit": row["signal_candidate_limit"] if row else None,
+        "signal_synthesis_limit": row["signal_synthesis_limit"] if row else None,
         "signal_filter_prompt": row["signal_filter_prompt"] if row else None,
         "signal_synthesis_prompt": row["signal_synthesis_prompt"] if row else None,
         "signal_web_search_enabled": bool(row["signal_web_search_enabled"]) if row and row["signal_web_search_enabled"] is not None else True,
         "default_filter_prompt": FILTER_PROMPT_TEMPLATE,
         "default_synthesis_prompt": SYNTHESIS_PROMPT_TEMPLATE,
+        "default_synthesis_limit": Config.SIGNAL_MAX_SYNTHESIS_ARTICLES,
     })
 
 @signal_bp.route("/taste-profile", methods=["PUT"])
@@ -140,6 +143,15 @@ def update_taste_profile():
         except (ValueError, TypeError):
             limit = None
 
+    synthesis_limit = data.get("signal_synthesis_limit")
+    if synthesis_limit is not None:
+        try:
+            synthesis_limit = int(synthesis_limit)
+            if synthesis_limit <= 0:
+                synthesis_limit = None
+        except (ValueError, TypeError):
+            synthesis_limit = None
+
     filter_prompt = data.get("signal_filter_prompt", "").strip() or None
     synthesis_prompt = data.get("signal_synthesis_prompt", "").strip() or None
     web_search_enabled = data.get("signal_web_search_enabled")
@@ -156,9 +168,9 @@ def update_taste_profile():
 
     conn = get_db()
     conn.execute(
-        "UPDATE users SET taste_profile = ?, signal_candidate_limit = ?, "
+        "UPDATE users SET taste_profile = ?, signal_candidate_limit = ?, signal_synthesis_limit = ?, "
         "signal_filter_prompt = ?, signal_synthesis_prompt = ?, signal_web_search_enabled = ?, updated_at = ? WHERE id = ?",
-        (profile, limit, filter_prompt, synthesis_prompt, 1 if web_search_enabled else 0, utc_now(), g.user.id)
+        (profile, limit, synthesis_limit, filter_prompt, synthesis_prompt, 1 if web_search_enabled else 0, utc_now(), g.user.id)
     )
     conn.commit()
 
@@ -166,6 +178,7 @@ def update_taste_profile():
         "success": True,
         "taste_profile": profile or DEFAULT_TASTE_PROFILE,
         "signal_candidate_limit": limit,
+        "signal_synthesis_limit": synthesis_limit,
         "signal_filter_prompt": filter_prompt,
         "signal_synthesis_prompt": synthesis_prompt,
         "signal_web_search_enabled": web_search_enabled,
@@ -204,7 +217,9 @@ def generate_brief():
                 "message": "No recent RSS feed content found to analyze. Try adding some feeds first in the Radar tab!"
             }), 200
 
-        selected_items = signal_pipeline.llm_filter(items, taste_profile, settings["filter_template"])
+        selected_items = signal_pipeline.llm_filter(
+            items, taste_profile, settings["filter_template"], synthesis_limit=settings.get("synthesis_limit")
+        )
         if not selected_items:
             return jsonify({
                 "success": False,
@@ -308,7 +323,9 @@ def _generate_brief_stream(user_id: str):
     yield _sse_event({"stage": "filtering", "message": "Applying taste profile filter..."})
 
     try:
-        selected_items = signal_pipeline.llm_filter(items, taste_profile, settings["filter_template"])
+        selected_items = signal_pipeline.llm_filter(
+            items, taste_profile, settings["filter_template"], synthesis_limit=settings.get("synthesis_limit")
+        )
     except Exception as exc:
         logger.exception("Error in signal filtering LLM call")
         log_telemetry_error(user_id, "filtering", exc)

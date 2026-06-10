@@ -93,6 +93,7 @@ def initialize_database():
                 updated_at TEXT NOT NULL,
                 taste_profile TEXT,
                 signal_candidate_limit INTEGER,
+                signal_synthesis_limit INTEGER,
                 signal_filter_prompt TEXT,
                 signal_synthesis_prompt TEXT,
                 signal_web_search_enabled INTEGER DEFAULT 1
@@ -324,6 +325,8 @@ def initialize_database():
             cursor.execute("ALTER TABLE users ADD COLUMN taste_profile TEXT")
         if "signal_candidate_limit" not in user_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN signal_candidate_limit INTEGER")
+        if "signal_synthesis_limit" not in user_columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN signal_synthesis_limit INTEGER")
         if "signal_filter_prompt" not in user_columns:
             cursor.execute("ALTER TABLE users ADD COLUMN signal_filter_prompt TEXT")
         if "signal_synthesis_prompt" not in user_columns:
