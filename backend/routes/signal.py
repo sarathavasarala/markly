@@ -73,6 +73,11 @@ Background Research (factual context gathered via web search):
 {research_brief}
 \"\"\"
 
+Themes Already Covered In Your Recent Briefs (titles of the last few briefs you wrote for this user):
+\"\"\"
+{recent_briefs}
+\"\"\"
+
 Instructions:
 1. Group articles into themes only where the connection is real. It is fine to treat a strong standalone story on its own. Prefer a few genuine clusters plus standalone items over forcing everything into one unified narrative. Do not manufacture rhymes or throughlines between unrelated pieces.
 2. Explain what actually mattered, what changed underneath the surface, what smart practitioners would notice, where the important tensions or disagreements are, what second-order implications emerge, and which narratives seem overstated versus genuinely meaningful.
@@ -97,7 +102,11 @@ Instructions:
    - When referencing research findings, cite the source URLs provided in the research.
    - Before analyzing a specific theme or story (especially for hardware, infrastructure, or topics outside core software/AI), briefly introduce what the author is talking about. A single sentence of plain grounding context is allowed and encouraged to orient the reader.
    - If the Background Research section is empty, proceed using only the article content and your own knowledge.
-6. Output Format:
+6. Continuity With Recent Briefs:
+   - The "Themes Already Covered In Your Recent Briefs" section lists the titles of the briefs this user has already read.
+   - Do not re-explain a story or theme the user has already seen unless there is a genuinely new development, a meaningful escalation, or new information that changes the picture. In that case, lead briefly with what is actually new rather than recapping what was already covered.
+   - Favor fresh angles and stories the user has not seen yet. It is fine to omit an item entirely if it merely continues a theme already covered without adding anything new.
+7. Output Format:
    - Provide the response in Markdown format.
    - The very first line of the memo MUST be a title summarizing the key themes or focal point of the brief, formatted as a markdown H1 starting with `# Theme: ` (e.g., `# Theme: Apple Intelligence & Nvidia Blackwell Costs`).
    - Use simple headers (e.g. `##` for conversation clusters) to organize the memo body.
@@ -240,6 +249,7 @@ def generate_brief():
             taste_profile,
             settings["synthesis_template"],
             research_brief=research_brief,
+            recent_briefs=settings.get("recent_briefs", ""),
         )
         brief = signal_pipeline.save_brief(conn, g.user.id, content, selected_items)
         return jsonify(brief), 201
@@ -414,6 +424,7 @@ def _generate_brief_stream(user_id: str):
             taste_profile,
             settings["synthesis_template"],
             research_brief=research_brief,
+            recent_briefs=settings.get("recent_briefs", ""),
         )
     except Exception as exc:
         logger.exception("Error in signal brief synthesis LLM call")

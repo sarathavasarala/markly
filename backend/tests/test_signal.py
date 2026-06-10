@@ -93,6 +93,12 @@ def test_generate_brief_success(client, mocker):
         return_value="## AI Ecosystem Shift\nAI labs are optimizing for reliability and deployment economics — which is a major change."
     )
 
+    # Dedicated title pass fails here -> title falls back to the first-line title.
+    mocker.patch(
+        "services.signal_pipeline.AzureOpenAIService.generate_signal_title",
+        return_value=None,
+    )
+
     # Generate brief
     response = client.post("/api/signal/briefs", headers=AUTH_HEADERS)
     assert response.status_code == 201
@@ -100,7 +106,9 @@ def test_generate_brief_success(client, mocker):
     assert "id" in data
     # Verify em-dashes are post-processed/replaced with " - "
     assert "reliability and deployment economics - which" in data["content"]
-    assert "## AI Ecosystem Shift" in data["content"]
+    # The first-line H2 is lifted into the title and stripped from the body.
+    assert data["title"] == "AI Ecosystem Shift"
+    assert "## AI Ecosystem Shift" not in data["content"]
 
     # Verify item status remains new (not auto-dismissed)
     with db_session() as conn:
@@ -710,11 +718,12 @@ def test_parse_and_clean_brief():
     assert title == "Tech Innovations 2026"
     assert clean == "## Cluster A\nDetails."
 
-    # 4. Test fallback when no H1 title header
+    # 4. Test first-line H2 is treated as the title (matches database.py backfill).
+    # Briefs in practice put their main title on the first line as `## ...`.
     content_4 = "## Cluster A\nDetails without main title."
     title, clean = parse_and_clean_brief(content_4)
-    assert title is None
-    assert clean == content_4
+    assert title == "Cluster A"
+    assert clean == "Details without main title."
 
     # 5. Test clean formatting (e.g. bold wrappers inside header title)
     content_5 = "# Theme: **AMD MI300 Performance**\nContent here."
@@ -723,9 +732,15 @@ def test_parse_and_clean_brief():
     assert clean == "Content here."
 
 
-def test_save_brief_with_title():
+def test_save_brief_with_title(mocker):
     from database import db_session, upsert_user
     from services.signal_pipeline import save_brief
+
+    # Dedicated title pass fails -> fall back to the title parsed from the first line.
+    mocker.patch(
+        "services.signal_pipeline.AzureOpenAIService.generate_signal_title",
+        return_value=None,
+    )
 
     user = upsert_user("test@example.com", full_name="Test User")
     content = "# Theme: My Dynamic Title\n\n## Subtheme\nBody details"
@@ -738,3 +753,47 @@ def test_save_brief_with_title():
         row = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (brief["id"],)).fetchone()
         assert row["title"] == "My Dynamic Title"
         assert row["content"] == "## Subtheme\nBody details"
+
+
+def test_save_brief_uses_dedicated_title(mocker):
+    """The dedicated title pass, when it succeeds, overrides the first-line title."""
+    from database import db_session, upsert_user
+    from services.signal_pipeline import save_brief
+
+    mocker.patch(
+        "services.signal_pipeline.AzureOpenAIService.generate_signal_title",
+        return_value="A Sharper Generated Title",
+    )
+
+    user = upsert_user("title@example.com", full_name="Title User")
+    content = "# Theme: First Line Title\n\n## Subtheme\nBody details"
+
+    with db_session() as conn:
+        brief = save_brief(conn, user["id"], content, [])
+        assert brief["title"] == "A Sharper Generated Title"
+        assert brief["content"] == "## Subtheme\nBody details"
+
+
+def test_load_recent_brief_titles_and_builder():
+    from database import db_session, upsert_user, new_id
+    from services.signal_pipeline import load_recent_brief_titles, _build_recent_briefs_str
+
+    user = upsert_user("recent@example.com", full_name="Recent User")
+    with db_session() as conn:
+        # Empty case
+        assert load_recent_brief_titles(conn, user["id"]) == []
+        assert "first brief" in _build_recent_briefs_str([]).lower()
+
+        # Insert three briefs with increasing timestamps; newest-first ordering expected.
+        for idx, t in enumerate(["Oldest", "Middle", "Newest"]):
+            conn.execute(
+                "INSERT INTO signal_briefs (id, user_id, content, title, article_count, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (new_id(), user["id"], "body", t, 1, f"2026-06-1{idx} 00:00:00"),
+            )
+        conn.commit()
+
+        titles = load_recent_brief_titles(conn, user["id"], limit=2)
+        assert titles == ["Newest", "Middle"]
+        built = _build_recent_briefs_str(titles)
+        assert "- Newest" in built and "- Middle" in built

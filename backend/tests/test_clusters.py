@@ -21,11 +21,11 @@ def test_cluster_refresh_creates_cluster_from_similar_items(client, mocker):
     feed_id = _insert_feed(user["id"])
     
     # Insert two items that should group together
-    item_id1 = _insert_feed_item(
+    _insert_feed_item(
         user["id"], feed_id, id="item-1", title="AMD performance gains",
         summary="A new chip release details", status="new"
     )
-    item_id2 = _insert_feed_item(
+    _insert_feed_item(
         user["id"], feed_id, id="item-2", title="AMD MI300 architecture",
         summary="A new chip architecture comparison", status="new"
     )
@@ -223,7 +223,7 @@ def test_generate_cluster_report_success(client, mocker):
             ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
             """,
             (
-                "cluster-1", user["id"], "AMD Performance", "AMD summary", "amd-perf", json.dumps([0.1]*1536),
+                "cluster-1", user["id"], "AMD Performance", "AMD summary", "amd-perf", json.dumps([0.1] * 1536),
                 1, 1, now_ts, now_ts, now_ts, now_ts
             ),
         )
@@ -274,7 +274,7 @@ def test_generate_cluster_report_requires_cluster_owner(client, mocker):
             ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
             """,
             (
-                "cluster-other", other_user["id"], "Other Performance", "Other summary", "other-perf", json.dumps([0.1]*1536),
+                "cluster-other", other_user["id"], "Other Performance", "Other summary", "other-perf", json.dumps([0.1] * 1536),
                 1, 1, now_ts, now_ts, now_ts, now_ts
             ),
         )
@@ -306,7 +306,7 @@ def test_cluster_report_does_not_mutate_old_report_when_new_items_arrive(client,
             ) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
             """,
             (
-                "cluster-1", user["id"], "AMD Performance", "AMD summary", "amd-perf", json.dumps([0.1]*1536),
+                "cluster-1", user["id"], "AMD Performance", "AMD summary", "amd-perf", json.dumps([0.1] * 1536),
                 1, 1, now_ts, now_ts, now_ts, now_ts
             ),
         )

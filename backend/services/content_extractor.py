@@ -30,8 +30,6 @@ class ContentExtractor:
         - thumbnail_url: og:image or similar
         - domain: domain name
         """
-        import concurrent.futures
-        
         result = {
             "title": None,
             "description": None,

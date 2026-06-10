@@ -125,6 +125,12 @@ def test_cron_brief_success(client, mocker):
             return_value="## Scheduled Brief Synthesis\nEverything matches the Taste Profile."
         )
 
+        # Dedicated title pass fails here -> title falls back to the first-line title.
+        mocker.patch(
+            "services.signal_pipeline.AzureOpenAIService.generate_signal_title",
+            return_value=None,
+        )
+
         # Call brief route
         response = client.post("/api/cron/brief", headers=headers)
         assert response.status_code == 200
@@ -140,7 +146,9 @@ def test_cron_brief_success(client, mocker):
         with db_session() as conn:
             brief = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (user_result["brief_id"],)).fetchone()
             assert brief is not None
-            assert brief["content"] == "## Scheduled Brief Synthesis\nEverything matches the Taste Profile."
+            # The first-line H2 is lifted into the title and stripped from the body.
+            assert brief["title"] == "Scheduled Brief Synthesis"
+            assert brief["content"] == "Everything matches the Taste Profile."
             assert brief["user_id"] == user["id"]
     finally:
         if orig_secret is not None:

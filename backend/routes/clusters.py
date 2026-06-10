@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, g, jsonify
 
 from database import get_db, rows_to_dicts, row_to_dict
 from middleware.auth import require_auth

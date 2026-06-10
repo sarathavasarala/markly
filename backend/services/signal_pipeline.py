@@ -67,6 +67,27 @@ def _build_articles_list_str(items) -> str:
     return out
 
 
+def load_recent_brief_titles(conn, user_id, limit=3) -> list[str]:
+    """Return the titles of the user's most recent briefs (newest first).
+
+    Used to give the synthesis step short-term memory so consecutive briefs do
+    not keep re-explaining the same theme when one story dominates the feed.
+    """
+    rows = conn.execute(
+        "SELECT title FROM signal_briefs "
+        "WHERE user_id = ? AND title IS NOT NULL AND TRIM(title) != '' "
+        "ORDER BY created_at DESC LIMIT ?",
+        (user_id, limit),
+    ).fetchall()
+    return [row["title"].strip() for row in rows if row["title"] and row["title"].strip()]
+
+
+def _build_recent_briefs_str(titles) -> str:
+    if not titles:
+        return "None yet. This is the first brief for this user."
+    return "\n".join(f"- {t}" for t in titles)
+
+
 def truncate_article_content(content: str | None) -> str:
     """Keep most of the article body. Analysis pieces carry their argument in the
     middle, so retain a large head and a small tail rather than coring out the center."""
@@ -206,6 +227,7 @@ def load_user_settings(conn, user_id, *, default_filter_template, default_synthe
         "filter_template": filter_template,
         "synthesis_template": synthesis_template,
         "web_search_enabled": web_search_enabled,
+        "recent_briefs": _build_recent_briefs_str(load_recent_brief_titles(conn, user_id)),
     }
 
 
@@ -530,11 +552,13 @@ def research(selected_items, web_search_enabled=True):
 # Stage 6: synthesis
 # ---------------------------------------------------------------------------
 
-def synthesize(selected_items, taste_profile, synthesis_template, research_brief=""):
+def synthesize(selected_items, taste_profile, synthesis_template, research_brief="", recent_briefs=""):
     """Run the synthesis LLM call and return cleaned brief text.
 
     This is a pure writing step — no tools, no web search. If a research brief
     is provided, it is injected into the prompt for the model to reference.
+    `recent_briefs` lists the titles of the user's last few briefs so the model
+    can avoid repeating themes already covered.
     """
     articles_contents_str = _build_articles_contents_str(selected_items)
     
@@ -543,6 +567,7 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
         "taste_profile": taste_profile,
         "articles_contents_str": articles_contents_str,
         "research_brief": research_brief,
+        "recent_briefs": recent_briefs,
     }
     import string
     formatter = string.Formatter()
@@ -557,6 +582,7 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
             synthesis_template.replace("{taste_profile}", taste_profile)
             .replace("{articles_contents_str}", articles_contents_str)
             .replace("{research_brief}", research_brief)
+            .replace("{recent_briefs}", recent_briefs)
         )
 
     system_content = "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."
@@ -579,17 +605,22 @@ def parse_and_clean_brief(content: str) -> tuple[str | None, str]:
         return None, content
 
     first_line = lines[0].strip()
-    if first_line.startswith("# Theme:") or first_line.startswith("#Theme:") or first_line.startswith("# "):
-        if first_line.startswith("# Theme:"):
-            title = first_line[8:].strip()
-        elif first_line.startswith("#Theme:"):
-            title = first_line[7:].strip()
-        else:
-            title = first_line[2:].strip()
-        
+    title = None
+    if first_line.startswith("# Theme:"):
+        title = first_line[8:].strip()
+    elif first_line.startswith("#Theme:"):
+        title = first_line[7:].strip()
+    elif first_line.startswith("## Theme:"):
+        title = first_line[9:].strip()
+    elif first_line.startswith("# "):
+        title = first_line[2:].strip()
+    elif first_line.startswith("## "):
+        title = first_line[3:].strip()
+
+    if title is not None:
         # Strip any markdown bold/italic formatting from the title
         title = title.strip("*_").strip()
-        
+
         clean_content = "\n".join(lines[1:]).lstrip()
         return title, clean_content
 
@@ -609,7 +640,12 @@ def save_brief(conn, user_id, content, selected_items):
     brief_id = new_id()
     created_at = utc_now()
 
-    title, clean_content = parse_and_clean_brief(content)
+    parsed_title, clean_content = parse_and_clean_brief(content)
+
+    # Dedicated title pass: a small, cheap model writes a sharper, more consistent
+    # title from the finished memo. Fall back to the title parsed from the first
+    # line if the dedicated pass fails or returns nothing.
+    title = AzureOpenAIService.generate_signal_title(clean_content) or parsed_title
 
     conn.execute(
         "INSERT INTO signal_briefs (id, user_id, content, title, article_count, created_at) VALUES (?, ?, ?, ?, ?, ?)",
