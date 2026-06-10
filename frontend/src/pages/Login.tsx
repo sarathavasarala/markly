@@ -103,18 +103,29 @@ export default function Login() {
                       <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span>, synthesized from recent articles across your feeds. Below are the themes and developments that stood out today.
                     </p>
                   </div>
-                  <div className="space-y-4 mt-5 text-sm text-slate-800 dark:text-slate-300 leading-relaxed font-sans">
+                  <div className="space-y-5 mt-5 text-sm text-slate-800 dark:text-slate-300 leading-relaxed font-sans">
                     <div className="space-y-1">
-                      <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Systems Architecture</h4>
+                      <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">AI Architecture & Moats</h4>
                       <p className="text-xs sm:text-sm">
-                        On Apple's AI strategy: <a href="https://machinelearning.apple.com" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Apple Research</a> highlights a split architecture of local, on-device models for everyday tasks alongside Private Cloud Compute for complex requests, treating AI as a systems problem.
+                        Apple and Meta are expanding their system-level advantages by routing computation and context differently. Apple is pursuing a split architecture to handle everyday tasks on-device, while Meta is leveraging its off-platform behavioral data to build context moats that stand apart from raw model capabilities.
                       </p>
+                      {/* Skeleton lines to show there's more detail */}
+                      <div className="space-y-2 pt-2 opacity-50">
+                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-full animate-pulse" />
+                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-11/12 animate-pulse" />
+                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-3/4 animate-pulse" />
+                      </div>
                     </div>
                     <div className="space-y-1">
-                      <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Enterprise AI</h4>
+                      <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Frontier Model Segmentation</h4>
                       <p className="text-xs sm:text-sm">
-                        On Anthropic's Claude Fable: <a href="https://simonwillison.net" target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 underline decoration-slate-400/50 underline-offset-2 hover:text-indigo-900 dark:hover:text-indigo-200">Simon Willison's analysis</a> suggests reliability and governance are becoming product features in their own right, separating raw capability from predictable operational controls.
+                        Enterprise adoption is shifting focus from benchmarks to operational controls. Anthropic is segmenting its API access by packaging safety classifiers and predictable safety classifiers directly into the Claude Fable model tier.
                       </p>
+                      {/* Skeleton lines */}
+                      <div className="space-y-2 pt-2 opacity-50">
+                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-full animate-pulse" />
+                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-5/6 animate-pulse" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -151,7 +162,7 @@ export default function Login() {
                       </div>
                       <div className="space-y-0.5 text-left">
                         <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Read</h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-455">markly turns them into one short brief.</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-455">markly turns them into one synthesized brief.</p>
                       </div>
                     </div>
 

@@ -1,7 +1,7 @@
 {
   "name": "markly - your daily reading brief",
   "short_name": "markly",
-  "description": "markly turns the blogs and newsletters you follow into one short daily brief. Read what matters, keep what's worth it, share what you love.",
+  "description": "markly turns the blogs and newsletters you follow into a synthesized daily brief. Read what matters, keep what's worth it, share what you love.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

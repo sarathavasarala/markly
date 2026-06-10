@@ -2,7 +2,7 @@
 
 **Your daily brief from the blogs and newsletters you follow.**
 
-markly follows the blogs and newsletters you care about and turns them into one short brief, instead of another endless feed. Read what's worth your time, save what you want to keep, and let your saved reading become a list other people can follow.
+markly follows the blogs and newsletters you care about and turns them into one synthesized brief, instead of another endless feed. Read what's worth your time, save what you want to keep, and let your saved reading become a list other people can follow.
 
 **Live app:** [markly.azurewebsites.net](https://markly.azurewebsites.net)
 
