@@ -27,6 +27,12 @@ REQUEST_TIMEOUT = 10
 MAX_RESPONSE_BYTES = 2_000_000
 MAX_ENTRIES_PER_FEED = 25
 
+# Aggregator feeds whose entry link is a permalink to a roundup page rather than
+# the source article. For these, we resolve the real source URL embedded in the
+# entry summary so content extraction reads the underlying article, not the
+# aggregator page. Add hosts here to extend coverage.
+AGGREGATOR_HOSTS = ("techmeme.com",)
+
 
 class FeedError(ValueError):
     """Raised when a URL cannot be used as a feed source."""
@@ -235,16 +241,70 @@ def _entry_url(entry) -> str | None:
     return link.strip() if isinstance(link, str) and link.strip() else None
 
 
+def _is_aggregator_host(host: str | None) -> bool:
+    if not host:
+        return False
+    host = host.lower().lstrip(".")
+    return any(host == h or host.endswith("." + h) for h in AGGREGATOR_HOSTS)
+
+
+def _resolve_aggregator_source_url(entry, item_url: str) -> str | None:
+    """For aggregator entries (e.g. Techmeme), return the underlying source
+    article URL embedded in the entry summary, or None if not applicable.
+
+    Techmeme summaries contain several external links: an optional thumbnail
+    (no text), a short source label ("The Information", "@deanwball"), and the
+    headline, which links to the actual article. The headline always carries by
+    far the longest visible text, so we pick the external (non-aggregator) link
+    whose anchor text is longest, breaking ties by document order.
+    """
+    if not _is_aggregator_host(urlparse(item_url).hostname):
+        return None
+    raw = entry.get("summary") or entry.get("description")
+    if not raw:
+        return None
+    soup = BeautifulSoup(raw, "lxml")
+    best_url: str | None = None
+    best_len = -1
+    for anchor in soup.find_all("a", href=True):
+        href = anchor["href"].strip()
+        if not href.startswith(("http://", "https://")):
+            continue
+        host = urlparse(href).hostname
+        if not host or _is_aggregator_host(host):
+            continue
+        text_len = len(anchor.get_text(" ", strip=True))
+        if text_len > best_len:
+            best_len = text_len
+            best_url = href
+    return best_url
+
+
 def _entry_guid(entry, url: str) -> str:
     value = entry.get("id") or entry.get("guid") or url
     return str(value).strip() or url
 
 
 def _insert_entry(conn, user_id: str, feed_id: str, entry) -> bool:
-    url = _entry_url(entry)
+    raw_url = _entry_url(entry)
     title = (entry.get("title") or "").strip()
-    if not url or not title:
+    if not raw_url or not title:
         return False
+
+    # For aggregator feeds, point the item at the real source article and leave
+    # content empty so Signal extracts the underlying article instead of the
+    # short aggregator blurb.
+    source_url = _resolve_aggregator_source_url(entry, raw_url)
+    if source_url:
+        url = source_url
+        content = None
+    else:
+        url = raw_url
+        content = _entry_content(entry)
+
+    # Keep the GUID tied to the feed's own entry id so dedup stays stable even
+    # though the stored url now points at the source article.
+    guid = _entry_guid(entry, raw_url)
 
     now = utc_now()
     cursor = conn.execute(
@@ -259,13 +319,13 @@ def _insert_entry(conn, user_id: str, feed_id: str, entry) -> bool:
             new_id(),
             user_id,
             feed_id,
-            _entry_guid(entry, url),
+            guid,
             url,
             title,
             entry.get("author"),
             _entry_datetime(entry),
             _plain_summary(entry),
-            _entry_content(entry),
+            content,
             now,
             now,
         ),

@@ -174,6 +174,83 @@ def test_mark_feed_item_saved_links_user_bookmark(client):
     assert data["bookmark_id"] == bookmark_id
 
 
+TECHMEME_SUMMARY = (
+    '<a href="https://blog.google/innovation-and-ai/diffusion-gemma/">'
+    '<img src="http://www.techmeme.com/260610/i44.jpg" /></a>\n'
+    '<p><a href="https://www.techmeme.com/260610/p44#a260610p44" title="Techmeme permalink">'
+    '<img src="http://www.techmeme.com/img/pml.png" /></a> '
+    '<a href="https://blog.google/">The Keyword</a>:<br />'
+    '<span style="font-size: 1.3em;"><b>'
+    '<a href="https://blog.google/innovation-and-ai/diffusion-gemma/">'
+    'Google introduces DiffusionGemma, a 26B open model</a></b></span>'
+    '&nbsp; &mdash;&nbsp; Our newest open experimental model.</p>'
+)
+
+TECHMEME_SUMMARY_NO_THUMB = (
+    '<p><a href="https://www.techmeme.com/260610/p43#a260610p43" title="Techmeme permalink">'
+    '<img src="http://www.techmeme.com/img/pml.png" /></a> '
+    'Stephanie Palazzolo / <a href="https://www.theinformation.com/">The Information</a>:<br />'
+    '<span style="font-size: 1.3em;"><b>'
+    '<a href="https://www.theinformation.com/briefings/openai-public-next-year">'
+    'Sources: Sam Altman told staff OpenAI expects to go public within the next year</a></b></span>'
+    '&nbsp; &mdash;&nbsp; OpenAI CEO Sam Altman told staff.</p>'
+)
+
+
+def test_resolve_aggregator_source_url_picks_deep_article():
+    from services.feeds import _resolve_aggregator_source_url
+
+    # With thumbnail: headline (longest text) wins over source label "The Keyword".
+    entry = {"link": "https://www.techmeme.com/260610/p44#a260610p44", "summary": TECHMEME_SUMMARY}
+    assert (
+        _resolve_aggregator_source_url(entry, entry["link"])
+        == "https://blog.google/innovation-and-ai/diffusion-gemma/"
+    )
+
+    # No thumbnail: still picks the headline deep link, not the homepage label.
+    entry2 = {"link": "https://www.techmeme.com/260610/p43#a260610p43", "summary": TECHMEME_SUMMARY_NO_THUMB}
+    assert (
+        _resolve_aggregator_source_url(entry2, entry2["link"])
+        == "https://www.theinformation.com/briefings/openai-public-next-year"
+    )
+
+
+def test_resolve_aggregator_source_url_ignores_non_aggregator_feeds():
+    from services.feeds import _resolve_aggregator_source_url
+
+    # A normal feed entry must not be rewritten even if its summary has links.
+    entry = {"link": "https://example.com/post-1", "summary": '<a href="https://other.com/x">x</a>'}
+    assert _resolve_aggregator_source_url(entry, entry["link"]) is None
+
+
+def test_insert_aggregator_entry_uses_source_url_and_clears_content():
+    from services.feeds import _insert_entry
+
+    user = upsert_user("agg@example.com", full_name="Agg User")
+    feed_id = _insert_feed(user["id"])
+
+    entry = {
+        "id": "https://www.techmeme.com/260610/p44#a260610p44",
+        "link": "https://www.techmeme.com/260610/p44#a260610p44",
+        "title": "Google introduces DiffusionGemma",
+        "summary": TECHMEME_SUMMARY,
+    }
+    with db_session() as conn:
+        assert _insert_entry(conn, user["id"], feed_id, entry) is True
+        row = conn.execute(
+            "SELECT url, guid, content, summary FROM feed_items WHERE user_id = ?",
+            (user["id"],),
+        ).fetchone()
+
+    # url points at the real article so Signal extracts it; content is left empty
+    # so the extractor does not treat the short aggregator blurb as full text.
+    assert row["url"] == "https://blog.google/innovation-and-ai/diffusion-gemma/"
+    assert row["content"] is None
+    assert row["summary"] and "DiffusionGemma" in row["summary"]
+    # GUID stays tied to the feed's own entry id for stable dedup.
+    assert row["guid"] == "https://www.techmeme.com/260610/p44#a260610p44"
+
+
 def test_prune_keeps_only_latest_n_new_or_dismissed_items():
     user = upsert_user("test@example.com")
     feed_id = _insert_feed(user["id"], feed_url="https://example.com/prune1.xml", retention_limit=2)
