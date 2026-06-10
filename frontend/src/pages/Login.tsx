@@ -88,7 +88,7 @@ export default function Login() {
       </div>      {/* Right: sample card preview */}
       <div className="hidden md:flex flex-1 items-center justify-center p-12 lg:p-20">
         <div className="w-full max-w-md space-y-6">
-          <div className="min-h-[480px] flex flex-col justify-between">
+          <div className="min-h-[440px] flex flex-col justify-between">
             {activeSlide === 0 ? (
               <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-6 text-left flex-1 flex flex-col justify-between animate-in fade-in duration-500">
                 <div>
@@ -97,35 +97,32 @@ export default function Login() {
                     <h3 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
                       Today's brief
                     </h3>
-                  </div>
-                  <div className="rounded-2xl bg-slate-50/50 px-4 py-3 mt-4 dark:bg-slate-900/30 ring-1 ring-slate-200/50 dark:ring-slate-800/50">
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span>, synthesized from recent articles across your feeds. Below are the themes and developments that stood out today.
-                    </p>
+                    <div className="mt-1.5 text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5 flex-wrap font-sans">
+                      <span>8 sources analyzed</span>
+                      <span>•</span>
+                      <span>12 min read</span>
+                    </div>
                   </div>
                   <div className="space-y-5 mt-5 text-sm text-slate-800 dark:text-slate-300 leading-relaxed font-sans">
                     <div className="space-y-1">
                       <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">AI Architecture & Moats</h4>
                       <p className="text-xs sm:text-sm">
                         Apple and Meta are expanding their system-level advantages by routing computation and context differently. Apple is pursuing a split architecture to handle everyday tasks on-device, while Meta is leveraging its off-platform behavioral data to build context moats that stand apart from raw model capabilities.
+                        <span className="text-indigo-700 dark:text-indigo-300 font-medium ml-1">read more</span>
                       </p>
-                      {/* Skeleton lines to show there's more detail */}
-                      <div className="space-y-2 pt-2 opacity-50">
-                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-full animate-pulse" />
-                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-11/12 animate-pulse" />
-                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-3/4 animate-pulse" />
-                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                        Analyzed from Apple ML Research, Techmeme, and The Verge (and 4 related articles)
+                      </p>
                     </div>
                     <div className="space-y-1">
                       <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Frontier Model Segmentation</h4>
                       <p className="text-xs sm:text-sm">
                         Enterprise adoption is shifting focus from benchmarks to operational controls. Anthropic is segmenting its API access by packaging safety classifiers and predictable safety classifiers directly into the Claude Fable model tier.
+                        <span className="text-indigo-700 dark:text-indigo-300 font-medium ml-1">read more</span>
                       </p>
-                      {/* Skeleton lines */}
-                      <div className="space-y-2 pt-2 opacity-50">
-                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-full animate-pulse" />
-                        <div className="h-2 bg-slate-300 dark:bg-slate-700 rounded w-5/6 animate-pulse" />
-                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                        Analyzed from Anthropic, Simon Willison's analysis, and Bloomberg (and 2 related articles)
+                      </p>
                     </div>
                   </div>
                 </div>
