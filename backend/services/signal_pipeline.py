@@ -478,21 +478,21 @@ Here are the articles:
 
 Instructions:
 1. Read the articles. Identify the gaps a sharp reader would want filled: relevant dates, prior context, competitor or regulatory status, financial figures, what a referenced term or product actually is, what happened before this that the article assumes you know.
-2. Formulate at least 3 and up to 8 specific, factual questions that close those gaps. Favor questions whose answers ground the analysis, not speculative or opinion questions.
+2. Formulate at least 5 and up to 8 specific, factual questions that close those gaps. Run a search query for each.
 3. You have two tools:
    - web_search: find candidate sources and snippets.
-   - web_fetch: pull the full text of the most relevant 1 to 3 URLs to verify details and get clean facts.
-4. For each question, run web_search, then web_fetch the best sources to confirm.
-5. For each question, write a short factual grounding entry (2 to 4 sentences) answering it with current facts. Include a source URL when available.
+   - web_fetch: pull the full text of the most relevant URLs.
+4. Run at least 5 distinct search queries using the web_search tool. For meaningful search results, you MUST use the web_fetch tool to download the webpage content fully to extract grounded facts.
+5. For each question, write a comprehensive factual grounding entry answering it with detailed context and findings from the search. Include source URLs.
 6. Do NOT analyze or editorialize. Only report retrieved facts.
 7. If everything in the articles is already clear and needs no follow-up, return a brief note saying no additional context is needed.
 
 Output Format:
 Return plain text, one entry per paragraph, in this shape:
 
-**[Question or concept]**: [Factual grounding, 2 to 4 sentences]. Source: [URL if available]
+**[Question or concept]**: [Detailed factual grounding and findings]. Source: [URL if available]
 
-Keep the total under about 800 words.
+Keep the total under about 2000 words.
 """
 
 
