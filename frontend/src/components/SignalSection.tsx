@@ -17,12 +17,15 @@ interface PipelineStep {
   titles?: string[]
 }
 
-const getInitialSteps = (webSearchEnabled: boolean): PipelineStep[] => {
+const getInitialSteps = (webSearchEnabled: boolean, planningEnabled: boolean): PipelineStep[] => {
   const steps: PipelineStep[] = [
     { id: 'scanning', label: 'Scanning sources', status: 'pending' },
     { id: 'filtering', label: 'Applying taste profile', status: 'pending' },
     { id: 'extracting', label: 'Extracting full text', status: 'pending' },
   ]
+  if (planningEnabled) {
+    steps.push({ id: 'planning', label: 'Planning themes', status: 'pending' })
+  }
   if (webSearchEnabled) {
     steps.push({ id: 'researching', label: 'Researching background context', status: 'pending' })
   }
@@ -38,17 +41,20 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [signalCandidateLimit, setSignalCandidateLimit] = useState<number | null>(null)
   const [signalSynthesisLimit, setSignalSynthesisLimit] = useState<number | null>(null)
   const [signalFilterPrompt, setSignalFilterPrompt] = useState<string>('')
+  const [signalPlanningPrompt, setSignalPlanningPrompt] = useState<string>('')
   const [signalSynthesisPrompt, setSignalSynthesisPrompt] = useState<string>('')
   const [defaultFilterPrompt, setDefaultFilterPrompt] = useState<string>('')
+  const [defaultPlanningPrompt, setDefaultPlanningPrompt] = useState<string>('')
   const [defaultSynthesisPrompt, setDefaultSynthesisPrompt] = useState<string>('')
   const [defaultSynthesisLimit, setDefaultSynthesisLimit] = useState<number>(15)
+  const [signalPlanningEnabled, setSignalPlanningEnabled] = useState<boolean>(true)
   const [signalWebSearchEnabled, setSignalWebSearchEnabled] = useState<boolean>(true)
   
   const [activeSettingsTab, setActiveSettingsTab] = useState<'instructions' | 'prompts' | 'settings'>('instructions')
 
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(getInitialSteps(true))
+  const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(getInitialSteps(true, true))
   const [isTasteProfileOpen, setIsTasteProfileOpen] = useState(false)
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
   
@@ -58,6 +64,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
 
   const [candidateWords, setCandidateWords] = useState<number | null>(null)
   const [extractedWords, setExtractedWords] = useState<number | null>(null)
+  const [planWords, setPlanWords] = useState<number | null>(null)
   const [researchWords, setResearchWords] = useState<number | null>(null)
   const [synthesisWords, setSynthesisWords] = useState<number | null>(null)
   const [synthesisOutputWords, setSynthesisOutputWords] = useState<number | null>(null)
@@ -76,13 +83,17 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       setSignalSynthesisLimit(profileRes.data.signal_synthesis_limit)
       
       const defaultFilter = profileRes.data.default_filter_prompt || ''
+      const defaultPlanning = profileRes.data.default_planning_prompt || ''
       const defaultSynth = profileRes.data.default_synthesis_prompt || ''
       setDefaultFilterPrompt(defaultFilter)
+      setDefaultPlanningPrompt(defaultPlanning)
       setDefaultSynthesisPrompt(defaultSynth)
       setDefaultSynthesisLimit(profileRes.data.default_synthesis_limit ?? 15)
       
       setSignalFilterPrompt(profileRes.data.signal_filter_prompt !== null ? profileRes.data.signal_filter_prompt : defaultFilter)
+      setSignalPlanningPrompt(profileRes.data.signal_planning_prompt !== null ? profileRes.data.signal_planning_prompt : defaultPlanning)
       setSignalSynthesisPrompt(profileRes.data.signal_synthesis_prompt !== null ? profileRes.data.signal_synthesis_prompt : defaultSynth)
+      setSignalPlanningEnabled(profileRes.data.signal_planning_enabled !== undefined ? !!profileRes.data.signal_planning_enabled : true)
       setSignalWebSearchEnabled(profileRes.data.signal_web_search_enabled !== undefined ? !!profileRes.data.signal_web_search_enabled : true)
 
       if (briefsRes.data.briefs.length > 0) {
@@ -131,10 +142,11 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
     setInfoMessage(null)
     setCandidateWords(null)
     setExtractedWords(null)
+    setPlanWords(null)
     setResearchWords(null)
     setSynthesisWords(null)
     setSynthesisOutputWords(null)
-    setPipelineSteps(getInitialSteps(signalWebSearchEnabled).map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
+    setPipelineSteps(getInitialSteps(signalWebSearchEnabled, signalPlanningEnabled).map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
 
     try {
       const response = await signalApi.generateBriefStream()
@@ -194,8 +206,19 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 updateStep('extracting', { detail: event.message })
                 break
               case 'researching':
+                if (signalPlanningEnabled) markStepDone('planning')
                 markStepDone('extracting')
                 markStepActive('researching', event.message)
+                if (event.extracted_word_count !== undefined) setExtractedWords(event.extracted_word_count)
+                break
+              case 'planning':
+                markStepDone('extracting')
+                markStepActive('planning', event.message)
+                if (event.extracted_word_count !== undefined) setExtractedWords(event.extracted_word_count)
+                break
+              case 'planned':
+                markStepDone('planning', event.message)
+                if (event.plan_word_count !== undefined) setPlanWords(event.plan_word_count)
                 if (event.extracted_word_count !== undefined) setExtractedWords(event.extracted_word_count)
                 break
               case 'researched':
@@ -205,9 +228,11 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 break
               case 'synthesizing':
                 markStepDone('researching')
+                if (signalPlanningEnabled) markStepDone('planning')
                 markStepDone('extracting')
                 markStepActive('synthesizing', event.message)
                 if (event.extracted_word_count !== undefined) setExtractedWords(event.extracted_word_count)
+                if (event.plan_word_count !== undefined) setPlanWords(event.plan_word_count)
                 if (event.research_word_count !== undefined) setResearchWords(event.research_word_count)
                 if (event.synthesis_word_count !== undefined) setSynthesisWords(event.synthesis_word_count)
                 break
@@ -244,6 +269,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
         signal_candidate_limit: signalCandidateLimit,
         signal_synthesis_limit: signalSynthesisLimit,
         signal_filter_prompt: signalFilterPrompt,
+        signal_planning_prompt: signalPlanningPrompt,
         signal_synthesis_prompt: signalSynthesisPrompt,
         signal_web_search_enabled: signalWebSearchEnabled,
       })
@@ -251,6 +277,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       setSignalCandidateLimit(res.data.signal_candidate_limit)
       setSignalSynthesisLimit(res.data.signal_synthesis_limit)
       setSignalFilterPrompt(res.data.signal_filter_prompt !== null ? res.data.signal_filter_prompt : defaultFilterPrompt)
+      setSignalPlanningPrompt(res.data.signal_planning_prompt !== null ? res.data.signal_planning_prompt : defaultPlanningPrompt)
       setSignalSynthesisPrompt(res.data.signal_synthesis_prompt !== null ? res.data.signal_synthesis_prompt : defaultSynthesisPrompt)
       setSignalWebSearchEnabled(res.data.signal_web_search_enabled !== undefined ? !!res.data.signal_web_search_enabled : true)
       setSaveStatus('saved')
@@ -270,6 +297,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
           signal_candidate_limit: null,
           signal_synthesis_limit: null,
           signal_filter_prompt: null,
+          signal_planning_prompt: null,
           signal_synthesis_prompt: null,
           signal_web_search_enabled: true,
         })
@@ -277,6 +305,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
         setSignalCandidateLimit(res.data.signal_candidate_limit)
         setSignalSynthesisLimit(res.data.signal_synthesis_limit)
         setSignalFilterPrompt(defaultFilterPrompt)
+        setSignalPlanningPrompt(defaultPlanningPrompt)
         setSignalSynthesisPrompt(defaultSynthesisPrompt)
         setSignalWebSearchEnabled(true)
         setSaveStatus('saved')
@@ -554,6 +583,11 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                                 Extracted text: ~{extractedWords.toLocaleString()} words (estimated tokens ~{Math.round(extractedWords * 1.35).toLocaleString()})
                               </p>
                             )}
+                            {step.id === 'planning' && planWords !== null && (
+                              <p className="text-xs text-slate-400 dark:text-slate-500 font-sans">
+                                Brief plan: ~{planWords.toLocaleString()} words (estimated tokens ~{Math.round(planWords * 1.35).toLocaleString()})
+                              </p>
+                            )}
                             {step.id === 'researching' && researchWords !== null && (
                               <p className="text-xs text-slate-400 dark:text-slate-500 font-sans">
                                 Research context: ~{researchWords.toLocaleString()} words (estimated tokens ~{Math.round(researchWords * 1.35).toLocaleString()})
@@ -582,9 +616,9 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 </div>
 
                 {/* Token Telemetry Collapsible Section */}
-                {(candidateWords || extractedWords || researchWords || synthesisWords) && (() => {
-                  const totalInputWords = (candidateWords || 0) + (signalWebSearchEnabled && extractedWords ? extractedWords : 0) + (synthesisWords || 0)
-                  const totalOutputWords = (signalWebSearchEnabled && researchWords ? researchWords : 0) + (synthesisOutputWords || 0)
+                {(candidateWords || extractedWords || planWords || researchWords || synthesisWords) && (() => {
+                  const totalInputWords = (candidateWords || 0) + (signalPlanningEnabled ? (extractedWords || 0) : 0) + (signalWebSearchEnabled ? ((extractedWords || 0) + (signalPlanningEnabled ? (planWords || 0) : 0)) : 0) + (synthesisWords || 0)
+                  const totalOutputWords = (signalPlanningEnabled ? (planWords || 0) : 0) + (signalWebSearchEnabled && researchWords ? researchWords : 0) + (synthesisOutputWords || 0)
                   const totalInputTokens = Math.round(totalInputWords * 1.35)
                   const totalOutputTokens = Math.round(totalOutputWords * 1.35)
 
@@ -622,10 +656,27 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                           </div>
                         )}
 
-                        {/* Stage 2: Background Research (if web search is enabled) */}
+                        {/* Stage 2: Planning */}
+                        {signalPlanningEnabled && extractedWords !== null && (
+                          <div className="space-y-1.5 py-2">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">2. Theme Planning Stage</span>
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
+                              <span>Input (Extracted high-signal full body)</span>
+                              <span>~{extractedWords.toLocaleString()} words (est. tokens ~{Math.round(extractedWords * 1.35).toLocaleString()})</span>
+                            </div>
+                            {planWords !== null && planWords > 0 && (
+                              <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
+                                <span className="font-medium text-slate-600 dark:text-slate-400">Output (Editorial brief plan)</span>
+                                <span className="font-medium">~{planWords.toLocaleString()} words (est. tokens ~{Math.round(planWords * 1.35).toLocaleString()})</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Stage 3: Background Research (if web search is enabled) */}
                         {signalWebSearchEnabled && extractedWords !== null && (
                           <div className="space-y-1.5 py-2">
-                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">2. Background Research Stage (Web Search)</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">3. Background Research Stage (Web Search)</span>
                             <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
                               <span>Input (Extracted high-signal full body)</span>
                               <span>~{extractedWords.toLocaleString()} words (est. tokens ~{Math.round(extractedWords * 1.35).toLocaleString()})</span>
@@ -639,12 +690,12 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                           </div>
                         )}
 
-                        {/* Stage 3: Synthesis */}
+                        {/* Stage 4: Synthesis */}
                         {synthesisWords !== null && (
                           <div className="space-y-1.5 py-2">
-                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">3. Writing Stage (Brief Synthesis)</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">4. Writing Stage (Brief Synthesis)</span>
                             <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
-                              <span>Input (Extracted text + research brief context)</span>
+                              <span>Input (Extracted text + brief plan + research brief context)</span>
                               <span>~{synthesisWords.toLocaleString()} words (est. tokens ~{Math.round(synthesisWords * 1.35).toLocaleString()})</span>
                             </div>
                             {synthesisOutputWords !== null && (
@@ -844,10 +895,31 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
 
                   <hr className="border-slate-200/60 dark:border-slate-800/60" />
 
-                  {/* Step 2: Synthesis Prompt */}
+                  {/* Step 2: Planning Prompt */}
                   <div className="space-y-3">
                     <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Step 2: Synthesis Prompt Template
+                      Step 2: Brief Planning Prompt Template
+                    </label>
+                    <textarea
+                      value={signalPlanningPrompt}
+                      onChange={(e) => setSignalPlanningPrompt(e.target.value)}
+                      placeholder="Planning prompt template..."
+                      className="w-full h-64 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
+                    />
+                    <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
+                      <span className="font-semibold">Required variables:</span>
+                      <p>
+                        Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_contents_str}"}</code> for dynamic insertion. It can also use <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{recent_briefs}"}</code>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <hr className="border-slate-200/60 dark:border-slate-800/60" />
+
+                  {/* Step 3: Synthesis Prompt */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Step 3: Synthesis Prompt Template
                     </label>
                     <textarea
                       value={signalSynthesisPrompt}
@@ -859,6 +931,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       <span className="font-semibold">Required variables:</span>
                       <p>
                         Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_contents_str}"}</code> for dynamic insertion.
+                        It should also include <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{brief_plan}"}</code> so the writer can use the planning notes.
                       </p>
                     </div>
                   </div>

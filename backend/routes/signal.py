@@ -56,6 +56,42 @@ Return a JSON object containing a single key "selected_ids" mapping to an array 
 Return ONLY valid JSON.
 """
 
+PLANNING_PROMPT_TEMPLATE = """You are an editorial planning assistant for a daily intelligence briefing. Your job is to create a private scratchpad for the final writer, not to draft the brief.
+
+The user's Taste Profile is:
+\"\"\"
+{taste_profile}
+\"\"\"
+
+Here are the selected high-signal articles with full extracted text:
+\"\"\"
+{articles_contents_str}
+\"\"\"
+
+Themes Already Covered In Recent Briefs:
+\"\"\"
+{recent_briefs}
+\"\"\"
+
+Task:
+Create a concise editorial plan that helps the final brief have more depth and less forced grouping.
+
+Instructions:
+1. Identify only the themes where the relationship between articles is real and analytically useful. Do not group articles just because they share broad words like AI, cloud, chips, startups, or regulation.
+2. Preserve strong standalone stories when they deserve their own treatment.
+3. Point out near-duplicate coverage that should be collapsed.
+4. Surface source tensions: where authors disagree, emphasize different mechanisms, or notice different parts of the same development.
+5. Note what is genuinely new versus the recent brief titles, and what should not be re-explained.
+6. For each planned theme or standalone item, explain the mechanism the final writer should investigate: incentives, constraints, technical tradeoffs, business mechanics, ecosystem shifts, or second-order effects.
+7. Keep it concise. This is a planning memo, not the final brief.
+
+Output format:
+- Plain Markdown.
+- Use short headings.
+- Include sections named "Real themes", "Standalone stories", "Duplicate coverage", "Source tensions", and "Novelty notes".
+- Mention article IDs when useful.
+"""
+
 SYNTHESIS_PROMPT_TEMPLATE = """You are a top-tier analyst and chief of staff. Your goal is to prepare a daily intelligence briefing memo for a smart founder or CEO. This memo is synthesized from followed RSS feeds.
 
 The user's Taste Profile is:
@@ -73,13 +109,18 @@ Background Research (factual context gathered via web search):
 {research_brief}
 \"\"\"
 
+Editorial Brief Plan (private planning notes, not final copy):
+\"\"\"
+{brief_plan}
+\"\"\"
+
 Themes Already Covered In Your Recent Briefs (titles of the last few briefs you wrote for this user):
 \"\"\"
 {recent_briefs}
 \"\"\"
 
 Instructions:
-1. Group articles into themes only where the connection is real. It is fine to treat a strong standalone story on its own. Prefer a few genuine clusters plus standalone items over forcing everything into one unified narrative. Do not manufacture rhymes or throughlines between unrelated pieces.
+1. Use the Editorial Brief Plan as guidance, but do not copy it verbatim. Group articles into themes only where the connection is real. It is fine to treat a strong standalone story on its own. Prefer a few genuine clusters plus standalone items over forcing everything into one unified narrative. Do not manufacture rhymes or throughlines between unrelated pieces.
 2. Explain what actually mattered, what changed underneath the surface, what smart practitioners would notice, where the important tensions or disagreements are, what second-order implications emerge, and which narratives seem overstated versus genuinely meaningful.
 3. Writing Style:
    - Use clean, direct prose and simple language while carrying substantial depth.
@@ -120,7 +161,7 @@ def get_taste_profile():
     from config import Config
     conn = get_db()
     row = conn.execute(
-        "SELECT taste_profile, signal_candidate_limit, signal_synthesis_limit, signal_filter_prompt, signal_synthesis_prompt, signal_web_search_enabled "
+        "SELECT taste_profile, signal_candidate_limit, signal_synthesis_limit, signal_filter_prompt, signal_planning_prompt, signal_synthesis_prompt, signal_web_search_enabled "
         "FROM users WHERE id = ?",
         (g.user.id,)
     ).fetchone()
@@ -130,9 +171,12 @@ def get_taste_profile():
         "signal_candidate_limit": row["signal_candidate_limit"] if row else None,
         "signal_synthesis_limit": row["signal_synthesis_limit"] if row else None,
         "signal_filter_prompt": row["signal_filter_prompt"] if row else None,
+        "signal_planning_prompt": row["signal_planning_prompt"] if row else None,
         "signal_synthesis_prompt": row["signal_synthesis_prompt"] if row else None,
+        "signal_planning_enabled": Config.SIGNAL_BRIEF_PLANNING_ENABLED,
         "signal_web_search_enabled": bool(row["signal_web_search_enabled"]) if row and row["signal_web_search_enabled"] is not None else True,
         "default_filter_prompt": FILTER_PROMPT_TEMPLATE,
+        "default_planning_prompt": PLANNING_PROMPT_TEMPLATE,
         "default_synthesis_prompt": SYNTHESIS_PROMPT_TEMPLATE,
         "default_synthesis_limit": Config.SIGNAL_MAX_SYNTHESIS_ARTICLES,
     })
@@ -141,7 +185,7 @@ def get_taste_profile():
 @require_auth
 def update_taste_profile():
     data = request.get_json() or {}
-    profile = data.get("taste_profile", "").strip()
+    profile = str(data.get("taste_profile") or "").strip()
     
     limit = data.get("signal_candidate_limit")
     if limit is not None:
@@ -161,8 +205,15 @@ def update_taste_profile():
         except (ValueError, TypeError):
             synthesis_limit = None
 
-    filter_prompt = data.get("signal_filter_prompt", "").strip() or None
-    synthesis_prompt = data.get("signal_synthesis_prompt", "").strip() or None
+    def _optional_prompt(name: str) -> str | None:
+        value = data.get(name)
+        if value is None:
+            return None
+        return str(value).strip() or None
+
+    filter_prompt = _optional_prompt("signal_filter_prompt")
+    planning_prompt = _optional_prompt("signal_planning_prompt")
+    synthesis_prompt = _optional_prompt("signal_synthesis_prompt")
     web_search_enabled = data.get("signal_web_search_enabled")
     if web_search_enabled is None:
         web_search_enabled = True
@@ -172,14 +223,16 @@ def update_taste_profile():
     # Save as NULL if they match default templates exactly or are empty
     if filter_prompt and filter_prompt.strip() == FILTER_PROMPT_TEMPLATE.strip():
         filter_prompt = None
+    if planning_prompt and planning_prompt.strip() == PLANNING_PROMPT_TEMPLATE.strip():
+        planning_prompt = None
     if synthesis_prompt and synthesis_prompt.strip() == SYNTHESIS_PROMPT_TEMPLATE.strip():
         synthesis_prompt = None
 
     conn = get_db()
     conn.execute(
         "UPDATE users SET taste_profile = ?, signal_candidate_limit = ?, signal_synthesis_limit = ?, "
-        "signal_filter_prompt = ?, signal_synthesis_prompt = ?, signal_web_search_enabled = ?, updated_at = ? WHERE id = ?",
-        (profile, limit, synthesis_limit, filter_prompt, synthesis_prompt, 1 if web_search_enabled else 0, utc_now(), g.user.id)
+        "signal_filter_prompt = ?, signal_planning_prompt = ?, signal_synthesis_prompt = ?, signal_web_search_enabled = ?, updated_at = ? WHERE id = ?",
+        (profile, limit, synthesis_limit, filter_prompt, planning_prompt, synthesis_prompt, 1 if web_search_enabled else 0, utc_now(), g.user.id)
     )
     conn.commit()
 
@@ -189,6 +242,7 @@ def update_taste_profile():
         "signal_candidate_limit": limit,
         "signal_synthesis_limit": synthesis_limit,
         "signal_filter_prompt": filter_prompt,
+        "signal_planning_prompt": planning_prompt,
         "signal_synthesis_prompt": synthesis_prompt,
         "signal_web_search_enabled": web_search_enabled,
     })
@@ -212,6 +266,7 @@ def generate_brief():
             conn,
             g.user.id,
             default_filter_template=FILTER_PROMPT_TEMPLATE,
+            default_planning_template=PLANNING_PROMPT_TEMPLATE,
             default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
         )
         taste_profile = settings["taste_profile"]
@@ -239,9 +294,19 @@ def generate_brief():
         updates = signal_pipeline.run_extract_contents(selected_items)
         signal_pipeline.persist_content_updates(conn, updates)
 
+        brief_plan = ""
+        if settings.get("planning_enabled", True):
+            brief_plan = signal_pipeline.plan_brief(
+                selected_items,
+                taste_profile,
+                settings["planning_template"],
+                recent_briefs=settings.get("recent_briefs", ""),
+            )
+
         research_brief, _ = signal_pipeline.research(
             selected_items,
             web_search_enabled=settings["web_search_enabled"],
+            brief_plan=brief_plan,
         )
 
         content = signal_pipeline.synthesize(
@@ -250,6 +315,7 @@ def generate_brief():
             settings["synthesis_template"],
             research_brief=research_brief,
             recent_briefs=settings.get("recent_briefs", ""),
+            brief_plan=brief_plan,
         )
         brief = signal_pipeline.save_brief(conn, g.user.id, content, selected_items)
         return jsonify(brief), 201
@@ -304,6 +370,7 @@ def _generate_brief_stream(user_id: str):
                 conn,
                 user_id,
                 default_filter_template=FILTER_PROMPT_TEMPLATE,
+                default_planning_template=PLANNING_PROMPT_TEMPLATE,
                 default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
             )
             taste_profile = settings["taste_profile"]
@@ -383,6 +450,35 @@ def _generate_brief_stream(user_id: str):
 
     extracted_words = sum(len((item.get("content") or "").split()) for item in selected_items)
 
+    brief_plan = ""
+    plan_words = 0
+    if settings.get("planning_enabled", True):
+        yield _sse_event({
+            "stage": "planning",
+            "message": "Planning themes and source tensions...",
+            "extracted_word_count": extracted_words,
+        })
+
+        try:
+            brief_plan = signal_pipeline.plan_brief(
+                selected_items,
+                taste_profile,
+                settings["planning_template"],
+                recent_briefs=settings.get("recent_briefs", ""),
+            )
+            plan_words = len((brief_plan or "").split())
+            yield _sse_event({
+                "stage": "planned",
+                "message": "Theme planning complete",
+                "plan_word_count": plan_words,
+                "extracted_word_count": extracted_words,
+            })
+        except Exception as exc:
+            logger.exception("Error during brief planning")
+            log_telemetry_error(user_id, "planning", exc)
+            yield _sse_event({"stage": "error", "message": f"Failed during theme planning: {str(exc)}"})
+            return
+
     research_brief = ""
     research_words = 0
     if settings.get("web_search_enabled", True):
@@ -392,7 +488,7 @@ def _generate_brief_stream(user_id: str):
             "extracted_word_count": extracted_words,
         })
         try:
-            research_brief, queries = signal_pipeline.research(selected_items, web_search_enabled=True)
+            research_brief, queries = signal_pipeline.research(selected_items, web_search_enabled=True, brief_plan=brief_plan)
             research_words = len((research_brief or "").split())
             yield _sse_event({
                 "stage": "researched",
@@ -408,13 +504,14 @@ def _generate_brief_stream(user_id: str):
             return
 
     articles_contents_str = signal_pipeline._build_articles_contents_str(selected_items)
-    synthesis_words = len((articles_contents_str or "").split()) + research_words
+    synthesis_words = len((articles_contents_str or "").split()) + research_words + plan_words
 
     yield _sse_event({
         "stage": "synthesizing",
         "message": "Writing your daily brief...",
         "extracted_word_count": extracted_words,
         "research_word_count": research_words,
+        "plan_word_count": plan_words,
         "synthesis_word_count": synthesis_words,
     })
 
@@ -425,6 +522,7 @@ def _generate_brief_stream(user_id: str):
             settings["synthesis_template"],
             research_brief=research_brief,
             recent_briefs=settings.get("recent_briefs", ""),
+            brief_plan=brief_plan,
         )
     except Exception as exc:
         logger.exception("Error in signal brief synthesis LLM call")

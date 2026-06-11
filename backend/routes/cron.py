@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request
 from database import db_session
 from services.feeds import refresh_feeds, embed_pending_feed_items_async
 from services import signal_pipeline
-from routes.signal import FILTER_PROMPT_TEMPLATE, SYNTHESIS_PROMPT_TEMPLATE
+from routes.signal import FILTER_PROMPT_TEMPLATE, PLANNING_PROMPT_TEMPLATE, SYNTHESIS_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
@@ -91,11 +91,14 @@ def cron_brief():
                     conn,
                     user_id,
                     default_filter_template=FILTER_PROMPT_TEMPLATE,
+                    default_planning_template=PLANNING_PROMPT_TEMPLATE,
                     default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
                 )
                 taste_profile = settings["taste_profile"]
                 candidate_limit = settings["candidate_limit"]
                 filter_template = settings["filter_template"]
+                planning_template = settings["planning_template"]
+                planning_enabled = settings["planning_enabled"]
                 synthesis_template = settings["synthesis_template"]
                 web_search_enabled = settings["web_search_enabled"]
 
@@ -129,16 +132,27 @@ def cron_brief():
             with db_session() as conn:
                 signal_pipeline.persist_content_updates(conn, updates)
 
-            # 5. Research & Synthesize report (model call)
+            # 5. Plan, research, and synthesize report (model calls)
+            brief_plan = ""
+            if planning_enabled:
+                brief_plan = signal_pipeline.plan_brief(
+                    selected_items,
+                    taste_profile,
+                    planning_template,
+                    recent_briefs=settings.get("recent_briefs", ""),
+                )
             research_brief, _ = signal_pipeline.research(
                 selected_items,
                 web_search_enabled=web_search_enabled,
+                brief_plan=brief_plan,
             )
             content = signal_pipeline.synthesize(
                 selected_items,
                 taste_profile,
                 synthesis_template,
                 research_brief=research_brief,
+                recent_briefs=settings.get("recent_briefs", ""),
+                brief_plan=brief_plan,
             )
 
             # 6. Save final brief

@@ -279,8 +279,11 @@ export interface SignalSettings {
   signal_candidate_limit: number | null
   signal_synthesis_limit: number | null
   signal_filter_prompt: string | null
+  signal_planning_prompt: string | null
   signal_synthesis_prompt: string | null
+  signal_planning_enabled?: boolean
   default_filter_prompt?: string
+  default_planning_prompt?: string
   default_synthesis_prompt?: string
   default_synthesis_limit?: number
   signal_web_search_enabled?: boolean

@@ -186,10 +186,10 @@ def _recency_weight(timestamp: str | None) -> float:
 # Stage 1: settings
 # ---------------------------------------------------------------------------
 
-def load_user_settings(conn, user_id, *, default_filter_template, default_synthesis_template):
+def load_user_settings(conn, user_id, *, default_filter_template, default_synthesis_template, default_planning_template):
     """Load taste profile, candidate limit, synthesis limit, and (custom or default) prompt templates."""
     user_row = conn.execute(
-        "SELECT taste_profile, signal_candidate_limit, signal_synthesis_limit, signal_filter_prompt, signal_synthesis_prompt, signal_web_search_enabled "
+        "SELECT taste_profile, signal_candidate_limit, signal_synthesis_limit, signal_filter_prompt, signal_planning_prompt, signal_synthesis_prompt, signal_web_search_enabled "
         "FROM users WHERE id = ?",
         (user_id,),
     ).fetchone()
@@ -210,6 +210,11 @@ def load_user_settings(conn, user_id, *, default_filter_template, default_synthe
         if user_row and user_row["signal_filter_prompt"]
         else default_filter_template
     )
+    planning_template = (
+        user_row["signal_planning_prompt"]
+        if user_row and user_row["signal_planning_prompt"]
+        else default_planning_template
+    )
     synthesis_template = (
         user_row["signal_synthesis_prompt"]
         if user_row and user_row["signal_synthesis_prompt"]
@@ -225,6 +230,8 @@ def load_user_settings(conn, user_id, *, default_filter_template, default_synthe
         "candidate_limit": candidate_limit,
         "synthesis_limit": synthesis_limit,
         "filter_template": filter_template,
+        "planning_template": planning_template,
+        "planning_enabled": Config.SIGNAL_BRIEF_PLANNING_ENABLED,
         "synthesis_template": synthesis_template,
         "web_search_enabled": web_search_enabled,
         "recent_briefs": _build_recent_briefs_str(load_recent_brief_titles(conn, user_id)),
@@ -486,7 +493,73 @@ def persist_content_updates(conn, updates):
 
 
 # ---------------------------------------------------------------------------
-# Stage 5: research (web search grounding)
+# Stage 5: brief planning
+# ---------------------------------------------------------------------------
+
+def _fallback_brief_plan(selected_items) -> str:
+    """Return a conservative plan if the planner LLM is unavailable."""
+    lines = [
+        "Editorial plan:",
+        "- Treat each selected article as a standalone candidate unless the final writer finds a clear connection in the full text.",
+        "- Collapse duplicate coverage if multiple articles describe the same event without adding distinct analysis.",
+        "- Prefer source tensions, concrete mechanisms, and what changed over generic theme labels.",
+        "",
+        "Selected items:",
+    ]
+    for item in selected_items:
+        lines.append(f"- {item.get('title')} ({item.get('feed_title') or 'Unknown source'}): standalone unless strongly connected by the article text.")
+    return "\n".join(lines)
+
+
+def plan_brief(selected_items, taste_profile, planning_template, recent_briefs=""):
+    """Create an ephemeral editorial plan for today's selected articles.
+
+    The plan is a scratchpad for research and synthesis, not a persistent cluster
+    model. It should help the final writer group only real themes, preserve
+    strong standalone stories, and notice source tensions.
+    """
+    articles_contents_str = _build_articles_contents_str(selected_items)
+    fmt_args = {
+        "taste_profile": taste_profile,
+        "articles_contents_str": articles_contents_str,
+        "recent_briefs": recent_briefs,
+    }
+
+    import string
+    formatter = string.Formatter()
+    try:
+        for _, field_name, _, _ in formatter.parse(planning_template):
+            if field_name and field_name not in fmt_args:
+                fmt_args[field_name] = ""
+        planning_prompt = planning_template.format(**fmt_args)
+    except Exception as exc:
+        logger.warning("Error formatting planning template: %s. Using fallback plan.", exc)
+        return _fallback_brief_plan(selected_items)
+
+    try:
+        client, model = AzureOpenAIService.get_signal_chat_client_and_model()
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an editorial planning assistant for an intelligence brief. "
+                        "Write concise planning notes only. Do not draft the final brief."
+                    ),
+                },
+                {"role": "user", "content": planning_prompt},
+            ],
+        )
+        plan = (response.choices[0].message.content or "").strip()
+        return plan or _fallback_brief_plan(selected_items)
+    except Exception as exc:
+        logger.warning("Brief planning failed, using fallback plan: %s", exc)
+        return _fallback_brief_plan(selected_items)
+
+
+# ---------------------------------------------------------------------------
+# Stage 6: research (web search grounding)
 # ---------------------------------------------------------------------------
 
 RESEARCH_PROMPT_TEMPLATE = """You are a research assistant preparing background context for a daily intelligence brief.
@@ -498,9 +571,14 @@ Here are the articles:
 {articles_contents_str}
 \"\"\"
 
+Editorial Brief Plan:
+\"\"\"
+{brief_plan}
+\"\"\"
+
 Instructions:
-1. Read the articles. Identify the gaps a sharp reader would want filled: relevant dates, prior context, competitor or regulatory status, financial figures, what a referenced term or product actually is, what happened before this that the article assumes you know.
-2. Formulate at least 5 and up to 8 specific, factual questions that close those gaps. Run a search query for each.
+1. Read the articles and the Editorial Brief Plan. Identify the factual gaps a sharp reader would want filled for the planned themes, standalone stories, source tensions, and novelty claims: relevant dates, prior context, competitor or regulatory status, financial figures, what a referenced term or product actually is, what happened before this that the article assumes you know.
+2. Formulate at least 5 and up to 8 specific, factual questions that close those gaps. Prefer questions tied to the planned themes rather than generic background.
 3. You have two tools:
    - web_search: find candidate sources and snippets.
    - web_fetch: pull the full text of the most relevant URLs.
@@ -518,7 +596,7 @@ Keep the total under about 2000 words.
 """
 
 
-def research(selected_items, web_search_enabled=True):
+def research(selected_items, web_search_enabled=True, brief_plan=""):
     """Run web search grounding on the selected articles and return a research brief and queries list.
 
     When web_search_enabled is False, this step is skipped and returns ("", []).
@@ -528,8 +606,10 @@ def research(selected_items, web_search_enabled=True):
         return "", []
 
     articles_contents_str = _build_articles_contents_str(selected_items)
-    research_prompt = RESEARCH_PROMPT_TEMPLATE.replace(
-        "{articles_contents_str}", articles_contents_str
+    research_prompt = (
+        RESEARCH_PROMPT_TEMPLATE
+        .replace("{articles_contents_str}", articles_contents_str)
+        .replace("{brief_plan}", brief_plan or "No separate editorial plan was generated.")
     )
 
     system_content = (
@@ -549,10 +629,10 @@ def research(selected_items, web_search_enabled=True):
 
 
 # ---------------------------------------------------------------------------
-# Stage 6: synthesis
+# Stage 7: synthesis
 # ---------------------------------------------------------------------------
 
-def synthesize(selected_items, taste_profile, synthesis_template, research_brief="", recent_briefs=""):
+def synthesize(selected_items, taste_profile, synthesis_template, research_brief="", recent_briefs="", brief_plan=""):
     """Run the synthesis LLM call and return cleaned brief text.
 
     This is a pure writing step — no tools, no web search. If a research brief
@@ -568,6 +648,7 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
         "articles_contents_str": articles_contents_str,
         "research_brief": research_brief,
         "recent_briefs": recent_briefs,
+        "brief_plan": brief_plan,
     }
     import string
     formatter = string.Formatter()
@@ -583,6 +664,7 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
             .replace("{articles_contents_str}", articles_contents_str)
             .replace("{research_brief}", research_brief)
             .replace("{recent_briefs}", recent_briefs)
+            .replace("{brief_plan}", brief_plan)
         )
 
     system_content = "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."
@@ -628,7 +710,7 @@ def parse_and_clean_brief(content: str) -> tuple[str | None, str]:
 
 
 # ---------------------------------------------------------------------------
-# Stage 7: persist brief
+# Stage 8: persist brief
 # ---------------------------------------------------------------------------
 
 def save_brief(conn, user_id, content, selected_items):

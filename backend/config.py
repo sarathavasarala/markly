@@ -83,9 +83,10 @@ class Config:
     SIGNAL_EMBED_MIN_COVERAGE = float(os.getenv("SIGNAL_EMBED_MIN_COVERAGE", "0.5"))
     # Named magic numbers (defaults match prior hardcoded values).
     SIGNAL_MAX_SYNTHESIS_ARTICLES = int(os.getenv("SIGNAL_MAX_SYNTHESIS_ARTICLES", "15"))
-    SIGNAL_CONTENT_MAX_CHARS = int(os.getenv("SIGNAL_CONTENT_MAX_CHARS", "8000"))
-    SIGNAL_CONTENT_HEAD_CHARS = int(os.getenv("SIGNAL_CONTENT_HEAD_CHARS", "6500"))
-    SIGNAL_CONTENT_TAIL_CHARS = int(os.getenv("SIGNAL_CONTENT_TAIL_CHARS", "1500"))
+    SIGNAL_BRIEF_PLANNING_ENABLED = os.getenv("SIGNAL_BRIEF_PLANNING_ENABLED", "true").lower() == "true"
+    SIGNAL_CONTENT_MAX_CHARS = int(os.getenv("SIGNAL_CONTENT_MAX_CHARS", "16000"))
+    SIGNAL_CONTENT_HEAD_CHARS = int(os.getenv("SIGNAL_CONTENT_HEAD_CHARS", "12000"))
+    SIGNAL_CONTENT_TAIL_CHARS = int(os.getenv("SIGNAL_CONTENT_TAIL_CHARS", "4000"))
     # Per-refresh cap on how many backlog items get embedded, so a large backlog
     # smooths across multiple refreshes instead of bursting hundreds of calls at once.
     SIGNAL_EMBED_MAX_PER_RUN = int(os.getenv("SIGNAL_EMBED_MAX_PER_RUN", "200"))

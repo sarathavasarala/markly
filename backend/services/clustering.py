@@ -491,6 +491,7 @@ def generate_cluster_report(user_id: str, cluster_id: str) -> dict[str, Any]:
             conn,
             user_id,
             default_filter_template="",
+            default_planning_template="",
             default_synthesis_template=""
         )
         

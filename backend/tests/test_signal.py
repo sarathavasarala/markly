@@ -73,22 +73,26 @@ def test_generate_brief_success(client, mocker):
         return_value=(mock_client, "gpt-4o")
     )
     
-    # Mocking first call (filtering)
+    # Mocking chat calls: filtering, then planning
     mock_response_filter = mocker.MagicMock()
     mock_response_filter.choices = [
         mocker.MagicMock(message=mocker.MagicMock(content='{"selected_ids": ["item-1"]}'))
     ]
+    mock_response_plan = mocker.MagicMock()
+    mock_response_plan.choices = [
+        mocker.MagicMock(message=mocker.MagicMock(content="Real themes\n- Reliability is becoming the product story."))
+    ]
     
-    mock_client.chat.completions.create.side_effect = [mock_response_filter]
+    mock_client.chat.completions.create.side_effect = [mock_response_filter, mock_response_plan]
     
     # Mocking research call
-    mocker.patch(
+    mock_research = mocker.patch(
         "services.openai_service.AzureOpenAIService.generate_research_with_search",
         return_value=("**Concept**: factual grounding", ["query 1"])
     )
 
     # Mocking synthesis call
-    mocker.patch(
+    mock_synthesis = mocker.patch(
         "services.openai_service.AzureOpenAIService.generate_brief_with_verbosity",
         return_value="## AI Ecosystem Shift\nAI labs are optimizing for reliability and deployment economics — which is a major change."
     )
@@ -109,6 +113,10 @@ def test_generate_brief_success(client, mocker):
     # The first-line H2 is lifted into the title and stripped from the body.
     assert data["title"] == "AI Ecosystem Shift"
     assert "## AI Ecosystem Shift" not in data["content"]
+    research_prompt = mock_research.call_args.args[0]
+    synthesis_prompt = mock_synthesis.call_args.args[0]
+    assert "Reliability is becoming the product story" in research_prompt
+    assert "Reliability is becoming the product story" in synthesis_prompt
 
     # Verify item status remains new (not auto-dismissed)
     with db_session() as conn:
@@ -186,6 +194,7 @@ def test_update_taste_profile_customizations(client):
         "signal_candidate_limit": 50,
         "signal_synthesis_limit": 10,
         "signal_filter_prompt": "Custom filter prompt {taste_profile} {articles_list_str}",
+        "signal_planning_prompt": "Custom planning prompt {taste_profile} {articles_contents_str}",
         "signal_synthesis_prompt": "Custom synthesis prompt {taste_profile} {articles_contents_str}"
     }
 
@@ -197,6 +206,7 @@ def test_update_taste_profile_customizations(client):
     assert data["signal_candidate_limit"] == 50
     assert data["signal_synthesis_limit"] == 10
     assert data["signal_filter_prompt"] == payload["signal_filter_prompt"]
+    assert data["signal_planning_prompt"] == payload["signal_planning_prompt"]
     assert data["signal_synthesis_prompt"] == payload["signal_synthesis_prompt"]
 
     # Verify retrieval
@@ -207,6 +217,7 @@ def test_update_taste_profile_customizations(client):
     assert data["signal_candidate_limit"] == 50
     assert data["signal_synthesis_limit"] == 10
     assert data["signal_filter_prompt"] == payload["signal_filter_prompt"]
+    assert data["signal_planning_prompt"] == payload["signal_planning_prompt"]
     assert data["signal_synthesis_prompt"] == payload["signal_synthesis_prompt"]
 
 
@@ -217,6 +228,7 @@ def test_reset_taste_profile_customizations(client):
         "signal_candidate_limit": None,
         "signal_synthesis_limit": None,
         "signal_filter_prompt": "",
+        "signal_planning_prompt": "",
         "signal_synthesis_prompt": ""
     }
 
@@ -230,6 +242,7 @@ def test_reset_taste_profile_customizations(client):
     assert data["signal_candidate_limit"] is None
     assert data["signal_synthesis_limit"] is None
     assert data["signal_filter_prompt"] is None
+    assert data["signal_planning_prompt"] is None
     assert data["signal_synthesis_prompt"] is None
 
     # Retrieve and verify default templates are returned as defaults, but custom columns are null
@@ -240,9 +253,25 @@ def test_reset_taste_profile_customizations(client):
     assert data["signal_candidate_limit"] is None
     assert data["signal_synthesis_limit"] is None
     assert data["signal_filter_prompt"] is None
+    assert data["signal_planning_prompt"] is None
     assert data["signal_synthesis_prompt"] is None
     assert "You are an expert analyst assistant." in data["default_filter_prompt"]
+    assert "editorial planning assistant" in data["default_planning_prompt"]
     assert "You are a top-tier analyst" in data["default_synthesis_prompt"]
+
+
+def test_taste_profile_reports_planning_feature_flag(client):
+    from config import Config
+
+    upsert_user("test@example.com", full_name="Test User")
+    original = Config.SIGNAL_BRIEF_PLANNING_ENABLED
+    try:
+        Config.SIGNAL_BRIEF_PLANNING_ENABLED = False
+        response = client.get("/api/signal/taste-profile", headers=AUTH_HEADERS)
+        assert response.status_code == 200
+        assert response.get_json()["signal_planning_enabled"] is False
+    finally:
+        Config.SIGNAL_BRIEF_PLANNING_ENABLED = original
 
 
 def test_signal_pipeline_research_and_synthesize(mocker):
@@ -256,10 +285,11 @@ def test_signal_pipeline_research_and_synthesize(mocker):
         "services.openai_service.AzureOpenAIService.generate_research_with_search",
         return_value=("My research brief", ["query 1"])
     )
-    brief, queries = research([{"id": "1", "title": "A", "feed_title": "B", "url": "http://a", "content": "body"}], web_search_enabled=True)
+    brief, queries = research([{"id": "1", "title": "A", "feed_title": "B", "url": "http://a", "content": "body"}], web_search_enabled=True, brief_plan="Plan context")
     assert brief == "My research brief"
     assert queries == ["query 1"]
     mock_research.assert_called_once()
+    assert "Plan context" in mock_research.call_args.args[0]
 
     # 3. Test synthesize formatting and fallback
     mock_synthesis = mocker.patch(
@@ -271,7 +301,8 @@ def test_signal_pipeline_research_and_synthesize(mocker):
         selected_items=[{"id": "1", "title": "A", "feed_title": "B", "url": "http://a", "content": "body"}],
         taste_profile="taste instructions",
         synthesis_template="Brief: {taste_profile} Research: {research_brief}",
-        research_brief="test research"
+        research_brief="test research",
+        brief_plan="test plan"
     )
     assert res == "synthesis brief content"
     mock_synthesis.assert_called_once_with(
@@ -570,6 +601,7 @@ def test_generate_brief_stream_success(client, mocker):
         "taste_profile": "custom taste",
         "candidate_limit": 10,
         "filter_template": "filter {taste_profile}",
+        "planning_template": "plan {taste_profile}",
         "synthesis_template": "synthesis {taste_profile}",
         "web_search_enabled": True
     })
@@ -582,6 +614,7 @@ def test_generate_brief_stream_success(client, mocker):
     mocker.patch("services.signal_pipeline.llm_filter", return_value=[{"id": "item-1", "title": "AI reliability vs benchmarks", "feed_title": "B", "url": "http://a", "content": "Full text content"}])
     mocker.patch("services.signal_pipeline.extract_contents", side_effect=mock_extract_generator)
     mocker.patch("services.signal_pipeline.persist_content_updates")
+    mocker.patch("services.signal_pipeline.plan_brief", return_value="Brief plan details")
     mocker.patch("services.signal_pipeline.research", return_value=("Background details", ["query 1"]))
     mocker.patch("services.signal_pipeline.synthesize", return_value="The final daily brief.")
     mocker.patch("services.signal_pipeline.save_brief", return_value={"id": "brief-123", "content": "The final daily brief."})
@@ -603,6 +636,8 @@ def test_generate_brief_stream_success(client, mocker):
     assert "filtering" in stages
     assert "filtered" in stages
     assert "extracting" in stages
+    assert "planning" in stages
+    assert "planned" in stages
     assert "researching" in stages
     assert "researched" in stages
     assert "synthesizing" in stages
@@ -621,6 +656,10 @@ def test_generate_brief_stream_success(client, mocker):
     assert "extracted_word_count" in researching_evt
     assert researching_evt["extracted_word_count"] > 0
 
+    planned_evt = next(evt for evt in parsed_events if evt["stage"] == "planned")
+    assert "plan_word_count" in planned_evt
+    assert planned_evt["plan_word_count"] > 0
+
     researched_evt = next(evt for evt in parsed_events if evt["stage"] == "researched")
     assert "research_word_count" in researched_evt
     assert researched_evt["research_word_count"] > 0
@@ -630,11 +669,65 @@ def test_generate_brief_stream_success(client, mocker):
     assert "synthesis_word_count" in synthesizing_evt
     assert synthesizing_evt["synthesis_word_count"] > 0
     assert "extracted_word_count" in synthesizing_evt
+    assert "plan_word_count" in synthesizing_evt
     assert "research_word_count" in synthesizing_evt
 
     complete_evt = next(evt for evt in parsed_events if evt["stage"] == "complete")
     assert "synthesis_output_word_count" in complete_evt
     assert complete_evt["synthesis_output_word_count"] > 0
+
+
+def test_generate_brief_stream_skips_planning_when_feature_disabled(client, mocker):
+    user = upsert_user("test@example.com", full_name="Test User")
+    feed_id = _insert_feed(user["id"])
+    _insert_feed_item(
+        user["id"],
+        feed_id,
+        id="item-1",
+        title="AI reliability vs benchmarks",
+        summary="A summary",
+        content="Full text content",
+        content_format="html",
+        status="new"
+    )
+
+    mocker.patch("services.signal_pipeline.load_user_settings", return_value={
+        "taste_profile": "custom taste",
+        "candidate_limit": 10,
+        "filter_template": "filter {taste_profile}",
+        "planning_template": "plan {taste_profile}",
+        "planning_enabled": False,
+        "synthesis_template": "synthesis {taste_profile}",
+        "web_search_enabled": True
+    })
+
+    def mock_extract_generator(selected_items):
+        yield (1, 1)
+        return []
+
+    mock_plan = mocker.patch("services.signal_pipeline.plan_brief", return_value="Brief plan details")
+    mock_research = mocker.patch("services.signal_pipeline.research", return_value=("Background details", ["query 1"]))
+    mock_synthesize = mocker.patch("services.signal_pipeline.synthesize", return_value="The final daily brief.")
+    mocker.patch("services.signal_pipeline.llm_filter", return_value=[{"id": "item-1", "title": "AI reliability vs benchmarks", "feed_title": "B", "url": "http://a", "content": "Full text content"}])
+    mocker.patch("services.signal_pipeline.extract_contents", side_effect=mock_extract_generator)
+    mocker.patch("services.signal_pipeline.persist_content_updates")
+    mocker.patch("services.signal_pipeline.save_brief", return_value={"id": "brief-123", "content": "The final daily brief."})
+
+    response = client.post("/api/signal/briefs/generate", headers=AUTH_HEADERS)
+    assert response.status_code == 200
+
+    import json
+    events = [line for line in response.get_data(as_text=True).split("\n") if line.startswith("data:")]
+    parsed_events = [json.loads(e.removeprefix("data: ")) for e in events]
+    stages = [evt["stage"] for evt in parsed_events]
+
+    assert "planning" not in stages
+    assert "planned" not in stages
+    assert "researching" in stages
+    assert "synthesizing" in stages
+    mock_plan.assert_not_called()
+    assert mock_research.call_args.kwargs["brief_plan"] == ""
+    assert mock_synthesize.call_args.kwargs["brief_plan"] == ""
 
 
 def test_signal_telemetry_logging(client, mocker):
@@ -656,6 +749,7 @@ def test_signal_telemetry_logging(client, mocker):
         "taste_profile": "custom taste",
         "candidate_limit": 10,
         "filter_template": "filter {taste_profile}",
+        "planning_template": "plan {taste_profile}",
         "synthesis_template": "synthesis {taste_profile}",
         "web_search_enabled": True
     })
