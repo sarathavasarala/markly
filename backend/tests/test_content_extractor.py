@@ -4,7 +4,8 @@ from unittest.mock import patch, MagicMock
 
 def test_extract_domain():
     url = "https://www.example.com/some/path"
-    result = ContentExtractor.extract(url)
+    with patch('config.Config.JINA_READER_API_KEY', None), patch.object(ContentExtractor, '_extract_via_beautifulsoup', return_value={}):
+        result = ContentExtractor.extract(url)
     assert result["domain"] == "example.com"
 
 

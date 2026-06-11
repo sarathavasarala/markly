@@ -1,4 +1,5 @@
 """Content extraction service."""
+import logging
 import re
 import requests
 from urllib.parse import urlparse
@@ -6,6 +7,9 @@ from bs4 import BeautifulSoup
 from typing import Optional
 
 from config import Config
+
+
+logger = logging.getLogger(__name__)
 
 
 class ContentExtractor:
@@ -53,7 +57,7 @@ class ContentExtractor:
             try:
                 jina_res = cls._extract_via_jina(url)
             except Exception as e:
-                print(f"Jina extraction failed: {e}")
+                logger.debug("Jina extraction failed for %s: %s", url, e)
                 
         # If Jina succeeded and extracted content, we skip BeautifulSoup fallback
         if jina_res.get("content"):
@@ -66,7 +70,7 @@ class ContentExtractor:
             try:
                 bs_res = cls._extract_via_beautifulsoup(url)
             except Exception as e:
-                print(f"BeautifulSoup extraction failed: {e}")
+                logger.debug("BeautifulSoup extraction failed for %s: %s", url, e)
                 
             # Merge BeautifulSoup results
             for key, val in bs_res.items():
@@ -114,7 +118,7 @@ class ContentExtractor:
             }
             
         except Exception as e:
-            print(f"Jina extraction failed for {url}: {str(e)}")
+            logger.debug("Jina extraction failed for %s: %s", url, e)
             return {}
     
     @classmethod
@@ -163,7 +167,7 @@ class ContentExtractor:
                 if article.text and article.text.strip():
                     newspaper_content = article.text.strip()
             except Exception as e:
-                print(f"Newspaper3k parse failed: {e}")
+                logger.debug("Newspaper3k parse failed for %s: %s", url, e)
             
             if newspaper_content:
                 result["content"] = newspaper_content[:Config.ARCHIVE_MAX_CHARS]
@@ -176,7 +180,7 @@ class ContentExtractor:
                     result["content_format"] = "text"
             
         except Exception as e:
-            print(f"BeautifulSoup extraction failed for {url}: {e}")
+            logger.debug("BeautifulSoup extraction failed for %s: %s", url, e)
         
         return result
 
