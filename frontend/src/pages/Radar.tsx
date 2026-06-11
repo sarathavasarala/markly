@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ExternalLink, Loader2, Plus, RefreshCw, Trash2, X } from 'lucide-react'
+import { ExternalLink, Loader2, Plus, RefreshCw, Trash2, X, Radio } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useSearchParams, useNavigate } from 'react-router-dom'
@@ -10,6 +10,17 @@ import SignalSection from '../components/SignalSection'
 // Clusters feature temporarily hidden — pending more testing before re-enabling.
 // import ClusterSection from '../components/ClusterSection'
 
+const SAMPLE_FEEDS = [
+  { title: "Hacker News: Front Page", desc: "Front page tech & startup community news.", url: "https://hnrss.org/frontpage" },
+  { title: "Simon Willison's Weblog: ai", desc: "Insightful developer writing & AI updates.", url: "https://simonwillison.net/tags/ai.atom" },
+  { title: "Geoffrey Litt", desc: "Dynamic software research & programming systems.", url: "https://www.geoffreylitt.com/feed.xml" },
+  { title: "Ed Zitron's Where's Your Ed At", desc: "Sharp commentary on the tech industry.", url: "https://www.wheresyoured.at/rss/" },
+  { title: "Lenny's Newsletter", desc: "Product management & startup advice.", url: "https://www.lennysnewsletter.com/feed" },
+  { title: "Techmeme", desc: "Essential daily tech news aggregator.", url: "https://www.techmeme.com/feed.xml" },
+  { title: "Stratechery by Ben Thompson", desc: "Business, strategy, and tech analysis.", url: "https://stratechery.com/feed/" },
+  { title: "Last Week in AI", desc: "A digest of everything happening in artificial intelligence.", url: "https://lastweekin.ai/feed" },
+]
+
 export default function Radar() {
   const [feeds, setFeeds] = useState<Feed[]>([])
   const [items, setItems] = useState<FeedItem[]>([])
@@ -18,6 +29,7 @@ export default function Radar() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isAddingFeed, setIsAddingFeed] = useState(false)
+  const [addingFeedUrl, setAddingFeedUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastRefreshSummary, setLastRefreshSummary] = useState<string | null>(null)
   const [selectedFeedId, setSelectedFeedId] = useState<string | null>(null)
@@ -176,6 +188,25 @@ export default function Radar() {
       setError(err.response?.data?.error || 'Failed to add feed')
     } finally {
       setIsAddingFeed(false)
+    }
+  }
+
+  const isAlreadyAdded = (url: string) => {
+    const norm = (u: string) => u.toLowerCase().replace(/\/$/, '')
+    return feeds.some(f => norm(f.feed_url) === norm(url))
+  }
+
+  const handleAddSampleFeed = async (url: string) => {
+    setAddingFeedUrl(url)
+    setError(null)
+    try {
+      await feedsApi.create(url)
+      setSelectedFeedId(null)
+      await handleRefresh(true)
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to add feed')
+    } finally {
+      setAddingFeedUrl(null)
     }
   }
 
@@ -382,7 +413,7 @@ export default function Radar() {
             </button>
             {feeds.length === 0 ? (
               <div className="rounded-2xl border border-slate-200/70 bg-white/50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400">
-                Add your first source to start Radar.
+                Your followed sources will appear here.
               </div>
             ) : (
               feeds.map((feed) => (
@@ -439,11 +470,85 @@ export default function Radar() {
                 <div key={item} className="h-28 animate-pulse rounded-3xl bg-slate-200/70 dark:bg-slate-800/70" />
               ))}
             </div>
+          ) : feeds.length === 0 ? (
+            <div className="rounded-card bg-surface-light px-8 py-10 shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 text-center space-y-6">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                <Radio className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">Start your Radar</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                  Radar monitors blogs, newsletters, and RSS feeds for you. We synthesize these into a unified daily brief, or you can browse them individually.
+                </p>
+              </div>
+
+              <div className="border-t border-slate-200/50 dark:border-slate-800/80 pt-6">
+                <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4 text-left">
+                  Suggested tech feeds (from your profile)
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2 text-left">
+                  {SAMPLE_FEEDS.map((feed) => {
+                    const added = isAlreadyAdded(feed.url)
+                    const adding = addingFeedUrl === feed.url
+                    return (
+                      <div key={feed.url} className="rounded-2xl border border-slate-200/70 bg-white/50 p-4 flex flex-col justify-between hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900/30 transition-all">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{feed.title}</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">{feed.desc}</p>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[150px] font-mono">
+                            {new URL(feed.url).hostname}
+                          </span>
+                          <button
+                            onClick={() => handleAddSampleFeed(feed.url)}
+                            disabled={added || adding}
+                            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors flex items-center gap-1 ${
+                              added
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-900/30'
+                                : 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white disabled:opacity-50'
+                            }`}
+                          >
+                            {adding ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                Adding...
+                              </>
+                            ) : added ? (
+                              'Added'
+                            ) : (
+                              <>
+                                <Plus className="w-3 h-3" />
+                                Add
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
           ) : items.length === 0 ? (
-            <div className="rounded-card border border-dashed border-slate-300 bg-white/40 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
-              <p className="text-slate-500 dark:text-slate-400">
-                Nothing new in Radar. Add a source or refresh later.
-              </p>
+            <div className="rounded-card bg-surface-light px-8 py-12 shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 text-center space-y-4">
+              <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                <Radio className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-display text-lg font-medium text-slate-950 dark:text-slate-50">All caught up</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Nothing new in Radar right now. Check back later or add more sources.
+                </p>
+              </div>
+              <button
+                onClick={() => handleRefresh(true)}
+                disabled={isRefreshing}
+                className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white disabled:opacity-50"
+              >
+                {isRefreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Refresh feeds
+              </button>
             </div>
           ) : (
             <div className="space-y-6">

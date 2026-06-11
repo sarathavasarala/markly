@@ -376,30 +376,44 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
           <div className="h-96 animate-pulse rounded-3xl bg-slate-200/70 dark:bg-slate-800/70" />
         </div>
       ) : briefs.length === 0 && !isGenerating ? (
-        /* Empty State */
-        <div className="rounded-card border border-dashed border-slate-300 bg-white/40 px-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900/40">
-          <div className="mx-auto max-w-lg space-y-4">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-              <Sparkles className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+        <div className="rounded-card bg-surface-light px-6 py-10 shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 sm:px-8 sm:py-12">
+          <div className="mx-auto max-w-2xl text-center space-y-6">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <Sparkles className="h-8 w-8" />
             </div>
-            <h2 className="font-display text-xl font-normal text-slate-900 dark:text-slate-100">
-              Create your first Daily Brief
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Instead of reading individual feed items, Signal filters recent RSS stories using your Taste Profile and synthesizes them into a unified chief-of-staff memo.
-            </p>
-            <div className="pt-4 flex justify-center gap-3">
-              <button
-                onClick={() => setIsTasteProfileOpen(true)}
-                className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
-              >
-                Configure Taste Profile
-              </button>
+            <div className="space-y-2">
+              <h2 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
+                Create your first Daily Brief
+              </h2>
+              <p className="mx-auto max-w-lg text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                Instead of reading individual feed items, Signal filters recent RSS stories using your Taste Profile and synthesizes them into a unified chief-of-staff memo.
+              </p>
+            </div>
+            <div className="grid gap-3 text-left sm:grid-cols-3">
+              {[
+                'Scans your followed sources',
+                'Filters with your taste profile',
+                'Writes one focused memo',
+              ].map((label) => (
+                <div key={label} className="rounded-2xl border border-slate-200/70 bg-white/55 px-4 py-3 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
+                  {label}
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col justify-center gap-3 pt-1 sm:flex-row">
               <button
                 onClick={handleGenerate}
-                className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
               >
+                <RefreshCw className="h-4 w-4" />
                 Generate Brief
+              </button>
+              <button
+                onClick={() => setIsTasteProfileOpen(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
+              >
+                <Settings className="h-4 w-4" />
+                Configure Taste Profile
               </button>
             </div>
           </div>
@@ -578,7 +592,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                     <details className="group mt-6 border-t border-slate-200/60 pt-4 dark:border-slate-800/60">
                       <summary className="flex items-center justify-between cursor-pointer list-none text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-300">
                         <span className="flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5 text-slate-450 dark:text-slate-500 transition-transform group-open:rotate-45" />
+                          <Sparkles className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 transition-transform group-open:rotate-45" />
                           Token Telemetry
                           <span className="text-[10px] lowercase text-slate-400 font-normal px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50">
                             click to view breakdown
@@ -592,16 +606,16 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                           )}
                         </span>
                       </summary>
-                      <div className="mt-3 space-y-2.5 text-xs text-slate-655 dark:text-slate-400 pl-5 divide-y divide-slate-100/50 dark:divide-slate-900/50">
+                      <div className="mt-3 space-y-2.5 text-xs text-slate-600 dark:text-slate-400 pl-5 divide-y divide-slate-100/50 dark:divide-slate-900/50">
                         {/* Stage 1: Filtering */}
                         {candidateWords !== null && (
                           <div className="space-y-1.5 py-1.5">
-                            <span className="font-semibold text-slate-750 dark:text-slate-300 block">1. Taste Profile Filtering Stage</span>
-                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-450">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">1. Taste Profile Filtering Stage</span>
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
                               <span>Input (Candidate summaries/metadata)</span>
                               <span>~{candidateWords.toLocaleString()} words (est. tokens ~{Math.round(candidateWords * 1.35).toLocaleString()})</span>
                             </div>
-                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-455">
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
                               <span>Output (Selected IDs)</span>
                               <span>negligible (approx. &lt;100 tokens)</span>
                             </div>
@@ -611,13 +625,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                         {/* Stage 2: Background Research (if web search is enabled) */}
                         {signalWebSearchEnabled && extractedWords !== null && (
                           <div className="space-y-1.5 py-2">
-                            <span className="font-semibold text-slate-750 dark:text-slate-300 block">2. Background Research Stage (Web Search)</span>
-                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-450">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">2. Background Research Stage (Web Search)</span>
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
                               <span>Input (Extracted high-signal full body)</span>
                               <span>~{extractedWords.toLocaleString()} words (est. tokens ~{Math.round(extractedWords * 1.35).toLocaleString()})</span>
                             </div>
                             {researchWords !== null && researchWords > 0 && (
-                              <div className="flex items-center justify-between pl-3 text-slate-550 dark:text-slate-400">
+                              <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
                                 <span className="font-medium text-slate-600 dark:text-slate-400">Output (Background Research Brief)</span>
                                 <span className="font-medium">~{researchWords.toLocaleString()} words (est. tokens ~{Math.round(researchWords * 1.35).toLocaleString()})</span>
                               </div>
@@ -628,13 +642,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                         {/* Stage 3: Synthesis */}
                         {synthesisWords !== null && (
                           <div className="space-y-1.5 py-2">
-                            <span className="font-semibold text-slate-750 dark:text-slate-300 block">3. Writing Stage (Brief Synthesis)</span>
-                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-450">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">3. Writing Stage (Brief Synthesis)</span>
+                            <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
                               <span>Input (Extracted text + research brief context)</span>
                               <span>~{synthesisWords.toLocaleString()} words (est. tokens ~{Math.round(synthesisWords * 1.35).toLocaleString()})</span>
                             </div>
                             {synthesisOutputWords !== null && (
-                              <div className="flex items-center justify-between pl-3 text-slate-550 dark:text-slate-400">
+                              <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
                                 <span className="font-medium text-slate-600 dark:text-slate-400">Output (Generated Daily Brief Content)</span>
                                 <span className="font-medium">~{synthesisOutputWords.toLocaleString()} words (est. tokens ~{Math.round(synthesisOutputWords * 1.35).toLocaleString()})</span>
                               </div>
@@ -647,13 +661,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                           <div className="space-y-1.5 py-2.5 font-sans border-t border-slate-200 dark:border-slate-800">
                             <span className="font-bold text-slate-800 dark:text-slate-200 block">Estimated Footprint Summary Totals</span>
                             <div className="flex items-center justify-between pl-3">
-                              <span className="font-semibold text-slate-700 dark:text-slate-350">Total Prompt Input size</span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">Total Prompt Input size</span>
                               <span className="font-bold text-slate-900 dark:text-slate-100">
                                 ~{totalInputWords.toLocaleString()} words (estimated tokens ~{totalInputTokens.toLocaleString()})
                               </span>
                             </div>
                             <div className="flex items-center justify-between pl-3">
-                              <span className="font-semibold text-slate-700 dark:text-slate-350">Total Generated Output size</span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">Total Generated Output size</span>
                               <span className="font-bold text-slate-900 dark:text-slate-100">
                                 ~{totalOutputWords.toLocaleString()} words (estimated tokens ~{totalOutputTokens.toLocaleString()})
                               </span>

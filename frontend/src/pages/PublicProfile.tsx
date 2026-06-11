@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, CheckCircle, Loader2, Copy, Check, AlertTriangle, MoreVertical } from 'lucide-react'
+import { Mail, CheckCircle, Loader2, Copy, Check, AlertTriangle, MoreVertical, BookMarked } from 'lucide-react'
 import { publicApi, bookmarksApi } from '../lib/api'
 import { useAuthStore } from '../stores/authStore'
 import SubscribersModal from '../components/SubscribersModal'
@@ -491,8 +491,59 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                 <button onClick={() => navigate('/')} className="mt-3 text-sm text-indigo-700 dark:text-indigo-300 hover:underline">Go home</button>
                             </div>
                         ) : bookmarks.length === 0 ? (
-                            <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 py-16 text-center">
-                                <p className="text-sm text-slate-500 dark:text-slate-400">No bookmarks shared yet</p>
+                            <div className="rounded-card bg-surface-light px-6 py-12 text-center shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 sm:px-8">
+                                <div className="mx-auto max-w-xl space-y-5">
+                                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                        {isOwner ? <BookMarked className="h-7 w-7" /> : <Mail className="h-7 w-7" />}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h2 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
+                                            {isOwner ? 'Start your public reading list' : 'No public bookmarks yet'}
+                                        </h2>
+                                        <p className="mx-auto max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                                            {isOwner
+                                                ? "You haven't shared any bookmarks publicly yet. Make any bookmark public to show it on your reading list."
+                                                : 'No public bookmarks have been shared by this user yet.'}
+                                        </p>
+                                    </div>
+
+                                    {isOwner ? (
+                                        <button
+                                            onClick={() => navigate('/')}
+                                            className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                                        >
+                                            <BookMarked className="h-4 w-4" />
+                                            Go to library
+                                        </button>
+                                    ) : !isSubscribed ? (
+                                        <form onSubmit={handleSubscribe} className="mx-auto flex max-w-md flex-col gap-2 sm:flex-row">
+                                            <div className="relative flex-1 group">
+                                                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-300" />
+                                                <input
+                                                    type="email"
+                                                    value={email}
+                                                    onChange={(e) => setEmail(e.target.value)}
+                                                    placeholder="Your email"
+                                                    className="w-full rounded-full bg-white/80 py-2.5 pl-11 pr-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 placeholder-slate-400 transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:text-slate-100 dark:ring-slate-700 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+                                                    required
+                                                />
+                                            </div>
+                                            <button
+                                                type="submit"
+                                                disabled={isLoading}
+                                                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                                            >
+                                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                                Subscribe for updates
+                                            </button>
+                                        </form>
+                                    ) : (
+                                        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400">
+                                            <CheckCircle className="h-4 w-4" />
+                                            Subscribed for updates
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <div className="space-y-5">
