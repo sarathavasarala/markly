@@ -486,7 +486,7 @@ export default function Radar() {
                   </button>
                   <button
                     onClick={() => handleCopyFeedUrl(feed)}
-                    className="rounded-lg p-1.5 text-slate-300 opacity-0 transition hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                    className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
                     title="Copy feed URL"
                   >
                     {copiedFeedId === feed.id
@@ -495,7 +495,7 @@ export default function Radar() {
                   </button>
                   <button
                     onClick={() => deleteFeed(feed)}
-                    className="rounded-lg p-1.5 text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:hover:bg-rose-900/20 dark:hover:text-rose-300"
+                    className="rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20 dark:hover:text-rose-300"
                     title="Remove source"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
