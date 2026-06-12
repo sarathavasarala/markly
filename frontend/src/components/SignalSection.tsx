@@ -893,33 +893,37 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                     </div>
                   </div>
 
+                  {signalPlanningEnabled && (
+                    <>
+                      <hr className="border-slate-200/60 dark:border-slate-800/60" />
+
+                      {/* Step 2: Planning Prompt */}
+                      <div className="space-y-3">
+                        <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          Step 2: Brief Planning Prompt Template
+                        </label>
+                        <textarea
+                          value={signalPlanningPrompt}
+                          onChange={(e) => setSignalPlanningPrompt(e.target.value)}
+                          placeholder="Planning prompt template..."
+                          className="w-full h-64 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
+                        />
+                        <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
+                          <span className="font-semibold">Required variables:</span>
+                          <p>
+                            Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_contents_str}"}</code> for dynamic insertion. It can also use <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{recent_briefs}"}</code>.
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   <hr className="border-slate-200/60 dark:border-slate-800/60" />
 
-                  {/* Step 2: Planning Prompt */}
+                  {/* Synthesis Prompt */}
                   <div className="space-y-3">
                     <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Step 2: Brief Planning Prompt Template
-                    </label>
-                    <textarea
-                      value={signalPlanningPrompt}
-                      onChange={(e) => setSignalPlanningPrompt(e.target.value)}
-                      placeholder="Planning prompt template..."
-                      className="w-full h-64 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 font-mono resize-none"
-                    />
-                    <div className="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300 ring-1 ring-amber-200/50 dark:ring-amber-900/20 space-y-1">
-                      <span className="font-semibold">Required variables:</span>
-                      <p>
-                        Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_contents_str}"}</code> for dynamic insertion. It can also use <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{recent_briefs}"}</code>.
-                      </p>
-                    </div>
-                  </div>
-
-                  <hr className="border-slate-200/60 dark:border-slate-800/60" />
-
-                  {/* Step 3: Synthesis Prompt */}
-                  <div className="space-y-3">
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Step 3: Synthesis Prompt Template
+                      Step {signalPlanningEnabled ? '3' : '2'}: Synthesis Prompt Template
                     </label>
                     <textarea
                       value={signalSynthesisPrompt}
@@ -931,7 +935,9 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       <span className="font-semibold">Required variables:</span>
                       <p>
                         Your prompt template must include the placeholders <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{taste_profile}"}</code> and <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{articles_contents_str}"}</code> for dynamic insertion.
-                        It should also include <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{brief_plan}"}</code> so the writer can use the planning notes.
+                        {signalPlanningEnabled && (
+                          <> It should also include <code className="bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded font-mono font-semibold">{"{brief_plan}"}</code> so the writer can use the planning notes.</>
+                        )}
                       </p>
                     </div>
                   </div>

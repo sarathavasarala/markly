@@ -49,6 +49,7 @@ Recent RSS Articles:
 
 Task:
 Select the articles that contain genuine insight, strategic relevance, ecosystem shifts, product directions, or important second-order implications. Skip incremental news, announcements, engagement bait, benchmark hype, or repetitive coverage.
+Favor items where the article contains enough substance to support a real analyst read: mechanism, evidence, business consequence, technical constraint, market structure, or a clear tension worth unpacking. A plain news item can qualify if the company, product, policy, or market involved is important enough and the implications are analyzable.
 Discard any articles that do not align with the priorities.
 Order the selected IDs from most to least aligned with the Taste Profile, since only the strongest will be processed.
 
@@ -83,12 +84,14 @@ Instructions:
 4. Surface source tensions: where authors disagree, emphasize different mechanisms, or notice different parts of the same development.
 5. Note what is genuinely new versus the recent brief titles, and what should not be re-explained.
 6. For each planned theme or standalone item, explain the mechanism the final writer should investigate: incentives, constraints, technical tradeoffs, business mechanics, ecosystem shifts, or second-order effects.
-7. Keep it concise. This is a planning memo, not the final brief.
+7. For each planned theme or standalone item, give the final writer a concrete angle in this shape: what happened, why it matters, evidence strength, what to watch next, and what would weaken the read. Keep each part brief.
+8. Avoid rhetorical templates that make every item sound artificially contrarian. In particular, do not recommend the framing "the story/news is not about X, it is about Y" unless the source material truly demands that distinction.
+9. Keep it concise. This is a planning memo, not the final brief.
 
 Output format:
 - Plain Markdown.
 - Use short headings.
-- Include sections named "Real themes", "Standalone stories", "Duplicate coverage", "Source tensions", and "Novelty notes".
+- Include sections named "Real themes", "Standalone stories", "Duplicate coverage", "Source tensions", "Novelty notes", and "Watch points".
 - Mention article IDs when useful.
 """
 
@@ -121,8 +124,18 @@ Themes Already Covered In Your Recent Briefs (titles of the last few briefs you 
 
 Instructions:
 1. Use the Editorial Brief Plan as guidance, but do not copy it verbatim. Group articles into themes only where the connection is real. It is fine to treat a strong standalone story on its own. Prefer a few genuine clusters plus standalone items over forcing everything into one unified narrative. Do not manufacture rhymes or throughlines between unrelated pieces.
-2. Explain what actually mattered, what changed underneath the surface, what smart practitioners would notice, where the important tensions or disagreements are, what second-order implications emerge, and which narratives seem overstated versus genuinely meaningful.
-3. Writing Style:
+2. For each major section, first state the news plainly in one or two sentences, then explain the implications. Explain what actually mattered, what changed underneath the surface, what smart practitioners would notice, where the important tensions or disagreements are, what second-order implications emerge, and which narratives seem overstated versus genuinely meaningful.
+3. Make the memo feel like a smart analyst's morning report, not an equity research note and not a generic newsletter. Each section should have a clear analyst read, the mechanism behind that read, and at least one concrete thing to watch next when the story is likely to develop. When evidence is anecdotal, self-reported, or weak, say so in prose.
+4. Depth discipline:
+    - Do not stop at "this is important". Explain why it matters operationally, commercially, technically, or strategically.
+    - Distinguish reported facts from your interpretation. Do this naturally in prose, not with labels on every sentence.
+    - Include disconfirming conditions when they would materially change the read. For example: what data, follow-up event, customer behavior, or execution result would make the implication less true.
+    - Prefer specific implications over grand claims. If the impact on a company, market, customer segment, or workflow is unclear, say what is unclear.
+5. Framing discipline:
+    - Do not use the construction "the story/news is not about X, it is about Y" or close variants such as "the interesting part is not X" as a default analytical move. The reader dislikes this pattern. State the news directly, then discuss the implications.
+    - Avoid opening multiple sections with the same move, such as "The important shift is...", "The broader signal is...", or "The lesson is...". Vary the analysis and only use these phrases when they are genuinely the simplest sentence.
+    - Do not make every item sound contrarian. Some news is simply news with consequences.
+6. Writing Style:
    - Use clean, direct prose and simple language while carrying substantial depth.
    - Do NOT use bullet points (no asterisks or hyphens for lists; write in paragraphs).
    - Do NOT use em dashes. Use commas, hyphens, colons, or parentheses instead.
@@ -132,25 +145,26 @@ Instructions:
    - Explain mechanisms and incentives, connect isolated events into broader patterns only when warranted, identify hidden assumptions, and discuss second-order implications.
    - Acknowledge uncertainty when evidence is weak instead of manufacturing false confidence or artificial depth.
    - Do not try to sound impressive. Prefer the plain statement over the quotable one. If a sentence reaches for an aphorism, cut it back to what it actually means. Be precise, skeptical, grounded, and useful.
-   - Do not end with a recap section that restates the clusters above. Close only if you have genuinely new synthesis, a watch-list, or a specific bet, in a few sentences.
-4. Source Attribution:
+    - Do not end with a recap section that restates the clusters above. Close only if you have genuinely new synthesis, a watch-list, or a specific bet, in a few sentences.
+7. Source Attribution:
    - When referencing information or insights drawn from a specific article, include an inline hyperlink to the source using Markdown link syntax: [descriptive anchor text](URL).
    - Weave links naturally into the prose. For example: "As [this analysis from Stratechery](https://example.com/article) argues, the real shift is...".
    - Do not group all sources at the end. Embed them where they are most contextually relevant.
    - Every thematic section should contain at least one source link.
-5. Background Context:
+8. Background Context:
    - Use the Background Research section above to ground your analysis with factual context.
    - When referencing research findings, cite the source URLs provided in the research.
    - Before analyzing a specific theme or story (especially for hardware, infrastructure, or topics outside core software/AI), briefly introduce what the author is talking about. A single sentence of plain grounding context is allowed and encouraged to orient the reader.
    - If the Background Research section is empty, proceed using only the article content and your own knowledge.
-6. Continuity With Recent Briefs:
+9. Continuity With Recent Briefs:
    - The "Themes Already Covered In Your Recent Briefs" section lists the titles of the briefs this user has already read.
    - Do not re-explain a story or theme the user has already seen unless there is a genuinely new development, a meaningful escalation, or new information that changes the picture. In that case, lead briefly with what is actually new rather than recapping what was already covered.
    - Favor fresh angles and stories the user has not seen yet. It is fine to omit an item entirely if it merely continues a theme already covered without adding anything new.
-7. Output Format:
+10. Output Format:
    - Provide the response in Markdown format.
    - The very first line of the memo MUST be a title summarizing the key themes or focal point of the brief, formatted as a markdown H1 starting with `# Theme: ` (e.g., `# Theme: Apple Intelligence & Nvidia Blackwell Costs`).
    - Use simple headers (e.g. `##` for conversation clusters) to organize the memo body.
+    - If the brief has several unrelated stories, make the title name the dominant thread or use a compact multi-theme title. Do not pretend unrelated items form one grand thesis.
    - Do not include any greeting, introduction, signature, or filler.
 """
 

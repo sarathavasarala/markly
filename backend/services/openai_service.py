@@ -539,7 +539,9 @@ class AzureOpenAIService:
             "- One line, no quotes, no markdown, no trailing punctuation.\n"
             "- Maximum 14 words. Concrete and specific to this brief's main thread.\n"
             "- Capture the most important development or throughline, not a generic label.\n"
-            "- Sound like a sharp analyst's headline, not clickbait. No em dashes.\n\n"
+            "- Sound like a sharp analyst's headline, not clickbait. No em dashes.\n"
+            "- Avoid overused inversion or revelation formulas such as 'X reveals Y', "
+            "'not X but Y', or 'the real story is Y'. State the subject directly.\n\n"
             "Brief:\n"
             '"""\n'
             f"{excerpt}\n"
