@@ -53,6 +53,8 @@ def test_generate_brief_no_content(client):
     assert "No recent RSS feed content found" in data["message"]
 
 def test_generate_brief_success(client, mocker):
+    from config import Config
+
     user = upsert_user("test@example.com", full_name="Test User")
     feed_id = _insert_feed(user["id"])
     item_id = _insert_feed_item(
@@ -72,19 +74,21 @@ def test_generate_brief_success(client, mocker):
         "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
         return_value=(mock_client, "gpt-4o")
     )
-    
-    # Mocking chat calls: filtering, then planning
+
     mock_response_filter = mocker.MagicMock()
     mock_response_filter.choices = [
         mocker.MagicMock(message=mocker.MagicMock(content='{"selected_ids": ["item-1"]}'))
     ]
-    mock_response_plan = mocker.MagicMock()
-    mock_response_plan.choices = [
-        mocker.MagicMock(message=mocker.MagicMock(content="Real themes\n- Reliability is becoming the product story."))
-    ]
-    
-    mock_client.chat.completions.create.side_effect = [mock_response_filter, mock_response_plan]
-    
+
+    if Config.SIGNAL_BRIEF_PLANNING_ENABLED:
+        mock_response_plan = mocker.MagicMock()
+        mock_response_plan.choices = [
+            mocker.MagicMock(message=mocker.MagicMock(content="Real themes\n- Reliability is becoming the product story."))
+        ]
+        mock_client.chat.completions.create.side_effect = [mock_response_filter, mock_response_plan]
+    else:
+        mock_client.chat.completions.create.side_effect = [mock_response_filter]
+
     # Mocking research call
     mock_research = mocker.patch(
         "services.openai_service.AzureOpenAIService.generate_research_with_search",
@@ -113,10 +117,12 @@ def test_generate_brief_success(client, mocker):
     # The first-line H2 is lifted into the title and stripped from the body.
     assert data["title"] == "AI Ecosystem Shift"
     assert "## AI Ecosystem Shift" not in data["content"]
-    research_prompt = mock_research.call_args.args[0]
-    synthesis_prompt = mock_synthesis.call_args.args[0]
-    assert "Reliability is becoming the product story" in research_prompt
-    assert "Reliability is becoming the product story" in synthesis_prompt
+
+    if Config.SIGNAL_BRIEF_PLANNING_ENABLED:
+        research_prompt = mock_research.call_args.args[0]
+        synthesis_prompt = mock_synthesis.call_args.args[0]
+        assert "Reliability is becoming the product story" in research_prompt
+        assert "Reliability is becoming the product story" in synthesis_prompt
 
     # Verify item status remains new (not auto-dismissed)
     with db_session() as conn:
