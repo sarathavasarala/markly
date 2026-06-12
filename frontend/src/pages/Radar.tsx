@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ExternalLink, Loader2, Plus, RefreshCw, Trash2, X, Radio } from 'lucide-react'
+import { Clipboard, Check, ExternalLink, Loader2, Plus, RefreshCw, Trash2, X, Radio } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useSearchParams, useNavigate } from 'react-router-dom'
@@ -47,12 +47,35 @@ export default function Radar() {
   const [readerError, setReaderError] = useState<string | null>(null)
   const [isExtractingClean, setIsExtractingClean] = useState(false)
   const [isSourcesExpanded, setIsSourcesExpanded] = useState(false)
+  const [copiedFeedId, setCopiedFeedId] = useState<string | null>(null)
 
   const PAGE_SIZE = 30
   const [hasMore, setHasMore] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   const openAddModal = useUIStore((state) => state.openAddModal)
+
+  const lastSyncedAt = feeds.length
+    ? new Date(Math.max(...feeds.filter(f => f.last_fetched_at).map(f => new Date(f.last_fetched_at!).getTime())))
+    : null
+
+  const erroredFeeds = feeds.filter(f => f.failure_count && f.failure_count > 0)
+
+  function relativeTime(date: Date): string {
+    const diffMs = Date.now() - date.getTime()
+    const mins = Math.floor(diffMs / 60000)
+    if (mins < 1) return 'just now'
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    return `${Math.floor(hrs / 24)}d ago`
+  }
+
+  const handleCopyFeedUrl = (feed: Feed) => {
+    navigator.clipboard.writeText(feed.feed_url)
+    setCopiedFeedId(feed.id)
+    setTimeout(() => setCopiedFeedId(null), 1500)
+  }
 
   const setActiveTab = (tab: 'queue' | 'clusters' | 'signal') => {
     setSearchParams((prev) => {
@@ -394,7 +417,24 @@ export default function Radar() {
           </button>
 
           <div className="hidden xl:block">
-            <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sources</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sources</h2>
+              {!isLoading && feeds.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                  {lastSyncedAt && (
+                    <span title={lastSyncedAt.toLocaleString()}>Synced {relativeTime(lastSyncedAt)}</span>
+                  )}
+                  {erroredFeeds.length > 0 && (
+                    <button
+                      onClick={() => setSelectedFeedId(erroredFeeds[0].id)}
+                      className="text-rose-500 dark:text-rose-400 hover:underline"
+                    >
+                      {erroredFeeds.length} failed
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className={`${isSourcesExpanded ? 'block animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden'} xl:block space-y-1 w-full min-w-0`}>
@@ -443,6 +483,15 @@ export default function Radar() {
                         {feed.last_error}
                       </p>
                     )}
+                  </button>
+                  <button
+                    onClick={() => handleCopyFeedUrl(feed)}
+                    className="rounded-lg p-1.5 text-slate-300 opacity-0 transition hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                    title="Copy feed URL"
+                  >
+                    {copiedFeedId === feed.id
+                      ? <Check className="h-3.5 w-3.5 text-green-500" />
+                      : <Clipboard className="h-3.5 w-3.5" />}
                   </button>
                   <button
                     onClick={() => deleteFeed(feed)}
