@@ -2,8 +2,8 @@ name: Markly Generate Brief
 
 on:
   schedule:
-    # Once a day close to 5:30 AM IST (00:00 UTC) at an off-peak minute (00:12 UTC)
-    - cron: '12 0 * * *'
+    # Once a day at 22:12 UTC (2 hours before midnight UTC / ~3:42 AM IST)
+    - cron: '12 22 * * *'
   workflow_dispatch:
 
 jobs:
