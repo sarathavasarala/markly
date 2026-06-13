@@ -8,6 +8,7 @@ import PublicProfile from './pages/PublicProfile'
 import CardRedesignMock from './pages/CardRedesignMock'
 import BookmarkReader from './pages/BookmarkReader'
 import Radar from './pages/Radar'
+import LegacyRadarRedirect from './components/LegacyRadarRedirect'
 import { useEffect } from 'react'
 
 import { useUIStore } from './stores/uiStore'
@@ -91,10 +92,11 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/radar" replace />} />
+        <Route index element={<Navigate to="/sources" replace />} />
         <Route path="bookmarks" element={<Dashboard />} />
         <Route path="search" element={<Search />} />
-        <Route path="radar" element={<Radar />} />
+        <Route path="sources" element={<Radar />} />
+        <Route path="radar" element={<LegacyRadarRedirect />} />
         <Route path="bookmarks/:id/read" element={<BookmarkReader />} />
       </Route>
 

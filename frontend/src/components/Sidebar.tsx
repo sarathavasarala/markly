@@ -67,8 +67,8 @@ export default function Sidebar() {
                             Everything
                         </Link>
                         <Link
-                            to="/radar"
-                            className={`${itemBase} ${location.pathname === '/radar' ? itemActive : itemIdle}`}
+                            to="/sources"
+                            className={`${itemBase} ${location.pathname === '/sources' ? itemActive : itemIdle}`}
                         >
                             <Radio className="h-4 w-4" />
                             Sources

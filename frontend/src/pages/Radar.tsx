@@ -36,8 +36,21 @@ export default function Radar() {
 
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = (searchParams.get('tab') as 'queue' | 'clusters' | 'signal') || 'queue'
+  const rawTab = searchParams.get('tab')
+  // Normalize legacy tab=signal → tab=brief
+  const activeTab = ((rawTab === 'signal' ? 'brief' : rawTab) ?? 'queue') as 'queue' | 'clusters' | 'brief'
   const readItemId = searchParams.get('read')
+
+  // Replace tab=signal in the URL immediately without adding a history entry
+  useEffect(() => {
+    if (rawTab === 'signal') {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('tab', 'brief')
+        return next
+      }, { replace: true })
+    }
+  }, [rawTab, setSearchParams])
 
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
   const [activeReaderItem, setActiveReaderItem] = useState<FeedItem | null>(null)
@@ -77,7 +90,7 @@ export default function Radar() {
     setTimeout(() => setCopiedFeedId(null), 1500)
   }
 
-  const setActiveTab = (tab: 'queue' | 'clusters' | 'signal') => {
+  const setActiveTab = (tab: 'queue' | 'clusters' | 'brief') => {
     setSearchParams((prev) => {
       const newParams = new URLSearchParams(prev)
       newParams.set('tab', tab)
@@ -349,9 +362,9 @@ export default function Radar() {
         </button>
         */}
         <button
-          onClick={() => setActiveTab('signal')}
+          onClick={() => setActiveTab('brief')}
           className={`pb-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-            activeTab === 'signal'
+            activeTab === 'brief'
               ? 'border-slate-900 text-slate-950 dark:border-slate-100 dark:text-slate-50'
               : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400'
           }`}
