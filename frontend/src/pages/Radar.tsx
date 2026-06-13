@@ -98,7 +98,7 @@ export default function Radar() {
       setTotal(inboxRes.data.total)
       setHasMore(inboxRes.data.items.length < inboxRes.data.total)
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load Radar')
+      setError(err.response?.data?.error || 'Failed to load sources')
     } finally {
       setIsLoading(false)
     }
@@ -265,7 +265,7 @@ export default function Radar() {
   }
 
   const deleteFeed = async (feed: Feed) => {
-    if (!window.confirm(`Remove ${feed.title || feed.feed_url} from Radar?`)) return
+    if (!window.confirm(`Remove ${feed.title || feed.feed_url} from your sources?`)) return
     try {
       await feedsApi.delete(feed.id)
       await loadRadar()
@@ -303,7 +303,7 @@ export default function Radar() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-normal text-slate-950 dark:text-slate-50">
-            Radar
+            Sources
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
             {activeTab === 'queue'
@@ -356,7 +356,7 @@ export default function Radar() {
               : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400'
           }`}
         >
-          Signal
+          Daily Brief
         </button>
       </div>
 
@@ -525,9 +525,9 @@ export default function Radar() {
                 <Radio className="w-8 h-8" />
               </div>
               <div className="space-y-2">
-                <h2 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">Start your Radar</h2>
+                <h2 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">Add your first sources</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-                  Radar monitors blogs, newsletters, and RSS feeds for you. We synthesize these into a unified daily brief, or you can browse them individually.
+                  markly follows blogs, newsletters, and RSS feeds for you. New posts appear in your inbox, and you can generate a daily brief from everything you follow.
                 </p>
               </div>
 
@@ -587,7 +587,7 @@ export default function Radar() {
               <div className="space-y-1">
                 <h3 className="font-display text-lg font-medium text-slate-950 dark:text-slate-50">All caught up</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Nothing new in Radar right now. Check back later or add more sources.
+                  Nothing new in your inbox right now. Check back later or add more sources.
                 </p>
               </div>
               <button
@@ -742,7 +742,7 @@ export default function Radar() {
                     handleCloseReader()
                   }}
                   className="inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                  title="Dismiss from Radar"
+                  title="Dismiss from inbox"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Dismiss</span>

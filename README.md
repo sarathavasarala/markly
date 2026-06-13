@@ -29,11 +29,11 @@ It brings your blogs and newsletters together, turns new posts into a daily brie
 
 markly is built around a few core reading workflows:
 
-**Signal daily brief.** markly looks at recent posts from your followed feeds, filters for the items that match your Taste Profile, extracts the useful article text, and writes a concise briefing with source links. You can adjust your Taste Profile and, if you want deeper control, customize the prompts and article limits used by the brief pipeline.
+**Daily brief.** markly looks at recent posts from your followed feeds, filters for the items that match your briefing preferences, extracts the useful article text, and writes a concise briefing with source links. You can adjust your briefing preferences and, if you want deeper control, customize the prompts and article limits used by the brief pipeline.
 
-**Feed Radar.** Add RSS feeds for the blogs, newsletters, and publications you care about. Radar keeps an inbox of new posts, lets you read clean article content inline, and gives you quick actions to save or dismiss each item.
+**Sources.** Add RSS feeds for the blogs, newsletters, and publications you care about. Sources keeps an inbox of new posts, lets you read clean article content inline, and gives you quick actions to save or dismiss each item.
 
-**Topic clusters.** Radar can group related feed items into active clusters and generate focused reports from multiple sources, so a developing topic is easier to understand than a pile of isolated links.
+**Topic clusters.** markly can group related feed items into active clusters and generate focused reports from multiple sources, so a developing topic is easier to understand than a pile of isolated links.
 
 **Saved reading library.** When you save a link, markly extracts the page, stores an archive copy when possible, enriches it with AI-generated metadata, and keeps it searchable. Saved bookmarks can include summaries, key quotes, tags, content type, intent, technical level, thumbnails, favicons, and suggested folders.
 
@@ -46,7 +46,7 @@ markly is built around a few core reading workflows:
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand, React Router, Axios, Lucide icons |
 | Backend | Python Flask 3, Flask-CORS, Flask-Compress, Gunicorn |
 | Database | SQLite owned by the Flask backend, including FTS5 for keyword search |
-| AI and extraction | Azure OpenAI, optional Signal-specific model overrides, optional stored embeddings, optional Jina Reader, BeautifulSoup/newspaper/lxml fallback extraction |
+| AI and extraction | Azure OpenAI, optional brief-specific model overrides, optional stored embeddings, optional Jina Reader, BeautifulSoup/newspaper/lxml fallback extraction |
 | Auth | Google OAuth with Flask cookie sessions, optional email allowlist, optional local dev auth bypass |
 | Background work | Flask routes plus background thread executors for enrichment, archiving, feed embeddings, and scheduled cron endpoints |
 | Testing | Pytest, Vitest, React Testing Library, Playwright |
@@ -67,8 +67,8 @@ Main API areas:
 - `/api/stats` returns top tags.
 - `/api/public` powers public profiles, public bookmarks, subscriptions, visibility changes, subscriber management, and account deletion.
 - `/api/feeds` handles RSS feed registration, refresh, inbox, item dismissal, saved-item marking, and clean content retrieval.
-- `/api/signal` handles Taste Profile settings, prompt settings, history retrieval, brief deletion, and streaming daily brief generation.
-- `/api/clusters` handles Radar topic clusters and cluster report generation.
+- `/api/signal` powers daily brief generation, briefing preferences, prompt settings, history retrieval, and brief deletion.
+- `/api/clusters` handles topic clusters and cluster report generation.
 - `/api/cron` exposes token-protected feed refresh and daily brief generation endpoints.
 - `/api/health` returns the service health check.
 
@@ -80,7 +80,7 @@ Public profile pages are served at `/@username`. The Flask app injects profile-s
 
 - Node.js 18+ for root scripts and frontend tooling.
 - Python 3.10+ for local development. The Docker runtime uses Python 3.11.
-- Azure OpenAI endpoint and key for AI enrichment and Signal briefs.
+- Azure OpenAI endpoint and key for AI enrichment and daily brief generation.
 - Google OAuth credentials for normal login, or `DEV_BYPASS_AUTH=true` for local-only development.
 
 ### Setup
@@ -179,7 +179,7 @@ The checked-in examples are [backend/.env.example](backend/.env.example) and [fr
 | `JINA_READER_API_KEY` | Optional Jina Reader key for stronger article extraction. |
 | `PARALLEL_API_KEY` | Optional Parallel Search key used by Signal web research. |
 
-### Signal Briefs and Radar Clusters
+### Daily Briefs and Topic Clusters
 
 | Variable | Purpose |
 | --- | --- |
@@ -213,7 +213,7 @@ The checked-in examples are [backend/.env.example](backend/.env.example) and [fr
 | `CRON_SECRET` | Bearer token required by `/api/cron/refresh` and `/api/cron/brief`. |
 | `ARCHIVE_MAX_CHARS` | Maximum archived content length stored per bookmark. |
 | `ARCHIVE_BACKFILL_BATCH_SIZE` | Batch size for archive backfill scripts. |
-| `FEED_RADAR_ITEMS_PER_SOURCE` | Feed item limit per source during refresh. |
+| `FEED_RADAR_ITEMS_PER_SOURCE` | Feed item limit per source during refresh. (internal config name) |
 | `FEED_MAX_FAILURES` | Failure count before a feed is skipped/backed off. |
 | `FEED_BACKOFF_BASE_MINUTES` | Initial feed refresh backoff window. |
 | `FEED_BACKOFF_MAX_MINUTES` | Maximum feed refresh backoff window. |
@@ -230,7 +230,7 @@ In production, the frontend is served by Flask from the same origin and falls ba
 
 SQLite is the source of truth, and the app creates the required tables and indexes automatically when Flask starts.
 
-The database stores users, folders, bookmarks, bookmark archives, feed sources, feed items, Signal briefs, Radar clusters, search history, public-profile subscribers, telemetry logs, and SQLite FTS search rows. JSON-like fields such as `auto_tags`, `key_quotes`, and embeddings are serialized into SQLite text columns and converted back into API JSON responses.
+The database stores users, folders, bookmarks, bookmark archives, feed sources, feed items, daily briefs, topic clusters, search history, public-profile subscribers, telemetry logs, and SQLite FTS search rows. JSON-like fields such as `auto_tags`, `key_quotes`, and embeddings are serialized into SQLite text columns and converted back into API JSON responses.
 
 For Azure App Service, set:
 

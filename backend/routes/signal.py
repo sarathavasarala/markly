@@ -179,7 +179,7 @@ def get_taste_profile():
         "FROM users WHERE id = ?",
         (g.user.id,)
     ).fetchone()
-    
+
     return jsonify({
         "taste_profile": _resolve_taste_profile(row),
         "signal_candidate_limit": row["signal_candidate_limit"] if row else None,
@@ -195,12 +195,13 @@ def get_taste_profile():
         "default_synthesis_limit": Config.SIGNAL_MAX_SYNTHESIS_ARTICLES,
     })
 
+
 @signal_bp.route("/taste-profile", methods=["PUT"])
 @require_auth
 def update_taste_profile():
     data = request.get_json() or {}
     profile = str(data.get("taste_profile") or "").strip()
-    
+
     limit = data.get("signal_candidate_limit")
     if limit is not None:
         try:
@@ -261,6 +262,7 @@ def update_taste_profile():
         "signal_web_search_enabled": web_search_enabled,
     })
 
+
 @signal_bp.route("/briefs", methods=["GET"])
 @require_auth
 def list_briefs():
@@ -270,6 +272,7 @@ def list_briefs():
         (g.user.id,)
     ).fetchall()
     return jsonify({"briefs": rows_to_dicts(rows)})
+
 
 @signal_bp.route("/briefs", methods=["POST"])
 @require_auth
@@ -292,7 +295,7 @@ def generate_brief():
             return jsonify({
                 "success": False,
                 "reason": "no_content",
-                "message": "No recent RSS feed content found to analyze. Try adding some feeds first in the Radar tab!"
+                "message": "No recent RSS feed content found to analyze. Try adding some sources first."
             }), 200
 
         selected_items = signal_pipeline.llm_filter(
@@ -393,7 +396,7 @@ def _generate_brief_stream(user_id: str):
                 conn, user_id, settings["candidate_limit"], taste_profile=taste_profile
             )
             if not items:
-                yield _sse_event({"stage": "error", "message": "No recent RSS feed content found to analyze. Try adding some feeds first in the Radar tab!"})
+                yield _sse_event({"stage": "error", "message": "No recent RSS feed content found to analyze. Try adding some sources first."})
                 return
 
             source_names = list({item["feed_title"] or "Unknown" for item in items})
@@ -411,7 +414,7 @@ def _generate_brief_stream(user_id: str):
         yield _sse_event({"stage": "error", "message": f"Failed during initial scan: {str(exc)}"})
         return
 
-    yield _sse_event({"stage": "filtering", "message": "Applying taste profile filter..."})
+    yield _sse_event({"stage": "filtering", "message": "Applying briefing preferences..."})
 
     try:
         selected_items = signal_pipeline.llm_filter(

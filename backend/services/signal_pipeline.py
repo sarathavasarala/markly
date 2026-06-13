@@ -643,7 +643,7 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
     can avoid repeating themes already covered.
     """
     articles_contents_str = _build_articles_contents_str(selected_items)
-    
+
     # Safely format the template (in case they have other custom placeholders)
     fmt_args = {
         "taste_profile": taste_profile,
@@ -670,12 +670,12 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
         )
 
     system_content = "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."
-    
+
     # Use Responses API with high verbosity for final memo generation
     content = AzureOpenAIService.generate_brief_with_verbosity(
         synthesis_prompt, system_content, verbosity="high"
     )
-        
+
     return _clean_brief_text(content)
 
 

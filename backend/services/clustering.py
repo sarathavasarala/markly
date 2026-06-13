@@ -211,6 +211,7 @@ def refresh_clusters(user_id: str) -> dict[str, Any]:
               AND i.status != 'saved'
               AND b.id IS NULL
               AND sci.cluster_id IS NULL
+              AND i.last_briefed_at IS NULL
               AND datetime(COALESCE(i.published_at, i.first_seen_at)) >= datetime('now', ?)
             ORDER BY COALESCE(i.published_at, i.first_seen_at) DESC
             LIMIT ?

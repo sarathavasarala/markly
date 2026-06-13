@@ -71,7 +71,7 @@ export default function Sidebar() {
                             className={`${itemBase} ${location.pathname === '/radar' ? itemActive : itemIdle}`}
                         >
                             <Radio className="h-4 w-4" />
-                            Radar
+                            Sources
                         </Link>
                     </div>
 

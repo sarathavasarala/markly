@@ -20,7 +20,7 @@ interface PipelineStep {
 const getInitialSteps = (webSearchEnabled: boolean, planningEnabled: boolean): PipelineStep[] => {
   const steps: PipelineStep[] = [
     { id: 'scanning', label: 'Scanning sources', status: 'pending' },
-    { id: 'filtering', label: 'Applying taste profile', status: 'pending' },
+    { id: 'filtering', label: 'Applying briefing preferences', status: 'pending' },
     { id: 'extracting', label: 'Extracting full text', status: 'pending' },
   ]
   if (planningEnabled) {
@@ -100,7 +100,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
         setSelectedBriefId(briefsRes.data.briefs[0].id)
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load Signal data')
+      setError(err.response?.data?.error || 'Failed to load brief data')
     } finally {
       setIsLoading(false)
     }
@@ -289,7 +289,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   }
 
   const handleResetProfile = async () => {
-    if (window.confirm('Reset Taste Profile and prompts to the recommended default instructions?')) {
+    if (window.confirm('Reset briefing preferences and prompts to the recommended default instructions?')) {
       setSaveStatus('saving')
       try {
         const res = await signalApi.updateTasteProfile({
@@ -351,17 +351,17 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       {/* Action Bar */}
       <div className="flex flex-col gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          Today's Signal
+          Today's Brief
         </h2>
         
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setIsTasteProfileOpen(true)}
             className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
-            title="Edit Taste Profile Settings"
+            title="Edit briefing preferences"
           >
             <Settings className="h-4 w-4" />
-            Taste Profile
+            Briefing Preferences
           </button>
           
           <button
@@ -415,13 +415,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 Create your first Daily Brief
               </h2>
               <p className="mx-auto max-w-lg text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                Instead of reading individual feed items, Signal filters recent RSS stories using your Taste Profile and synthesizes them into a unified chief-of-staff memo.
+                Instead of reading individual feed items, markly filters recent stories using your briefing preferences and synthesizes them into a unified chief-of-staff memo.
               </p>
             </div>
             <div className="grid gap-3 text-left sm:grid-cols-3">
               {[
                 'Scans your followed sources',
-                'Filters with your taste profile',
+                'Filters with your briefing preferences',
                 'Writes one focused memo',
               ].map((label) => (
                 <div key={label} className="rounded-2xl border border-slate-200/70 bg-white/55 px-4 py-3 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
@@ -442,7 +442,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
               >
                 <Settings className="h-4 w-4" />
-                Configure Taste Profile
+                Configure Briefing Preferences
               </button>
             </div>
           </div>
@@ -644,7 +644,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                         {/* Stage 1: Filtering */}
                         {candidateWords !== null && (
                           <div className="space-y-1.5 py-1.5">
-                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">1. Taste Profile Filtering Stage</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">1. Briefing Preferences Filtering Stage</span>
                             <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
                               <span>Input (Candidate summaries/metadata)</span>
                               <span>~{candidateWords.toLocaleString()} words (est. tokens ~{Math.round(candidateWords * 1.35).toLocaleString()})</span>
@@ -793,10 +793,10 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
             <div className="flex items-center justify-between border-b border-slate-200/60 pb-4 dark:border-slate-800/60">
               <div>
                 <h3 className="font-display text-lg font-semibold text-slate-900 dark:text-slate-50">
-                  Signal Taste Profile
+                  Briefing Preferences
                 </h3>
                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  Standing instructions that guide daily report filtering and style.
+                  Standing instructions for what markly should include, ignore, research, and how it should write your daily brief.
                 </p>
               </div>
               <button
@@ -830,7 +830,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                     : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
-                Prompts
+                Advanced prompts
               </button>
               <button
                 type="button"
@@ -841,7 +841,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                     : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
                 }`}
               >
-                Settings
+                Generation settings
               </button>
             </div>
 
@@ -850,20 +850,20 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
               {activeSettingsTab === 'instructions' && (
                 <div className="space-y-4">
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Preference Instructions
+                    Briefing instructions
                   </label>
                   
                   <textarea
                     value={tasteProfileInput}
                     onChange={(e) => setTasteProfileInput(e.target.value)}
-                    placeholder="Describe your taste, filtering guidelines, style, or specific domains of interest..."
+                    placeholder="Describe what to include, what to ignore, topics you care about, and the writing style you prefer..."
                     className="w-full h-80 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40 resize-none"
                   />
 
                   <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900/40 text-xs text-slate-500 dark:text-slate-400 space-y-2">
                     <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
                       <Info className="h-3.5 w-3.5 text-slate-500" />
-                      Taste Profile Guidelines
+                      Briefing guidelines
                     </div>
                     <p>
                       Explain exactly what insights you prioritize, what styles you favor, and what low-value content (e.g. clickbait, raw metrics, hype announcements) should be aggressively discarded.
@@ -951,7 +951,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       Articles to Scan
                     </label>
                     <p className="text-xs text-slate-400 dark:text-slate-500">
-                      Determine the limit of recent RSS articles to check before selecting high-signal entries.
+                      Determine the limit of recent RSS articles to check before filtering for the best entries.
                     </p>
                   </div>
                   <input
@@ -972,7 +972,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       Candidate Limit Guidelines
                     </div>
                     <p>
-                      A higher limit lets Signal scan further back in your feeds but takes longer to run. The default scan pool limit is 100 articles. Set a custom number to fine tune this scan threshold.
+                      A higher limit lets markly scan further back in your feeds but takes longer to run. The default scan pool limit is 100 articles. Set a custom number to fine tune this scan threshold.
                     </p>
                   </div>
 
@@ -983,7 +983,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       Articles to Synthesize
                     </label>
                     <p className="text-xs text-slate-400 dark:text-slate-500">
-                      Determine the limit of high-signal articles to include in the final daily brief.
+                      Determine how many selected articles to include in the final daily brief.
                     </p>
                   </div>
                   <input
@@ -1004,7 +1004,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       Synthesis Limit Guidelines
                     </div>
                     <p>
-                      A higher limit includes more high-signal stories in your brief, but will consume more AI tokens. The default synthesis limit is {defaultSynthesisLimit} articles.
+                      A higher limit includes more stories in your brief, but will consume more AI tokens. The default synthesis limit is {defaultSynthesisLimit} articles.
                     </p>
                   </div>
 
@@ -1062,7 +1062,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                   className="rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white flex items-center gap-2"
                 >
                   {saveStatus === 'saving' && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error' : 'Save Profile'}
+                  {saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error' : 'Save'}
                 </button>
               </div>
             </div>
