@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BookMarked, AlertCircle } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
 import { useEffect, useState } from 'react'
@@ -7,6 +7,9 @@ export default function Login() {
   const navigate = useNavigate()
   const { signInWithGoogle, isAuthenticated, isLoading, error, clearError } = useAuthStore()
 
+  const [searchParams] = useSearchParams()
+  const [accessDenied] = useState(() => searchParams.get('error') === 'not_available')
+
   const [activeSlide, setActiveSlide] = useState(0)
 
   useEffect(() => {
@@ -14,6 +17,12 @@ export default function Login() {
       navigate('/')
     }
   }, [isAuthenticated, navigate])
+
+  useEffect(() => {
+    if (accessDenied) {
+      window.history.replaceState(null, '', '/login')
+    }
+  }, [accessDenied])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -49,6 +58,13 @@ export default function Login() {
             <div>
               <h2 className="font-display text-2xl text-slate-950 dark:text-slate-50">Sign in</h2>
             </div>
+
+            {accessDenied && (
+              <div className="px-4 py-3 rounded-2xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 flex items-start gap-2 text-sm">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>markly isn't publicly available yet. Sign in with an invited account to continue.</span>
+              </div>
+            )}
 
             {error && (
               <div className="px-4 py-3 rounded-2xl bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300 flex items-start gap-2 text-sm">

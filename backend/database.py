@@ -543,7 +543,10 @@ def allowed_emails() -> set[str]:
 
 def is_email_allowed(email: str) -> bool:
     allowed = allowed_emails()
-    return not allowed or email.lower().strip() in allowed
+    if not allowed:
+        # Fail-closed: deny everyone when no allowlist is configured.
+        return False
+    return email.lower().strip() in allowed
 
 
 def reset_database_for_tests(path: str | None = None):

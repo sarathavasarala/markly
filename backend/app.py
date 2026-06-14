@@ -40,7 +40,20 @@ def create_app():
         app.logger.warning(f"Configuration warning: {e}")
     initialize_database()
     app.teardown_appcontext(close_db)
-    
+
+    # Warn about insecure defaults in production
+    if not Config.DEBUG:
+        if Config.SECRET_KEY == "dev-secret-key-change-in-prod":
+            app.logger.warning(
+                "SECURITY: FLASK_SECRET_KEY is the default dev value. "
+                "Set a strong random key via FLASK_SECRET_KEY."
+            )
+        if not Config.ALLOWED_EMAILS:
+            app.logger.warning(
+                "SECURITY: ALLOWED_EMAILS is not set — all Google OAuth logins will be denied. "
+                "Set ALLOWED_EMAILS=you@example.com to grant access."
+            )
+
     # Register blueprints
     from routes.auth import auth_bp
     from routes.bookmarks import bookmarks_bp

@@ -134,7 +134,8 @@ def google_callback():
     if not email:
         return jsonify({"error": "Google profile did not include an email"}), 401
     if not is_email_allowed(email):
-        return jsonify({"error": "This email is not allowed to use markly"}), 403
+        session.clear()
+        return redirect("/login?error=not_available")
 
     user = upsert_user(
         email,
