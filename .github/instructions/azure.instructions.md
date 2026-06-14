@@ -1,3 +1,8 @@
+---
+applyTo: ".github/workflows/**"
+description: "Use when working on Markly Azure operations, App Service deployment, Docker images, production SQLite database pull/push workflows, Kudu, ACR, or production restarts."
+---
+
 # Azure Operations & Connection Guide
 
 How any agent can connect to Azure to inspect, pull, or deploy the production Markly app.
@@ -50,7 +55,7 @@ curl -sS -X PUT -H "Authorization: Bearer $TOKEN" \
   "https://markly.scm.azurewebsites.net/api/vfs/data/markly.db"
 # Then restart the App Service (see below).
 ```
-⚠️ **Ask first** before writing to the prod DB — it is the live datastore.
+**Ask first** before writing to the prod DB - it is the live datastore.
 
 ## Deploy a new build
 On Apple Silicon you **must** build for `linux/amd64`.
@@ -78,6 +83,6 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
 ```
 
 ## Guardrails
-- 🚫 Never commit secrets, tokens, or `.env` files. `.env` holds live API keys.
-- ⚠️ Ask first before writing to prod (DB upload, deploy, restart).
-- ✅ Always validate a pulled DB with `PRAGMA integrity_check` before using it.
+- Never commit secrets, tokens, or `.env` files. `.env` holds live API keys.
+- Ask first before writing to prod (DB upload, deploy, restart).
+- Always validate a pulled DB with `PRAGMA integrity_check` before using it.

@@ -2,10 +2,12 @@
 
 This document maps the database models, integration pipelines, and authentication flows of `markly` to provide a mental model of the system for developers and AI agents.
 
+Implementation code is the source of truth. If this guide disagrees with the current code, follow the code and update this document in the same change.
+
 ---
 
 ## 🗄️ Database Entity-Relationship Map
-The SQLite schema is initialized procedurally in [database.py](file:///Users/sarathavasarala/Desktop/Projects/markly/backend/database.py#L81-L230). Below is a mapping of tables, constraints, and relationships:
+The SQLite schema is initialized procedurally in [database.py](backend/database.py). Below is a mapping of tables, constraints, and relationships:
 
 ```mermaid
 erDiagram
