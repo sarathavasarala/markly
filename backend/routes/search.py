@@ -131,4 +131,3 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     if not norm_a or not norm_b:
         return 0
     return dot / (norm_a * norm_b)
-
