@@ -149,14 +149,6 @@ def initialize_database():
                 UNIQUE(user_id, url)
             );
 
-            CREATE TABLE IF NOT EXISTS search_history (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                query TEXT NOT NULL,
-                results_count INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS subscribers (
                 id TEXT PRIMARY KEY,
                 curator_username TEXT NOT NULL,
@@ -273,7 +265,6 @@ def initialize_database():
             CREATE INDEX IF NOT EXISTS idx_bookmarks_folder_id ON bookmarks(folder_id);
             CREATE INDEX IF NOT EXISTS idx_bookmarks_public ON bookmarks(user_id, is_public);
             CREATE INDEX IF NOT EXISTS idx_folders_user_id ON folders(user_id);
-            CREATE INDEX IF NOT EXISTS idx_search_history_created ON search_history(created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_subscribers_curator ON subscribers(curator_username);
             CREATE INDEX IF NOT EXISTS idx_feeds_user_id ON feeds(user_id);
             CREATE INDEX IF NOT EXISTS idx_feeds_active_fetch ON feeds(is_active, last_fetched_at);
@@ -289,6 +280,8 @@ def initialize_database():
 
         # Lightweight migration to add archive columns if missing
         cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS search_history")
+
         cursor.execute("PRAGMA table_info(bookmarks)")
         columns = [row["name"] for row in cursor.fetchall()]
 

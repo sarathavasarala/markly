@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search as SearchIcon, Loader2, X, Clock } from 'lucide-react'
+import { Search as SearchIcon, Loader2, X } from 'lucide-react'
 import { searchApi, Bookmark } from '../lib/api'
 import BookmarkCard from '../components/BookmarkCard'
 import MasonryGrid from '../components/MasonryGrid'
@@ -14,22 +14,6 @@ export default function Search() {
   const [results, setResults] = useState<Bookmark[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
-  const [searchHistory, setSearchHistory] = useState<string[]>([])
-  const [showHistory, setShowHistory] = useState(false)
-
-  useEffect(() => {
-    loadHistory()
-  }, [])
-
-  const loadHistory = async () => {
-    try {
-      const response = await searchApi.getHistory(10)
-      const queries = response.data.history.map((h) => h.query)
-      setSearchHistory([...new Set(queries)])
-    } catch {
-      // Ignore error
-    }
-  }
 
   const performSearch = useCallback(async (searchQuery: string, searchTag?: string) => {
     if (!searchQuery.trim()) {
@@ -79,13 +63,6 @@ export default function Search() {
     if (tag) params.tag = tag
     setSearchParams(params)
     performSearch(query, tag)
-    setShowHistory(false)
-  }
-
-  const handleHistoryClick = (historyQuery: string) => {
-    setQuery(historyQuery)
-    setShowHistory(false)
-    performSearch(historyQuery, tag)
   }
 
   const clearSearch = () => {
@@ -109,7 +86,6 @@ export default function Search() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => setShowHistory(true)}
             placeholder="What are you looking for?"
             className="w-full pl-14 pr-12 py-4 rounded-full bg-white/80 ring-1 ring-slate-200 text-base text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
           />
@@ -121,25 +97,6 @@ export default function Search() {
             >
               <X className="w-5 h-5" />
             </button>
-          )}
-
-          {showHistory && searchHistory.length > 0 && !query && (
-            <div className="absolute left-0 right-0 mt-2 z-10 rounded-2xl bg-white shadow-card ring-1 ring-slate-200/70 overflow-hidden dark:bg-slate-900 dark:ring-slate-800">
-              <div className="px-4 py-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                Recent searches
-              </div>
-              {searchHistory.slice(0, 5).map((historyQuery, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => handleHistoryClick(historyQuery)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100/70 dark:text-slate-200 dark:hover:bg-slate-800/60 transition-colors"
-                >
-                  <Clock className="w-4 h-4 text-slate-400" />
-                  {historyQuery}
-                </button>
-              ))}
-            </div>
           )}
         </form>
       </div>

@@ -235,12 +235,6 @@ export const searchApi = {
     content_type?: string
     tag?: string
   }) => api.get<SearchResult>('/search', { params }),
-
-  getHistory: (limit?: number) =>
-    api.get<{ history: { query: string; results_count: number; created_at: string }[] }>(
-      '/search/history',
-      { params: { limit } }
-    ),
 }
 
 // Stats API

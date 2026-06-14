@@ -6,7 +6,7 @@ import math
 from flask import Blueprint, g, jsonify, request
 
 from config import Config
-from database import get_db, new_id, row_to_dict, utc_now
+from database import get_db, row_to_dict
 from middleware.auth import require_auth
 from services.openai_service import AzureOpenAIService
 
@@ -42,18 +42,6 @@ def search_bookmarks():
         else:
             mode = "keyword"
             results = _keyword_search(query, limit, offset, domain, content_type, tag)
-
-        try:
-            get_db().execute(
-                """
-                INSERT INTO search_history (id, user_id, query, results_count, created_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (new_id(), g.user.id, query, len(results), utc_now()),
-            )
-            get_db().commit()
-        except Exception:
-            get_db().rollback()
 
         return jsonify({"query": query, "mode": mode, "results": results, "count": len(results)})
     except Exception as e:
@@ -144,30 +132,3 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
         return 0
     return dot / (norm_a * norm_b)
 
-
-@search_bp.route("/history", methods=["GET"])
-@require_auth
-def get_search_history():
-    """Get recent search history."""
-    limit = min(request.args.get("limit", 10, type=int), 50)
-    try:
-        rows = get_db().execute(
-            """
-            SELECT query, results_count, created_at
-            FROM search_history
-            WHERE user_id = ?
-            ORDER BY created_at DESC
-            LIMIT ?
-            """,
-            (g.user.id, limit),
-        ).fetchall()
-        seen = set()
-        history = []
-        for row in rows:
-            item = dict(row)
-            if item["query"] not in seen:
-                seen.add(item["query"])
-                history.append(item)
-        return jsonify({"history": history})
-    except Exception as e:
-        return jsonify({"error": f"Failed to get search history: {str(e)}"}), 500

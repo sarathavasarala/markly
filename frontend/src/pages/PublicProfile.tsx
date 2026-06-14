@@ -186,7 +186,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     }
 
     const handleDeleteAccount = async () => {
-        const confirmed = window.confirm("CRITICAL ACTION: This will permanently delete your markly account, all your bookmarks, search history, and followers. This cannot be undone.\n\nAre you absolutely sure?")
+        const confirmed = window.confirm("CRITICAL ACTION: This will permanently delete your markly account, all your bookmarks, and followers. This cannot be undone.\n\nAre you absolutely sure?")
         if (!confirmed) return
 
         const doubleConfirmed = window.prompt("To confirm, please type 'DELETE MY ACCOUNT' below:")

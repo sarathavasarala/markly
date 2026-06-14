@@ -72,14 +72,6 @@ erDiagram
         text last_accessed_at
     }
 
-    search_history {
-        text id PK
-        text user_id FK "REFERENCES users(id) ON DELETE CASCADE"
-        text query
-        integer results_count
-        text created_at
-    }
-
     subscribers {
         text id PK
         text curator_username
@@ -142,7 +134,6 @@ erDiagram
 
     users ||--o{ folders : "owns"
     users ||--o{ bookmarks : "owns"
-    users ||--o{ search_history : "performs"
     users ||--o{ feeds : "subscribes"
     users ||--o{ feed_items : "receives"
     users ||--o{ signal_briefs : "generates"

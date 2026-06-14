@@ -63,7 +63,7 @@ Main API areas:
 - `/api/auth` handles Google login, callback, logout, and current session state.
 - `/api/bookmarks` handles analyze, create, list, update, delete, access tracking, retry enrichment, archive retry, and save-public flows.
 - `/api/folders` handles folder CRUD.
-- `/api/search` handles SQLite FTS keyword search, optional semantic mode, and search history.
+- `/api/search` handles SQLite FTS keyword search and optional semantic mode.
 - `/api/stats` returns top tags.
 - `/api/public` powers public profiles, public bookmarks, subscriptions, visibility changes, subscriber management, and account deletion.
 - `/api/feeds` handles RSS feed registration, refresh, inbox, item dismissal, saved-item marking, and clean content retrieval.
@@ -230,7 +230,7 @@ In production, the frontend is served by Flask from the same origin and falls ba
 
 SQLite is the source of truth, and the app creates the required tables and indexes automatically when Flask starts.
 
-The database stores users, folders, bookmarks, bookmark archives, feed sources, feed items, daily briefs, topic clusters, search history, public-profile subscribers, telemetry logs, and SQLite FTS search rows. JSON-like fields such as `auto_tags`, `key_quotes`, and embeddings are serialized into SQLite text columns and converted back into API JSON responses.
+The database stores users, folders, bookmarks, bookmark archives, feed sources, feed items, daily briefs, topic clusters, public-profile subscribers, telemetry logs, and SQLite FTS search rows. JSON-like fields such as `auto_tags`, `key_quotes`, and embeddings are serialized into SQLite text columns and converted back into API JSON responses.
 
 For Azure App Service, set:
 
