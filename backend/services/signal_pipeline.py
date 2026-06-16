@@ -23,26 +23,25 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_TASTE_PROFILE = (
-    "I want analysis, not summaries. Focus on what actually changed, why it matters, "
-    "and what intelligent operators or practitioners would notice beneath the surface narrative.\n\n"
-    "Prioritize strategic implications, incentives, product direction, business mechanics, "
-    "technical tradeoffs, ecosystem shifts, and second-order effects. I care more about why a "
-    "company is doing something, what constraints it is reacting to, what hidden incentives exist, "
-    "and what longer pattern a move might represent, than about the raw event itself.\n\n"
-    "Significant developments matter even when they are announcements. A major product launch, "
-    "release, or strategic move from a company that matters is worth knowing about. For those, "
-    "state the news plainly first, then explain what changed and why. Do not force the repeated "
-    "'the story is not X, it is Y' framing; it gets stale quickly and makes every item sound "
-    "artificially contrarian.\n\n"
-    "What I do not want: incremental news with no larger meaning, engagement bait, shallow hot takes, "
-    "marketing fluff, repetitive benchmark coverage, and low-information reactions. Treat the taste "
-    "profile as an aggressive filter. Spend reasoning budget only on material with genuine insight, "
-    "strategic relevance, operational lessons, or evidence of a real shift, and discard the rest early.\n\n"
-    "A benchmark or metric is only interesting if it signals something broader about capability, "
-    "economics, adoption, market position, or competitive dynamics. Do not dwell on numbers for "
-    "their own sake.\n\n"
-    "Assume I am sharp but not a specialist in every domain these feeds cover. I want enough "
-    "grounding to follow a topic outside my core areas, without insider vocabulary used unexplained."
+    "Topics I follow: AI agents, large language models, machine learning, model performance, "
+    "and AI memory; OpenAI, Anthropic, Microsoft, Google, and Nvidia; software engineering, "
+    "enterprise software, and systems of record; product design, product strategy, and product "
+    "management; design, interactive learning, decision traces, and critical thinking; company "
+    "culture and leadership; and the technology industry broadly.\n\n"
+    "I want analysis, not summaries: what actually changed, why it matters, and what "
+    "sharp operators or practitioners would notice beneath the surface narrative.\n\n"
+    "I care most about strategic implications, incentives, product direction, business "
+    "mechanics, technical tradeoffs, ecosystem shifts, and second-order effects. Why a "
+    "company is doing something, what constraints it is reacting to, what hidden incentives "
+    "exist, and what longer pattern a move represents interest me more than the raw event.\n\n"
+    "Significant developments matter even when they are announcements: a major launch, "
+    "release, financing, policy change, or strategic move from a company that matters.\n\n"
+    "A benchmark or metric only interests me when it signals something broader about "
+    "capability, economics, adoption, market position, or competitive dynamics. Numbers for "
+    "their own sake do not.\n\n"
+    "What I do not value: incremental news with no larger meaning, engagement bait, shallow "
+    "hot takes, marketing fluff, repetitive benchmark coverage, and low-information reactions.\n\n"
+    "I am sharp but not a specialist in every domain these feeds cover."
 )
 
 
@@ -568,6 +567,11 @@ RESEARCH_PROMPT_TEMPLATE = """You are a research assistant preparing background 
 
 You are given a set of high-signal articles selected from RSS feeds. Your job is NOT to analyze or summarize them. Your job is to find the factual context a smart reader would want in order to understand these stories properly, using web search and page fetches.
 
+Reader's priorities (use these to decide which factual gaps are worth closing first):
+\"\"\"
+{taste_profile}
+\"\"\"
+
 Here are the articles:
 \"\"\"
 {articles_contents_str}
@@ -580,7 +584,7 @@ Editorial Brief Plan:
 
 Instructions:
 1. Read the articles and the Editorial Brief Plan. Identify the factual gaps a sharp reader would want filled for the planned themes, standalone stories, source tensions, and novelty claims: relevant dates, prior context, competitor or regulatory status, financial figures, what a referenced term or product actually is, what happened before this that the article assumes you know.
-2. Formulate at least 5 and up to 8 specific, factual questions that close those gaps. Prefer questions tied to the planned themes rather than generic background.
+2. Formulate at least 5 and up to 8 specific, factual questions that close those gaps. Prefer questions tied to the planned themes and the reader's priorities rather than generic background.
 3. You have two tools:
    - web_search: find candidate sources and snippets.
    - web_fetch: pull the full text of the most relevant URLs.
@@ -598,11 +602,12 @@ Keep the total under about 2000 words.
 """
 
 
-def research(selected_items, web_search_enabled=True, brief_plan=""):
+def research(selected_items, web_search_enabled=True, brief_plan="", taste_profile=""):
     """Run web search grounding on the selected articles and return a research brief and queries list.
 
     When web_search_enabled is False, this step is skipped and returns ("", []).
     Uses the default (cheaper) model with the Responses API for web search.
+    The taste profile steers which factual gaps are worth closing.
     """
     if not web_search_enabled:
         return "", []
@@ -612,6 +617,7 @@ def research(selected_items, web_search_enabled=True, brief_plan=""):
         RESEARCH_PROMPT_TEMPLATE
         .replace("{articles_contents_str}", articles_contents_str)
         .replace("{brief_plan}", brief_plan or "No separate editorial plan was generated.")
+        .replace("{taste_profile}", taste_profile or "No specific reader priorities provided.")
     )
 
     system_content = (

@@ -145,6 +145,7 @@ def cron_brief():
                 selected_items,
                 web_search_enabled=web_search_enabled,
                 brief_plan=brief_plan,
+                taste_profile=taste_profile,
             )
             content = signal_pipeline.synthesize(
                 selected_items,

@@ -261,9 +261,9 @@ def test_reset_taste_profile_customizations(client):
     assert data["signal_filter_prompt"] is None
     assert data["signal_planning_prompt"] is None
     assert data["signal_synthesis_prompt"] is None
-    assert "You are an expert analyst assistant." in data["default_filter_prompt"]
+    assert "You are a sharp editor" in data["default_filter_prompt"]
     assert "editorial planning assistant" in data["default_planning_prompt"]
-    assert "You are a top-tier analyst" in data["default_synthesis_prompt"]
+    assert "You are writing a daily intelligence brief" in data["default_synthesis_prompt"]
 
 
 def test_taste_profile_reports_planning_feature_flag(client):
