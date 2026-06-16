@@ -39,7 +39,11 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path), timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA busy_timeout = 5000")
+    # Wait up to 30s for a competing writer to release the lock before failing
+    # with "database is locked". Must match the connect() timeout above, which
+    # this PRAGMA would otherwise override (lowering it). DELETE journal mode
+    # serializes writers, so brief generation and cron jobs can contend.
+    conn.execute("PRAGMA busy_timeout = 30000")
     # Azure App Service persists /home on network-backed storage where WAL can
     # hang during startup. DELETE is safer for this small single-instance app.
     conn.execute(f"PRAGMA journal_mode = {Config.SQLITE_JOURNAL_MODE}")

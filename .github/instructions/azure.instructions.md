@@ -82,6 +82,28 @@ curl -sS -H "Authorization: Bearer $TOKEN" \
   "https://markly.scm.azurewebsites.net/api/vfs/data/"
 ```
 
+## Diagnosing a production 500 / reading tracebacks
+App logs (including Python tracebacks) land in dated files under `LogFiles`,
+served over the Kudu VFS API. `az webapp log tail` only shows the live stream;
+to inspect a past error, read the saved files directly.
+```bash
+TOKEN=$(az account get-access-token --query accessToken --output tsv)
+
+# 1. List available log files and find the latest *containerStream* one
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "https://markly.scm.azurewebsites.net/api/vfs/LogFiles/"
+
+# 2. Fetch a specific log (filenames are dated, e.g. YYYY_MM_DD_<host>_containerStream.log).
+#    Logs may contain NUL bytes, so strip them, then grep for the failure.
+curl -sS -H "Authorization: Bearer $TOKEN" \
+  "https://markly.scm.azurewebsites.net/api/vfs/LogFiles/<filename>.log" \
+  | tr -d '\000' \
+  | grep -iaE "Traceback|Error|Exception|sqlite3" | tail -60
+```
+Tip: a `sqlite3.OperationalError: database is locked` is write-lock contention
+(DELETE journal mode serializes writers), usually transient — the connection
+`busy_timeout` controls how long a writer waits before giving up.
+
 ## Guardrails
 - Never commit secrets, tokens, or `.env` files. `.env` holds live API keys.
 - Ask first before writing to prod (DB upload, deploy, restart).

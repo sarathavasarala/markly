@@ -320,7 +320,7 @@ export default function Radar() {
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
             {activeTab === 'queue'
-              ? 'New articles from your sources. Save only the ones that deserve a place in your library.'
+              ? 'New posts from your sources. Save only the ones that deserve a place in your library.'
               : 'A high-signal daily intelligence brief synthesized from your followed RSS feeds.'}
           </p>
         </div>

@@ -415,7 +415,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 Create your first Daily Brief
               </h2>
               <p className="mx-auto max-w-lg text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                Instead of reading individual feed items, markly filters recent stories using your briefing preferences and synthesizes them into a unified chief-of-staff memo.
+                Instead of reading individual feed items, markly filters recent posts using your briefing preferences and synthesizes them into a unified chief-of-staff memo.
               </p>
             </div>
             <div className="grid gap-3 text-left sm:grid-cols-3">
