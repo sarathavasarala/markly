@@ -223,6 +223,11 @@ sequenceDiagram
     BE->>User: Event: stage: 'synthesizing'
     BE->>AI: Call synthesis engine (compile memo using thematic templates & inline URLs)
     AI-->>BE: Return Markdown synthesis memo
-    BE->>DB: save_brief() (Commit synthesis to signal_briefs)
+    opt Humanizer Pass (SIGNAL_HUMANIZER_ENABLED = True)
+        BE->>User: Event: stage: 'humanizing'
+        BE->>AI: Call Humanizer model (rewrite brief using custom copyediting rules to remove AI patterns)
+        AI-->>BE: Return humanized Markdown brief
+    end
+    BE->>DB: save_brief() (Commit brief to signal_briefs)
     BE->>User: Event: stage: 'complete' (Return final brief data)
 ```

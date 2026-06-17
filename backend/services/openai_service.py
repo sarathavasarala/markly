@@ -405,7 +405,7 @@ class AzureOpenAIService:
 
         try:
             logger.info("Calling Azure OpenAI Responses API for research with Parallel Search MCP...")
-            res = requests.post(url, headers=headers, json=data, timeout=120)
+            res = requests.post(url, headers=headers, json=data, timeout=45)
             if res.status_code == 200:
                 res_data = res.json()
                 output_items = res_data.get("output", [])
@@ -513,68 +513,7 @@ class AzureOpenAIService:
         return cls.generate_brief_completions_fallback(prompt, instructions, deployment)
 
     @classmethod
-    def generate_signal_title(cls, brief_content: str) -> str | None:
-        """Generate a single, sharp title for a finished Signal brief.
-
-        Runs as a small, cheap dedicated pass over the synthesized memo so title
-        quality does not depend on how the long synthesis completion "warms up".
-        Uses the nano deployment when configured, falling back to the default
-        chat deployment. Returns None on any failure so the caller can fall back
-        to the title parsed from the brief's first line.
-        """
-        if not brief_content or not brief_content.strip():
-            return None
-
-        # Title only needs the substance of the brief, not the whole thing.
-        excerpt = brief_content.strip()[:6000]
-
-        deployment_name = (
-            Config.AZURE_OPENAI_NANO_DEPLOYMENT_NAME
-            or Config.AZURE_OPENAI_DEPLOYMENT_NAME
-        )
-
-        prompt = (
-            "Below is a daily intelligence brief. Write a single title for it.\n\n"
-            "Requirements:\n"
-            "- One line, no quotes, no markdown, no trailing punctuation.\n"
-            "- Maximum 14 words. Concrete and specific to this brief's main thread.\n"
-            "- Capture the most important development or throughline, not a generic label.\n"
-            "- Sound like a sharp analyst's headline, not clickbait. No em dashes.\n"
-            "- Avoid overused inversion or revelation formulas such as 'X reveals Y', "
-            "'not X but Y', or 'the real story is Y'. State the subject directly.\n\n"
-            "Brief:\n"
-            '"""\n'
-            f"{excerpt}\n"
-            '"""\n\n'
-            "Return only the title text."
-        )
-
-        try:
-            client = cls.get_chat_client()
-            response = client.chat.completions.create(
-                model=deployment_name,
-                messages=[
-                    {"role": "system", "content": "You write concise, specific titles. Respond with only the title text."},
-                    {"role": "user", "content": prompt},
-                ],
-                max_completion_tokens=10000,
-            )
-            title = (response.choices[0].message.content or "").strip()
-        except Exception as exc:
-            logger.warning("Dedicated title generation failed: %s", exc)
-            return None
-
-        if not title:
-            return None
-        # Defensive cleanup: collapse to first line, strip wrapping quotes/markdown.
-        title = title.splitlines()[0].strip()
-        title = title.strip("#").strip()
-        title = title.strip('"\u201c\u201d\u2018\u2019').strip()
-        title = title.strip("*_").strip()
-        return title or None
-
-    @classmethod
-    def generate_brief_with_verbosity(cls, prompt: str, instructions: str, verbosity: str = "high") -> str:
+    def generate_brief_with_verbosity(cls, prompt: str, instructions: str, verbosity: str = "medium") -> str:
         """
         Generate Signal Daily Brief using Azure OpenAI's native Responses API with the specified verbosity.
         No tools are passed since this is a pure synthesis step.

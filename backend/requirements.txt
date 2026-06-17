@@ -22,3 +22,4 @@ feedparser==6.0.11
 # Utilities
 uuid6==2024.1.12
 validators==0.22.0
+diff-match-patch==20230430

@@ -125,12 +125,6 @@ def test_cron_brief_success(client, mocker):
             return_value="## Scheduled Brief Synthesis\nEverything matches the Taste Profile."
         )
 
-        # Dedicated title pass fails here -> title falls back to the first-line title.
-        mocker.patch(
-            "services.signal_pipeline.AzureOpenAIService.generate_signal_title",
-            return_value=None,
-        )
-
         # Call brief route
         response = client.post("/api/cron/brief", headers=headers)
         assert response.status_code == 200

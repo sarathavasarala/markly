@@ -18,6 +18,7 @@ from config import Config
 from database import db_session, new_id, row_to_dict, utc_now
 from services.content_extractor import ContentExtractor
 from services.openai_service import AzureOpenAIService
+from services.text_patch import apply_search_replace
 
 logger = logging.getLogger(__name__)
 
@@ -677,9 +678,9 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
 
     system_content = "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."
 
-    # Use Responses API with high verbosity for final memo generation
+    # Use Responses API with medium verbosity for final memo generation
     content = AzureOpenAIService.generate_brief_with_verbosity(
-        synthesis_prompt, system_content, verbosity="high"
+        synthesis_prompt, system_content, verbosity="medium"
     )
 
     return _clean_brief_text(content)
@@ -730,12 +731,7 @@ def save_brief(conn, user_id, content, selected_items):
     brief_id = new_id()
     created_at = utc_now()
 
-    parsed_title, clean_content = parse_and_clean_brief(content)
-
-    # Dedicated title pass: a small, cheap model writes a sharper, more consistent
-    # title from the finished memo. Fall back to the title parsed from the first
-    # line if the dedicated pass fails or returns nothing.
-    title = AzureOpenAIService.generate_signal_title(clean_content) or parsed_title
+    title, clean_content = parse_and_clean_brief(content)
 
     conn.execute(
         "INSERT INTO signal_briefs (id, user_id, content, title, article_count, created_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -754,3 +750,200 @@ def save_brief(conn, user_id, content, selected_items):
 
     row = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (brief_id,)).fetchone()
     return row_to_dict(row)
+
+
+_STYLE_EDIT_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "apply_edit",
+            "description": (
+                "Replace an exact span of text in the brief. "
+                "`search` must appear verbatim (or very close) in the current draft. "
+                "Call once per distinct edit; multiple calls per turn are fine."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Short label for the AI pattern being fixed.",
+                    },
+                    "search": {
+                        "type": "string",
+                        "description": "Exact text to replace, copied from the current draft.",
+                    },
+                    "replace": {
+                        "type": "string",
+                        "description": "Replacement text covering the same content.",
+                    },
+                },
+                "required": ["reason", "search", "replace"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "finish",
+            "description": "Signal that all style edits are complete. Call when you have no more edits to make.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "One sentence summary of what was changed.",
+                    },
+                },
+                "required": ["summary"],
+            },
+        },
+    },
+]
+
+_STYLE_MAX_ITERATIONS = 4
+_STYLE_MAX_EDITS = 20
+
+
+def _build_assistant_message(msg) -> dict:
+    """Convert a ChatCompletionMessage to a plain dict safe for the messages list."""
+    d: dict = {"role": "assistant", "content": msg.content}
+    if msg.tool_calls:
+        d["tool_calls"] = [
+            {
+                "id": tc.id,
+                "type": "function",
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments,
+                },
+            }
+            for tc in msg.tool_calls
+        ]
+    return d
+
+
+def style_edit_brief(draft_content: str, style_template: str) -> str:
+    """Apply targeted style edits to a draft brief using an agentic tool-calling loop.
+
+    The model scans the draft for AI writing patterns and calls `apply_edit` for
+    each fix. Edits are applied deterministically via text_patch; failed patches
+    are skipped (original span preserved). The loop exits when the model calls
+    `finish`, produces no tool calls, or hits _STYLE_MAX_ITERATIONS.
+
+    Uses the signal (costlier) deployment — same client as synthesis and filtering.
+    Bypassed if Config.SIGNAL_HUMANIZER_ENABLED is False.
+    """
+    if not Config.SIGNAL_HUMANIZER_ENABLED:
+        return draft_content
+
+    logger.info("Style edit agent starting (draft %d chars)", len(draft_content or ""))
+
+    system_content = (
+        "You are a senior copyeditor. Use the apply_edit tool to make targeted, minimal edits "
+        "that remove AI writing patterns from the brief. Do not rewrite entire sections. "
+        "Preserve every fact, figure, URL, and Markdown heading verbatim. "
+        "Call finish when you have no more edits to make."
+    )
+    user_prompt = style_template.replace("{draft_brief_content}", draft_content)
+
+    current_draft = draft_content
+    messages: list[dict] = [
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": user_prompt},
+    ]
+    total_edits = 0
+
+    try:
+        client, model = AzureOpenAIService.get_signal_chat_client_and_model()
+
+        for iteration in range(_STYLE_MAX_ITERATIONS):
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                tools=_STYLE_EDIT_TOOLS,
+                tool_choice="auto",
+            )
+
+            response_msg = response.choices[0].message
+            messages.append(_build_assistant_message(response_msg))
+
+            if not response_msg.tool_calls:
+                # Model returned prose (no tool calls) — treat as done
+                logger.info("Style edit agent finished after %d iterations (no tool calls)", iteration + 1)
+                break
+
+            tool_results = []
+            done = False
+
+            for tool_call in response_msg.tool_calls:
+                fn_name = tool_call.function.name
+                try:
+                    fn_args = json.loads(tool_call.function.arguments)
+                except (json.JSONDecodeError, AttributeError) as exc:
+                    tool_results.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": fn_name,
+                        "content": json.dumps({"ok": False, "info": f"invalid_args:{exc}"}),
+                    })
+                    continue
+
+                if fn_name == "finish":
+                    done = True
+                    tool_results.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": fn_name,
+                        "content": json.dumps({"ok": True}),
+                    })
+
+                elif fn_name == "apply_edit":
+                    if total_edits >= _STYLE_MAX_EDITS:
+                        result_info = "edit_limit_reached"
+                        ok = False
+                    else:
+                        search = fn_args.get("search", "")
+                        replace = fn_args.get("replace", "")
+                        reason = fn_args.get("reason", "")
+                        new_draft, ok, result_info = apply_search_replace(current_draft, search, replace)
+                        if ok:
+                            current_draft = new_draft
+                            total_edits += 1
+                            logger.info("Style edit applied [%s]: %s", reason, result_info)
+                        else:
+                            logger.info("Style edit skipped [%s]: %s", reason, result_info)
+
+                    tool_results.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": fn_name,
+                        "content": json.dumps({"ok": ok, "info": result_info}),
+                    })
+
+                else:
+                    tool_results.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": fn_name,
+                        "content": json.dumps({"ok": False, "info": f"unknown_function:{fn_name}"}),
+                    })
+
+            messages.extend(tool_results)
+
+            if done:
+                logger.info("Style edit agent called finish after %d iterations, %d edits", iteration + 1, total_edits)
+                break
+
+        else:
+            logger.warning(
+                "Style edit agent hit max iterations (%d) without calling finish; %d edits applied",
+                _STYLE_MAX_ITERATIONS,
+                total_edits,
+            )
+
+        return current_draft
+
+    except Exception:
+        logger.exception("Style edit agent failed; returning draft unchanged")
+        return draft_content

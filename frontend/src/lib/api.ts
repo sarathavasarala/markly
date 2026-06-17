@@ -276,6 +276,7 @@ export interface SignalSettings {
   signal_planning_prompt: string | null
   signal_synthesis_prompt: string | null
   signal_planning_enabled?: boolean
+  signal_humanizer_enabled?: boolean
   default_filter_prompt?: string
   default_planning_prompt?: string
   default_synthesis_prompt?: string

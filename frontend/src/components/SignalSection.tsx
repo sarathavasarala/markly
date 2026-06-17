@@ -17,7 +17,7 @@ interface PipelineStep {
   titles?: string[]
 }
 
-const getInitialSteps = (webSearchEnabled: boolean, planningEnabled: boolean): PipelineStep[] => {
+const getInitialSteps = (webSearchEnabled: boolean, planningEnabled: boolean, humanizerEnabled: boolean): PipelineStep[] => {
   const steps: PipelineStep[] = [
     { id: 'scanning', label: 'Scanning sources', status: 'pending' },
     { id: 'filtering', label: 'Applying briefing preferences', status: 'pending' },
@@ -30,6 +30,9 @@ const getInitialSteps = (webSearchEnabled: boolean, planningEnabled: boolean): P
     steps.push({ id: 'researching', label: 'Researching background context', status: 'pending' })
   }
   steps.push({ id: 'synthesizing', label: 'Writing your daily brief', status: 'pending' })
+  if (humanizerEnabled) {
+    steps.push({ id: 'humanizing', label: 'Refining style and tone', status: 'pending' })
+  }
   return steps
 }
 
@@ -49,12 +52,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [defaultSynthesisLimit, setDefaultSynthesisLimit] = useState<number>(15)
   const [signalPlanningEnabled, setSignalPlanningEnabled] = useState<boolean>(true)
   const [signalWebSearchEnabled, setSignalWebSearchEnabled] = useState<boolean>(true)
+  const [signalHumanizerEnabled, setSignalHumanizerEnabled] = useState<boolean>(true)
   
   const [activeSettingsTab, setActiveSettingsTab] = useState<'instructions' | 'prompts' | 'settings'>('instructions')
 
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(getInitialSteps(true, true))
+  const [pipelineSteps, setPipelineSteps] = useState<PipelineStep[]>(getInitialSteps(true, true, true))
   const [isTasteProfileOpen, setIsTasteProfileOpen] = useState(false)
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
   
@@ -95,6 +99,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       setSignalSynthesisPrompt(profileRes.data.signal_synthesis_prompt !== null ? profileRes.data.signal_synthesis_prompt : defaultSynth)
       setSignalPlanningEnabled(profileRes.data.signal_planning_enabled !== undefined ? !!profileRes.data.signal_planning_enabled : true)
       setSignalWebSearchEnabled(profileRes.data.signal_web_search_enabled !== undefined ? !!profileRes.data.signal_web_search_enabled : true)
+      setSignalHumanizerEnabled(profileRes.data.signal_humanizer_enabled !== undefined ? !!profileRes.data.signal_humanizer_enabled : true)
 
       if (briefsRes.data.briefs.length > 0) {
         setSelectedBriefId(briefsRes.data.briefs[0].id)
@@ -146,7 +151,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
     setResearchWords(null)
     setSynthesisWords(null)
     setSynthesisOutputWords(null)
-    setPipelineSteps(getInitialSteps(signalWebSearchEnabled, signalPlanningEnabled).map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
+    setPipelineSteps(getInitialSteps(signalWebSearchEnabled, signalPlanningEnabled, signalHumanizerEnabled).map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
 
     try {
       const response = await signalApi.generateBriefStream()
@@ -236,8 +241,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 if (event.research_word_count !== undefined) setResearchWords(event.research_word_count)
                 if (event.synthesis_word_count !== undefined) setSynthesisWords(event.synthesis_word_count)
                 break
+              case 'humanizing':
+                markStepDone('synthesizing')
+                markStepActive('humanizing', event.message)
+                break
               case 'complete': {
                 markStepDone('synthesizing')
+                markStepDone('humanizing')
                 const newBrief = event.brief as SignalBrief
                 setBriefs(prev => [newBrief, ...prev])
                 setSelectedBriefId(newBrief.id)

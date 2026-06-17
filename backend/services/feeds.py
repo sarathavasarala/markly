@@ -9,9 +9,11 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import email.utils
+import warnings
+
 import feedparser
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 from config import Config
 from database import new_id, row_to_dict, utc_now
@@ -223,7 +225,9 @@ def _plain_summary(entry) -> str | None:
     raw = entry.get("summary") or entry.get("description")
     if not raw:
         return None
-    text = BeautifulSoup(raw, "lxml").get_text(" ", strip=True)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
+        text = BeautifulSoup(raw, "lxml").get_text(" ", strip=True)
     return unescape(text)[:1000] if text else None
 
 

@@ -20,6 +20,17 @@ def create_app():
     app.config.from_object(Config)
     app.permanent_session_lifetime = timedelta(days=Config.SESSION_EXPIRY_DAYS)
     
+    # Configure application logging. Without this, the root logger defaults to
+    # WARNING and all logger.info(...) calls across the app are silently dropped.
+    # Local dev (FLASK_DEBUG=true) is verbose; production stays at WARNING so the
+    # INFO/DEBUG diagnostics (e.g. style-edit traces) never reach prod logs.
+    log_level = logging.DEBUG if Config.DEBUG else logging.WARNING
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    logging.getLogger().setLevel(log_level)
+
     # Silence noisy loggers
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('httpcore').setLevel(logging.WARNING)

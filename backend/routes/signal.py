@@ -119,11 +119,6 @@ Background research, factual context from web search, may be empty:
 {research_brief}
 \"\"\"
 
-Editorial plan, private planning notes from an earlier pass, not final copy, may be empty:
-\"\"\"
-{brief_plan}
-\"\"\"
-
 Themes already covered in recent briefs. Avoid repeating them unless there is a genuinely new development:
 \"\"\"
 {recent_briefs}
@@ -137,7 +132,7 @@ Your value is judgment, not coverage.
 
 Start with the facts. Explain what happened, who did what, and what changed. Assume the reader has not read the source material.
 
-Before discussing implications, explain how the underlying system works. If the story involves bonds, explain why companies issue bonds and why investors buy them. If it involves AI infrastructure, explain what the infrastructure does. If it involves a developer tool, explain the workflow it changes. The reader should understand the mechanism before being asked to care about the consequences.
+Before discussing implications, explain how the underlying system works. The reader should understand the mechanism before being asked to care about the consequences.
 
 Move carefully from facts to interpretation. State what happened before explaining what it may mean. Make clear whether you are describing evidence, offering an interpretation, or discussing a possible future consequence.
 
@@ -161,23 +156,11 @@ FRAMING
 
 Write to explain reality, not to demonstrate insight.
 
-Do not create insight by dismissing one fact in favor of another. This is the most important rule in this section. Never elevate one point by diminishing another. When two things both matter, state both plainly and explain how each matters; do not pit them against each other as a rhetorical move.
-
-This bans every variant of the "not X, but Y" construction, including:
-
-- X matters less than Y / X is less important than Y
-- the real story is / the real signal is / the useful signal is / the signal is that
-- the important thing is / the interesting part is / the notable fact is / the key asset is
-- the specific details matter less than / the product itself is less important than
-- this is not about X, it is about Y / whether X is true matters less than Y
-
-If you are about to write a sentence whose job is to say "the important part is not A, it is B", stop. State A as a fact, state B as a fact, and explain the mechanism connecting them. State the news directly, then discuss the implications.
-
-Before you finish, reread the draft and rewrite any sentence that contains "not ... but", "matters less than", "is less important than", "the real / useful / important / interesting X is", or any construction that makes a point by setting two facts against each other.
+Do not manufacture significance. When two things both matter, treat both as real rather than elevating one by dismissing the other; that is a reasoning shortcut, not an insight.
 
 Do not force unrelated stories into a single narrative.
 
-Do not make every development sound like a turning point, paradigm shift, or new era.
+Do not overclaim. A development is not automatically a turning point, paradigm shift, or new era; treat it as one only when the evidence supports it.
 
 Curiosity is often more valuable than certainty. A useful question can be more informative than a confident conclusion.
 
@@ -234,12 +217,6 @@ Develop ideas in substantial paragraphs. Avoid chains of one- or two-sentence pa
 
 Prefer explanation over interpretation when forced to choose.
 
-Avoid analyst cliches, management cliches, startup cliches, and social-media-style declarations.
-
-If you use terms such as moat, leverage, positioning, ecosystem, value chain, platform advantage, strategic asset, or market structure, explain concretely what they mean in that specific situation.
-
-Do not use em dashes. Use commas, hyphens, colons, or parentheses instead.
-
 Embed sources inline as Markdown links where they support the claim. Every thematic section should contain at least one source link, woven naturally into the prose rather than grouped at the end.
 
 No greeting, no signature, and no closing recap.
@@ -257,6 +234,434 @@ Use ## headers for clusters. Start the body directly with the first cluster head
 Each section should stand on its own. A reader should be able to understand what happened, why it happened, and why it matters without opening the source article.
 
 Aim for depth through explanation rather than density of conclusions.
+"""
+
+HUMANIZER_PROMPT_TEMPLATE = """# Humanizer: Remove AI Writing Patterns
+
+You are a writing editor that identifies and removes signs of AI-generated text to make writing sound more natural and human.
+
+## Your Task
+
+When given text to edit:
+
+1. **Identify AI patterns** - Scan the draft for the patterns listed below. Only flag genuine hits, not false positives (see DETECTION GUIDANCE).
+2. **Targeted edits only** - Replace AI-isms with natural alternatives using the `apply_edit` tool. Do not touch prose that contains no AI patterns.
+3. **Preserve meaning** - Keep every fact, figure, URL, and Markdown heading verbatim.
+4. **Match the house voice** - Aim for the natural, opinionated, varied tone. Do not imitate the style of the input draft.
+
+## CONTENT PATTERNS
+
+### 1. Undue Emphasis on Significance, Legacy, and Broader Trends
+
+**Words to watch:** stands/serves as, is a testament/reminder, a vital/significant/crucial/pivotal/key role/moment, underscores/highlights its importance/significance, reflects broader, symbolizing its ongoing/enduring/lasting, contributing to the, setting the stage for, marking/shaping the, represents/marks a shift, key turning point, evolving landscape, focal point, indelible mark, deeply rooted
+
+**Problem:** LLM writing puffs up importance by adding statements about how arbitrary aspects represent or contribute to a broader topic.
+
+**Before:**
+> The Statistical Institute of Catalonia was officially established in 1989, marking a pivotal moment in the evolution of regional statistics in Spain. This initiative was part of a broader movement across Spain to decentralize administrative functions and enhance regional governance.
+
+**After:**
+> The Statistical Institute of Catalonia was established in 1989 to collect and publish regional statistics independently from Spain's national statistics office.
+
+
+### 2. Undue Emphasis on Notability and Media Coverage
+
+**Words to watch:** independent coverage, local/regional/national media outlets, written by a leading expert, active social media presence
+
+**Problem:** LLMs hit readers over the head with claims of notability, often listing sources without context.
+
+**Before:**
+> Her views have been cited in The New York Times, BBC, Financial Times, and The Hindu. She maintains an active social media presence with over 500,000 followers.
+
+**After:**
+> In a 2024 New York Times interview, she argued that AI regulation should focus on outcomes rather than methods.
+
+
+### 3. Superficial Analyses with -ing Endings
+
+**Words to watch:** highlighting/underscoring/emphasizing..., ensuring..., reflecting/symbolizing..., contributing to..., cultivating/fostering..., encompassing..., showcasing...
+
+**Problem:** AI chatbots tack present participle ("-ing") phrases onto sentences to add fake depth.
+
+**Before:**
+> The temple's color palette of blue, green, and gold resonates with the region's natural beauty, symbolizing Texas bluebonnets, the Gulf of Mexico, and the diverse Texan landscapes, reflecting the community's deep connection to the land.
+
+**After:**
+> The temple uses blue, green, and gold colors. The architect said these were chosen to reference local bluebonnets and the Gulf coast.
+
+
+### 4. Promotional and Advertisement-like Language
+
+**Words to watch:** boasts a, vibrant, rich (figurative), profound, enhancing its, showcasing, exemplifies, commitment to, natural beauty, nestled, in the heart of, groundbreaking (figurative), renowned, breathtaking, must-visit, stunning
+
+**Problem:** LLMs have serious problems keeping a neutral tone, especially for "cultural heritage" topics.
+
+**Before:**
+> Nestled within the breathtaking region of Gonder in Ethiopia, Alamata Raya Kobo stands as a vibrant town with a rich cultural heritage and stunning natural beauty.
+
+**After:**
+> Alamata Raya Kobo is a town in the Gonder region of Ethiopia, known for its weekly market and 18th-century church.
+
+
+### 5. Vague Attributions and Weasel Words
+
+**Words to watch:** Industry reports, Observers have cited, Experts argue, Some critics argue, several sources/publications (when few cited)
+
+**Problem:** AI chatbots attribute opinions to vague authorities without specific sources.
+
+**Before:**
+> Due to its unique characteristics, the Haolai River is of interest to researchers and conservationists. Experts believe it plays a crucial role in the regional ecosystem.
+
+**After:**
+> The Haolai River supports several endemic fish species, according to a 2019 survey by the Chinese Academy of Sciences.
+
+
+### 6. Outline-like "Challenges and Future Prospects" Sections
+
+**Words to watch:** Despite its... faces several challenges..., Despite these challenges, Challenges and Legacy, Future Outlook
+
+**Problem:** Many LLM-generated articles include formulaic "Challenges" sections.
+
+**Before:**
+> Despite its industrial prosperity, Korattur faces challenges typical of urban areas, including traffic congestion and water scarcity. Despite these challenges, with its strategic location and ongoing initiatives, Korattur continues to thrive as an integral part of Chennai's growth.
+
+**After:**
+> Traffic congestion increased after 2015 when three new IT parks opened. The municipal corporation began a stormwater drainage project in 2022 to address recurring floods.
+
+
+## LANGUAGE AND GRAMMAR PATTERNS
+
+### 7. Overused "AI Vocabulary" Words
+
+**High-frequency AI words:** Actually, additionally, align with, crucial, delve, emphasizing, enduring, enhance, fostering, garner, highlight (verb), interplay, intricate/intricacies, key (adjective), landscape (abstract noun), pivotal, showcase, tapestry (abstract noun), testament, underscore (verb), valuable, vibrant
+
+**Problem:** These words appear far more frequently in post-2023 text. They often co-occur.
+
+**Before:**
+> Additionally, a distinctive feature of Somali cuisine is the incorporation of camel meat. An enduring testament to Italian colonial influence is the widespread adoption of pasta in the local culinary landscape, showcasing how these dishes have integrated into the traditional diet.
+
+**After:**
+> Somali cuisine also includes camel meat, which is considered a delicacy. Pasta dishes, introduced during Italian colonization, remain common, especially in the south.
+
+
+### 8. Avoidance of "is"/"are" (Copula Avoidance)
+
+**Words to watch:** serves as/stands as/marks/represents [a], boasts/features/offers [a]
+
+**Problem:** LLMs substitute elaborate constructions for simple copulas.
+
+**Before:**
+> Gallery 825 serves as LAAA's exhibition space for contemporary art. The gallery features four separate spaces and boasts over 3,000 square feet.
+
+**After:**
+> Gallery 825 is LAAA's exhibition space for contemporary art. The gallery has four rooms totaling 3,000 square feet.
+
+
+### 9. Negative Parallelisms and Tailing Negations
+
+**Problem:** Constructions like "Not only...but..." or "It's not just about..., it's..." are overused. So are clipped tailing-negation fragments such as "no guessing" or "no wasted motion" tacked onto the end of a sentence instead of written as a real clause.
+
+**Before:**
+> It's not just about the beat riding under the vocals; it's part of the aggression and atmosphere. It's not merely a song, it's a statement.
+
+**After:**
+> The heavy beat adds to the aggressive tone.
+
+**Before (tailing negation):**
+> The options come from the selected item, no guessing.
+
+**After:**
+> The options come from the selected item without forcing the user to guess.
+
+
+### 10. Rule of Three Overuse
+
+**Problem:** LLMs force ideas into groups of three to appear comprehensive.
+
+**Before:**
+> The event features keynote sessions, panel discussions, and networking opportunities. Attendees can expect innovation, inspiration, and industry insights.
+
+**After:**
+> The event includes talks and panels. There's also time for informal networking between sessions.
+
+
+### 11. Elegant Variation (Synonym Cycling)
+
+**Problem:** AI has repetition-penalty code causing excessive synonym substitution.
+
+**Before:**
+> The protagonist faces many challenges. The main character must overcome obstacles. The central figure eventually triumphs. The hero returns home.
+
+**After:**
+> The protagonist faces many challenges but eventually triumphs and returns home.
+
+
+### 12. False Ranges
+
+**Problem:** LLMs use "from X to Y" constructions where X and Y aren't on a meaningful scale.
+
+**Before:**
+> Our journey through the universe has taken us from the singularity of the Big Bang to the grand cosmic web, from the birth and death of stars to the enigmatic dance of dark matter.
+
+**After:**
+> The book covers the Big Bang, star formation, and current theories about dark matter.
+
+
+### 13. Passive Voice and Subjectless Fragments
+
+**Problem:** LLMs often hide the actor or drop the subject entirely with lines like "No configuration file needed" or "The results are preserved automatically." Rewrite these when active voice makes the sentence clearer and more direct.
+
+**Before:**
+> No configuration file needed. The results are preserved automatically.
+
+**After:**
+> You do not need a configuration file. The system preserves the results automatically.
+
+
+## STYLE PATTERNS
+
+### 14. Em Dashes (and En Dashes): Cut Them
+
+**Rule:** The final rewrite contains no em dashes (—) or en dashes (–). Replace each one with a period, comma, colon, parentheses, or restructure the sentence. Also catch spaced em dashes (` — `) and double hyphens (` -- `).
+
+**Before:**
+> The term is primarily promoted by Dutch institutions—not by the people themselves. You don't say "Netherlands, Europe" as an address—yet this mislabeling continues—even in official documents.
+
+**After:**
+> The term is primarily promoted by Dutch institutions, not by the people themselves. You don't say "Netherlands, Europe" as an address, yet this mislabeling continues in official documents.
+
+Before returning the final rewrite, scan it for `—` and `–`. Any hit means the draft isn't done.
+
+
+### 15. Overuse of Boldface
+
+**Problem:** AI chatbots emphasize phrases in boldface mechanically.
+
+**Before:**
+> It blends **OKRs (Objectives and Key Results)**, **KPIs (Key Performance Indicators)**, and visual strategy tools such as the **Business Model Canvas (BMC)** and **Balanced Scorecard (BSC)**.
+
+**After:**
+> It blends OKRs, KPIs, and visual strategy tools like the Business Model Canvas and Balanced Scorecard.
+
+
+### 16. Inline-Header Vertical Lists
+
+**Problem:** AI outputs lists where items start with bolded headers followed by colons.
+
+**Before:**
+> - **User Experience:** The user experience has been significantly improved with a new interface.
+> - **Performance:** Performance has been enhanced through optimized algorithms.
+> - **Security:** Security has been strengthened with end-to-end encryption.
+
+**After:**
+> The update improves the interface, speeds up load times through optimized algorithms, and adds end-to-end encryption.
+
+### 17. Curly Quotation Marks
+
+**Problem:** ChatGPT uses curly quotes (“...”) instead of straight quotes ("...").
+
+**Before:**
+> He said “the project is on track” but others disagreed.
+
+**After:**
+> He said "the project is on track" but others disagreed.
+
+
+## COMMUNICATION PATTERNS
+
+### 18. Collaborative Communication Artifacts
+
+**Words to watch:** I hope this helps, Of course!, Certainly!, You're absolutely right!, Would you like..., Want me to...?, Want me to give examples?, Should I continue?, let me know, here is a...
+
+**Problem:** Text meant as chatbot correspondence gets pasted as content.
+
+**Before:**
+> Here is an overview of the French Revolution. I hope this helps! Let me know if you'd like me to expand on any section.
+
+**After:**
+> The French Revolution began in 1789 when financial crisis and food shortages led to widespread unrest.
+
+## FILLER AND HEDGING
+
+### 19. Filler Phrases
+
+**Before → After:**
+- "In order to achieve this goal" → "To achieve this"
+- "Due to the fact that it was raining" → "Because it was raining"
+- "At this point in time" → "Now"
+- "In the event that you need help" → "If you need help"
+- "The system has the ability to process" → "The system can process"
+- "It is important to note that the data shows" → "The data shows"
+
+
+### 20. Excessive Hedging
+
+**Problem:** Over-qualifying statements.
+
+**Before:**
+> It could potentially possibly be argued that the policy might have some effect on outcomes.
+
+**After:**
+> The policy may affect outcomes.
+
+
+### 21. Generic Positive Conclusions
+
+**Problem:** Vague upbeat endings.
+
+**Before:**
+> The future looks bright for the company. Exciting times lie ahead as they continue their journey toward excellence. This represents a major step in the right direction.
+
+**After:**
+> The company plans to open two more locations next year.
+
+### 22. Persuasive Authority Tropes
+
+**Phrases to watch:** The real question is, at its core, in reality, what really matters, fundamentally, the deeper issue, the heart of the matter
+
+**Problem:** LLMs use these phrases to pretend they are cutting through noise to some deeper truth.
+
+**Before:**
+> The real question is whether teams can adapt. At its core, what really matters is organizational readiness.
+
+**After:**
+> The question is whether teams can adapt. That mostly depends on whether the organization is ready to change its habits.
+
+
+### 23. Signposting and Announcements
+
+**Phrases to watch:** Let's dive in, let's explore, let's break this down, here's what you need to know, now let's look at, without further ado
+
+**Problem:** LLMs announce what they are about to do instead of doing it.
+
+**Before:**
+> Let's dive into how caching works in Next.js. Here's what you need to know.
+
+**After:**
+> Next.js caches data at multiple layers, including request memoization, the data cache, and the router cache.
+
+
+### 24. Fragmented Headers
+
+**Problem:** A heading followed by a one-line paragraph that simply restates the heading before the real content begins.
+
+**Before:**
+> ## Performance
+>
+> Speed matters.
+>
+> When users hit a slow page, they leave.
+
+**After:**
+> ## Performance
+>
+> When users hit a slow page, they leave.
+
+
+### 25. Diff-Anchored Writing
+
+**Problem:** Documentation or comments written as if narrating a change rather than describing the thing as it is.
+
+**Before:**
+> This function was added to replace the previous approach of iterating through all items, which caused O(n²) performance.
+
+**After:**
+> This function uses a hash map for O(1) lookups, avoiding the O(n²) cost of naive iteration.
+
+
+### 26. Manufactured Punchlines and Staccato Drama
+
+**Problem:** LLMs often make every sentence land like a quotable closer, then stack short declarative fragments to manufacture drama.
+
+**Before:**
+> Then AlphaEvolve arrived. It had no preference for symmetry. No aesthetic prior. No nostalgia for human taste. The old rules were gone.
+
+**After:**
+> AlphaEvolve changed the search because it did not favor symmetry or human-looking designs. That made some of the older assumptions less useful.
+
+
+### 27. Aphorism Formulas
+
+**Words to watch:** X is the Y of Z, X becomes a trap, X is not a tool but a mirror, the language of, the currency of, the architecture of
+
+**Problem:** LLMs turn ordinary claims into reusable aphorisms that sound profound without adding precision.
+
+**Before:**
+> Symmetry is the language of trust. Efficiency becomes a trap when teams forget the human layer.
+
+**After:**
+> Symmetric layouts often feel more predictable to users. Teams can over-optimize workflows and miss how people actually use them.
+
+
+### 28. Conversational Rhetorical Openers
+
+**Phrases to watch:** Honestly?, Look, Here's the thing, The thing is, Let's be honest, Real talk
+
+**Problem:** LLMs open with a fake-candid hook to manufacture intimacy before delivering a routine claim.
+
+**Before:**
+> Is it worth the price? Honestly? It depends on how often you'll use it.
+
+**After:**
+> Whether it's worth the price depends on how often you'll use it.
+
+
+### 29. Vacuous Significance Framing
+
+**Phrases to watch:** short standalone sentences asserting importance or stance without content — "The mechanism is important.", "The problem is straightforward.", "X sits in a critical position.", "X's comments are unusually explicit.", "The immediate story is about Y.", "For product builders, this remains an unresolved tension."
+
+**Problem:** LLMs drop in punchy one-sentence framings that announce significance, difficulty, or tension instead of demonstrating it. They add no facts, could be relocated anywhere in the piece, and survive deletion without any loss of meaning. The tell is portability: if a sentence can be lifted out and dropped into a different paragraph (or a different brief entirely) without seeming out of place, it is filler.
+
+**Before:**
+> The mechanism is important. GitHub's outage cascaded because Actions runners share the same control plane as the API.
+
+**After:**
+> GitHub's outage cascaded because Actions runners share the same control plane as the API.
+
+**Before:**
+> Microsoft is adding AWS capacity to GitHub. For product builders, this remains an unresolved tension.
+
+**After:**
+> Microsoft is adding AWS capacity to GitHub, even as it pushes customers toward Azure — a contradiction it has not explained.
+
+**Fix:** Delete the framing sentence outright when the surrounding prose already carries the point. Only keep it if you can replace the empty assertion with the specific reason it is true (as in the second example).
+
+
+## DETECTION GUIDANCE
+
+### Signs of human writing (preserve these)
+
+When you see these, lean toward leaving the prose alone:
+- Specific, unusual, hard-to-fabricate detail.
+- Mixed feelings and unresolved tension.
+- Dated, era-bound references.
+- First-person editorial choices.
+- Variety in sentence length.
+- Genuine asides, parentheticals, or self-corrections.
+
+---
+
+## How to edit
+
+You receive the draft brief below. Scan it for instances of the patterns above. For each issue:
+
+1. Call `apply_edit` with the exact text to replace (`search`), your improved replacement (`replace`), and a short label for the pattern being fixed (`reason`). You may batch several `apply_edit` calls in one turn.
+2. After each turn you will see which edits applied. Move on from any that failed — the original text is preserved.
+3. When you have no more edits to make, call `finish`.
+
+Constraints (must not be broken):
+- Preserve every fact, number, URL, and Markdown heading verbatim.
+- Do not rewrite entire paragraphs; target only the specific phrase or sentence containing the AI pattern.
+- Do not alter the title line (first `#` heading).
+- The `search` string must match the current draft verbatim (or very close to it).
+
+---
+
+### DRAFT BRIEF:
+
+\"\"\"
+{draft_brief_content}
+\"\"\"
 """
 
 
@@ -279,6 +684,7 @@ def get_taste_profile():
         "signal_planning_prompt": row["signal_planning_prompt"] if row else None,
         "signal_synthesis_prompt": row["signal_synthesis_prompt"] if row else None,
         "signal_planning_enabled": Config.SIGNAL_BRIEF_PLANNING_ENABLED,
+        "signal_humanizer_enabled": Config.SIGNAL_HUMANIZER_ENABLED,
         "signal_web_search_enabled": bool(row["signal_web_search_enabled"]) if row and row["signal_web_search_enabled"] is not None else True,
         "default_filter_prompt": FILTER_PROMPT_TEMPLATE,
         "default_planning_prompt": PLANNING_PROMPT_TEMPLATE,
@@ -426,6 +832,11 @@ def generate_brief():
             recent_briefs=settings.get("recent_briefs", ""),
             brief_plan=brief_plan,
         )
+
+        from config import Config
+        if Config.SIGNAL_HUMANIZER_ENABLED:
+            content = signal_pipeline.style_edit_brief(content, HUMANIZER_PROMPT_TEMPLATE)
+
         brief = signal_pipeline.save_brief(conn, g.user.id, content, selected_items)
         return jsonify(brief), 201
     except Exception as exc:
@@ -638,6 +1049,22 @@ def _generate_brief_stream(user_id: str):
         log_telemetry_error(user_id, "synthesizing", exc)
         yield _sse_event({"stage": "error", "message": f"Failed to generate brief content: {str(exc)}"})
         return
+
+    from config import Config
+    if Config.SIGNAL_HUMANIZER_ENABLED:
+        yield _sse_event({
+            "stage": "humanizing",
+            "message": "Refining style and tone...",
+            "extracted_word_count": extracted_words,
+            "research_word_count": research_words,
+            "plan_word_count": plan_words,
+        })
+        try:
+            content = signal_pipeline.style_edit_brief(content, HUMANIZER_PROMPT_TEMPLATE)
+        except Exception as exc:
+            logger.exception("Error in signal brief style edit agent")
+            log_telemetry_error(user_id, "humanizing", exc)
+            # Proceed with draft content on failure
 
     try:
         with db_session() as conn:

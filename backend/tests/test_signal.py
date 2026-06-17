@@ -101,10 +101,9 @@ def test_generate_brief_success(client, mocker):
         return_value="## AI Ecosystem Shift\nAI labs are optimizing for reliability and deployment economics — which is a major change."
     )
 
-    # Dedicated title pass fails here -> title falls back to the first-line title.
     mocker.patch(
-        "services.signal_pipeline.AzureOpenAIService.generate_signal_title",
-        return_value=None,
+        "services.signal_pipeline.style_edit_brief",
+        side_effect=lambda x, *args, **kwargs: x,
     )
 
     # Generate brief
@@ -623,6 +622,7 @@ def test_generate_brief_stream_success(client, mocker):
     mocker.patch("services.signal_pipeline.plan_brief", return_value="Brief plan details")
     mocker.patch("services.signal_pipeline.research", return_value=("Background details", ["query 1"]))
     mocker.patch("services.signal_pipeline.synthesize", return_value="The final daily brief.")
+    mocker.patch("services.signal_pipeline.style_edit_brief", side_effect=lambda x, *args, **kwargs: x)
     mocker.patch("services.signal_pipeline.save_brief", return_value={"id": "brief-123", "content": "The final daily brief."})
 
     response = client.post("/api/signal/briefs/generate", headers=AUTH_HEADERS)
@@ -647,6 +647,7 @@ def test_generate_brief_stream_success(client, mocker):
     assert "researching" in stages
     assert "researched" in stages
     assert "synthesizing" in stages
+    assert "humanizing" in stages
     assert "complete" in stages
 
     # Verify telemetry word counts are calculated and streamed
@@ -714,6 +715,7 @@ def test_generate_brief_stream_skips_planning_when_feature_disabled(client, mock
     mock_plan = mocker.patch("services.signal_pipeline.plan_brief", return_value="Brief plan details")
     mock_research = mocker.patch("services.signal_pipeline.research", return_value=("Background details", ["query 1"]))
     mock_synthesize = mocker.patch("services.signal_pipeline.synthesize", return_value="The final daily brief.")
+    mocker.patch("services.signal_pipeline.style_edit_brief", side_effect=lambda x, *args, **kwargs: x)
     mocker.patch("services.signal_pipeline.llm_filter", return_value=[{"id": "item-1", "title": "AI reliability vs benchmarks", "feed_title": "B", "url": "http://a", "content": "Full text content"}])
     mocker.patch("services.signal_pipeline.extract_contents", side_effect=mock_extract_generator)
     mocker.patch("services.signal_pipeline.persist_content_updates")
@@ -832,15 +834,9 @@ def test_parse_and_clean_brief():
     assert clean == "Content here."
 
 
-def test_save_brief_with_title(mocker):
+def test_save_brief_with_title():
     from database import db_session, upsert_user
     from services.signal_pipeline import save_brief
-
-    # Dedicated title pass fails -> fall back to the title parsed from the first line.
-    mocker.patch(
-        "services.signal_pipeline.AzureOpenAIService.generate_signal_title",
-        return_value=None,
-    )
 
     user = upsert_user("test@example.com", full_name="Test User")
     content = "# Theme: My Dynamic Title\n\n## Subtheme\nBody details"
@@ -853,25 +849,6 @@ def test_save_brief_with_title(mocker):
         row = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (brief["id"],)).fetchone()
         assert row["title"] == "My Dynamic Title"
         assert row["content"] == "## Subtheme\nBody details"
-
-
-def test_save_brief_uses_dedicated_title(mocker):
-    """The dedicated title pass, when it succeeds, overrides the first-line title."""
-    from database import db_session, upsert_user
-    from services.signal_pipeline import save_brief
-
-    mocker.patch(
-        "services.signal_pipeline.AzureOpenAIService.generate_signal_title",
-        return_value="A Sharper Generated Title",
-    )
-
-    user = upsert_user("title@example.com", full_name="Title User")
-    content = "# Theme: First Line Title\n\n## Subtheme\nBody details"
-
-    with db_session() as conn:
-        brief = save_brief(conn, user["id"], content, [])
-        assert brief["title"] == "A Sharper Generated Title"
-        assert brief["content"] == "## Subtheme\nBody details"
 
 
 def test_load_recent_brief_titles_and_builder():
@@ -897,3 +874,163 @@ def test_load_recent_brief_titles_and_builder():
         assert titles == ["Newest", "Middle"]
         built = _build_recent_briefs_str(titles)
         assert "- Newest" in built and "- Middle" in built
+
+
+def test_style_edit_brief_disabled():
+    from services.signal_pipeline import style_edit_brief
+    from config import Config
+
+    orig_enabled = Config.SIGNAL_HUMANIZER_ENABLED
+    Config.SIGNAL_HUMANIZER_ENABLED = False
+
+    try:
+        result = style_edit_brief("Draft content", "Template: {draft_brief_content}")
+        assert result == "Draft content"
+    finally:
+        Config.SIGNAL_HUMANIZER_ENABLED = orig_enabled
+
+
+def test_style_edit_brief_applies_edits(mocker):
+    """Agent calls apply_edit twice then finish; both edits are applied."""
+    from services.signal_pipeline import style_edit_brief
+    from config import Config
+    import json
+
+    orig_enabled = Config.SIGNAL_HUMANIZER_ENABLED
+    Config.SIGNAL_HUMANIZER_ENABLED = True
+
+    def _tc(call_id, fn_name, fn_args_dict):
+        """Build a tool_call mock with a correctly addressable .function.name."""
+        fn = mocker.MagicMock()
+        fn.name = fn_name
+        fn.arguments = json.dumps(fn_args_dict)
+        tc = mocker.MagicMock()
+        tc.id = call_id
+        tc.function = fn
+        return tc
+
+    try:
+        mock_client = mocker.MagicMock()
+        mocker.patch(
+            "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+            return_value=(mock_client, "gpt-4o")
+        )
+
+        draft = "This stands as a testament to innovation. It showcases vibrant results."
+
+        # Turn 1: two apply_edit calls
+        turn1_msg = mocker.MagicMock()
+        turn1_msg.content = None
+        turn1_msg.tool_calls = [
+            _tc("call_1", "apply_edit", {
+                "reason": "AI cliche",
+                "search": "stands as a testament to innovation",
+                "replace": "shows the team's focus",
+            }),
+            _tc("call_2", "apply_edit", {
+                "reason": "promotional language",
+                "search": "showcases vibrant results",
+                "replace": "produced clear results",
+            }),
+        ]
+
+        # Turn 2: finish
+        turn2_msg = mocker.MagicMock()
+        turn2_msg.content = None
+        turn2_msg.tool_calls = [
+            _tc("call_3", "finish", {"summary": "Removed two AI cliches."}),
+        ]
+
+        mock_client.chat.completions.create.side_effect = [
+            mocker.MagicMock(choices=[mocker.MagicMock(message=turn1_msg)]),
+            mocker.MagicMock(choices=[mocker.MagicMock(message=turn2_msg)]),
+        ]
+
+        result = style_edit_brief(draft, "{draft_brief_content}")
+
+        assert "shows the team's focus" in result
+        assert "produced clear results" in result
+        assert "testament to innovation" not in result
+        assert mock_client.chat.completions.create.call_count == 2
+    finally:
+        Config.SIGNAL_HUMANIZER_ENABLED = orig_enabled
+
+
+def test_style_edit_brief_skip_on_failed_patch(mocker):
+    """An edit whose search string can't be found is silently skipped."""
+    from services.signal_pipeline import style_edit_brief
+    from config import Config
+    import json
+
+    orig_enabled = Config.SIGNAL_HUMANIZER_ENABLED
+    Config.SIGNAL_HUMANIZER_ENABLED = True
+
+    def _tc(call_id, fn_name, fn_args_dict):
+        fn = mocker.MagicMock()
+        fn.name = fn_name
+        fn.arguments = json.dumps(fn_args_dict)
+        tc = mocker.MagicMock()
+        tc.id = call_id
+        tc.function = fn
+        return tc
+
+    try:
+        mock_client = mocker.MagicMock()
+        mocker.patch(
+            "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+            return_value=(mock_client, "gpt-4o")
+        )
+
+        draft = "Original draft content here."
+
+        # Turn 1: edit with text that does NOT exist in the draft
+        turn1_msg = mocker.MagicMock()
+        turn1_msg.content = None
+        turn1_msg.tool_calls = [
+            _tc("call_1", "apply_edit", {
+                "reason": "test",
+                "search": "text that does not exist",
+                "replace": "replacement",
+            }),
+        ]
+
+        # Turn 2: finish
+        turn2_msg = mocker.MagicMock()
+        turn2_msg.content = None
+        turn2_msg.tool_calls = [
+            _tc("call_2", "finish", {"summary": "nothing changed"}),
+        ]
+
+        mock_client.chat.completions.create.side_effect = [
+            mocker.MagicMock(choices=[mocker.MagicMock(message=turn1_msg)]),
+            mocker.MagicMock(choices=[mocker.MagicMock(message=turn2_msg)]),
+        ]
+
+        result = style_edit_brief(draft, "{draft_brief_content}")
+
+        # Draft must be unchanged since the edit couldn't be applied
+        assert result == draft
+    finally:
+        Config.SIGNAL_HUMANIZER_ENABLED = orig_enabled
+
+
+def test_style_edit_brief_error_fallback(mocker):
+    """If the LLM call raises, return the original draft unchanged."""
+    from services.signal_pipeline import style_edit_brief
+    from config import Config
+
+    orig_enabled = Config.SIGNAL_HUMANIZER_ENABLED
+    Config.SIGNAL_HUMANIZER_ENABLED = True
+
+    try:
+        mock_client = mocker.MagicMock()
+        mocker.patch(
+            "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+            return_value=(mock_client, "gpt-4o")
+        )
+        mock_client.chat.completions.create.side_effect = Exception("API error")
+
+        result = style_edit_brief("Draft content", "{draft_brief_content}")
+        assert result == "Draft content"
+    finally:
+        Config.SIGNAL_HUMANIZER_ENABLED = orig_enabled
