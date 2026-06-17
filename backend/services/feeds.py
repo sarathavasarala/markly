@@ -181,7 +181,7 @@ def add_feed(conn, user_id: str, input_url: str) -> dict[str, Any]:
     if existing:
         feed = row_to_dict(existing)
         for entry in parsed.entries[:MAX_ENTRIES_PER_FEED]:
-            _insert_entry(conn, user_id, feed["id"], entry)
+            _insert_entry(conn, user_id, feed["id"], entry, feed_url)
         prune_feed_items(conn, user_id, feed["id"])
         return feed
 
@@ -208,7 +208,7 @@ def add_feed(conn, user_id: str, input_url: str) -> dict[str, Any]:
         ),
     )
     for entry in parsed.entries[:MAX_ENTRIES_PER_FEED]:
-        _insert_entry(conn, user_id, feed_id, entry)
+        _insert_entry(conn, user_id, feed_id, entry, feed_url)
     prune_feed_items(conn, user_id, feed_id)
     row = conn.execute("SELECT * FROM feeds WHERE id = ?", (feed_id,)).fetchone()
     return row_to_dict(row)
@@ -289,7 +289,19 @@ def _entry_guid(entry, url: str) -> str:
     return str(value).strip() or url
 
 
-def _insert_entry(conn, user_id: str, feed_id: str, entry) -> bool:
+def should_bypass_entry_content(feed_url: str | None) -> bool:
+    """Check if the feed's content/summary should be bypassed to force full-text extraction."""
+    if not Config.ENABLE_FORCE_FULL_TEXT or not feed_url:
+        return False
+    try:
+        parsed = urlparse(feed_url)
+        host = (parsed.hostname or "").lower()
+        return any(host == h or host.endswith("." + h) for h in Config.FORCE_FULL_TEXT_FEED_HOSTS)
+    except Exception:
+        return False
+
+
+def _insert_entry(conn, user_id: str, feed_id: str, entry, feed_url: str | None = None) -> bool:
     raw_url = _entry_url(entry)
     title = (entry.get("title") or "").strip()
     if not raw_url or not title:
@@ -301,6 +313,9 @@ def _insert_entry(conn, user_id: str, feed_id: str, entry) -> bool:
     source_url = _resolve_aggregator_source_url(entry, raw_url)
     if source_url:
         url = source_url
+        content = None
+    elif should_bypass_entry_content(feed_url):
+        url = raw_url
         content = None
     else:
         url = raw_url
@@ -414,7 +429,7 @@ def refresh_feeds(
 
             parsed = _parse_feed_bytes(response.content, response.url)
             for entry in parsed.entries[:MAX_ENTRIES_PER_FEED]:
-                if _insert_entry(conn, user_id, feed["id"], entry):
+                if _insert_entry(conn, user_id, feed["id"], entry, feed["feed_url"]):
                     inserted += 1
             prune_feed_items(conn, user_id, feed["id"])
 

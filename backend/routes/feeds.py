@@ -186,41 +186,109 @@ def mark_item_saved(item_id: str):
 def get_item_content(item_id: str):
     fetch_clean = request.args.get("fetch_clean", "false").lower() == "true"
     conn = get_db()
+    
+    # Join feed_items with feeds to get parent feed_url, summary, and current content fields
     row = conn.execute(
-        "SELECT id, url, content, content_format FROM feed_items WHERE id = ? AND user_id = ?",
+        """
+        SELECT i.id, i.url, i.content, i.content_format, i.summary, f.feed_url 
+        FROM feed_items i
+        JOIN feeds f ON i.feed_id = f.id
+        WHERE i.id = ? AND i.user_id = ?
+        """,
         (item_id, g.user.id),
     ).fetchone()
+    
     if not row:
         return jsonify({"error": "Feed item not found"}), 404
 
     item = row_to_dict(row)
     url = item["url"]
+    feed_url = item.get("feed_url")
+    summary = item.get("summary")
+    content = item.get("content")
+    content_format = item.get("content_format")
 
-    if fetch_clean or not item.get("content"):
+    from services.feeds import should_bypass_entry_content
+    bypass_jina = should_bypass_entry_content(feed_url)
+
+    def _get_fallback_content(sum_text: str | None) -> str:
+        note = "<p><em>Note: Full-text extraction failed after 3 attempts. Displaying feed summary fallback.</em></p>"
+        if sum_text and sum_text.strip():
+            return f"{note}\n{sum_text.strip()}"
+        return f"{note}\n<p>No summary available for this item.</p>"
+
+    # Check for permanent failure state
+    if content_format == "failed_3" and not fetch_clean:
+        if not content or "extraction failed" not in content:
+            fallback = _get_fallback_content(summary)
+            conn.execute(
+                "UPDATE feed_items SET content = ?, content_format = 'html', updated_at = ? WHERE id = ?",
+                (fallback, utc_now(), item_id),
+            )
+            conn.commit()
+            content = fallback
+            content_format = "html"
+        return jsonify({
+            "content": content,
+            "content_format": content_format
+        })
+
+    # Track failures (failed_1, failed_2, failed_3)
+    current_failures = 0
+    if fetch_clean:
+        current_failures = 0
+    elif content_format and content_format.startswith("failed_"):
+        try:
+            current_failures = int(content_format.split("_")[1])
+        except (IndexError, ValueError):
+            current_failures = 0
+
+    if fetch_clean or not content or (content_format and content_format.startswith("failed_")):
         try:
             from services.content_extractor import ContentExtractor
-            extracted = ContentExtractor.extract(url)
-            content = extracted.get("content")
-            if content and content.strip():
-                content_format = extracted.get("content_format") or "markdown"
+            if bypass_jina:
+                extracted = ContentExtractor.extract(url, bypass_jina=True)
+            else:
+                extracted = ContentExtractor.extract(url)
+            extracted_content = extracted.get("content")
+            
+            if extracted_content and extracted_content.strip():
+                extracted_format = extracted.get("content_format") or "markdown"
                 conn.execute(
                     "UPDATE feed_items SET content = ?, content_format = ?, updated_at = ? WHERE id = ?",
-                    (content, content_format, utc_now(), item_id),
+                    (extracted_content, extracted_format, utc_now(), item_id),
                 )
                 conn.commit()
-                item["content"] = content
-                item["content_format"] = content_format
-            elif not item.get("content"):
-                summary_row = conn.execute("SELECT summary FROM feed_items WHERE id = ?", (item_id,)).fetchone()
-                if summary_row and summary_row["summary"]:
-                    item["content"] = summary_row["summary"]
-                    item["content_format"] = "html"
+                content = extracted_content
+                content_format = extracted_format
+            else:
+                raise ValueError("Extractor returned empty content")
         except Exception as exc:
             logger.error(f"Failed to extract item content for {url}: {exc}")
-            if not item.get("content"):
-                return jsonify({"error": f"Failed to extract content: {str(exc)}"}), 500
+            next_failures = current_failures + 1
+            if next_failures >= 3:
+                fallback = _get_fallback_content(summary)
+                conn.execute(
+                    "UPDATE feed_items SET content = ?, content_format = 'html', updated_at = ? WHERE id = ?",
+                    (fallback, utc_now(), item_id),
+                )
+                conn.commit()
+                content = fallback
+                content_format = "html"
+                return jsonify({
+                    "content": content,
+                    "content_format": content_format
+                })
+            else:
+                conn.execute(
+                    "UPDATE feed_items SET content_format = ?, updated_at = ? WHERE id = ?",
+                    (f"failed_{next_failures}", utc_now(), item_id),
+                )
+                conn.commit()
+                return jsonify({"error": f"Failed to extract content (attempt {next_failures}/3): {str(exc)}"}), 500
 
     return jsonify({
-        "content": item.get("content"),
-        "content_format": item.get("content_format") or "html"
+        "content": content,
+        "content_format": content_format or "html"
     })
+

@@ -21,7 +21,7 @@ class ContentExtractor:
     TIMEOUT = 15
     
     @classmethod
-    def extract(cls, url: str) -> dict:
+    def extract(cls, url: str, bypass_jina: bool = False) -> dict:
         """
         Extract content from a URL.
         
@@ -52,8 +52,8 @@ class ContentExtractor:
             pass
         
         jina_res = {}
-        # 1. Try Jina Reader API first if configured
-        if Config.JINA_READER_API_KEY:
+        # 1. Try Jina Reader API first if configured and not bypassed
+        if Config.JINA_READER_API_KEY and not bypass_jina:
             try:
                 jina_res = cls._extract_via_jina(url)
             except Exception as e:
@@ -123,25 +123,31 @@ class ContentExtractor:
     
     @classmethod
     def _extract_via_beautifulsoup(cls, url: str) -> dict:
-        """Extract content using BeautifulSoup and newspaper3k."""
-        result = {}
+        """Extract content using Trafilatura, Readability-lxml, Newspaper3k, and BeautifulSoup fallbacks."""
+        result = {
+            "title": None,
+            "description": None,
+            "content": None,
+            "content_format": None,
+            "favicon_url": None,
+            "thumbnail_url": None,
+        }
         
         try:
-            response = requests.get(url, headers=cls.HEADERS, timeout=cls.TIMEOUT)
+            response = requests.get(url, headers=cls.HEADERS, timeout=cls.TIMEOUT, allow_redirects=True)
             response.raise_for_status()
             
+            html_content = response.text
             soup = BeautifulSoup(response.content, "lxml")
             
-            # Extract title
+            # Extract basic metadata
             if soup.title:
                 result["title"] = soup.title.string.strip() if soup.title.string else None
             
-            # Extract meta description
             meta_desc = soup.find("meta", attrs={"name": "description"})
             if meta_desc:
                 result["description"] = meta_desc.get("content", "")
             
-            # Extract Open Graph data
             og_title = soup.find("meta", property="og:title")
             if og_title and not result.get("title"):
                 result["title"] = og_title.get("content")
@@ -154,17 +160,50 @@ class ContentExtractor:
             if og_image:
                 result["thumbnail_url"] = og_image.get("content")
             
-            # Extract favicon
             result["favicon_url"] = cls.extract_favicon(url, soup)
             
-            # Try newspaper3k extraction
+            # 1. Try Trafilatura Markdown extraction first
+            try:
+                import trafilatura
+                extracted_md = trafilatura.extract(
+                    html_content,
+                    output_format='markdown',
+                    include_links=True,
+                    include_images=True
+                )
+                if extracted_md and len(extracted_md.strip()) > 150:
+                    result["content"] = extracted_md.strip()[:Config.ARCHIVE_MAX_CHARS]
+                    result["content_format"] = "markdown"
+                    logger.debug("Extracted content successfully via Trafilatura markdown.")
+                    return result
+            except Exception as e:
+                logger.debug("Trafilatura extraction failed for %s: %s", url, e)
+                
+            # 2. Try Readability-lxml HTML extraction second
+            try:
+                from readability import Document
+                doc = Document(html_content)
+                readable_title = doc.title()
+                if readable_title and not result.get("title"):
+                    result["title"] = readable_title
+                    
+                readable_html = doc.summary()
+                if readable_html and len(readable_html.strip()) > 150:
+                    result["content"] = readable_html.strip()[:Config.ARCHIVE_MAX_CHARS]
+                    result["content_format"] = "html"
+                    logger.debug("Extracted content successfully via Readability-lxml HTML.")
+                    return result
+            except Exception as e:
+                logger.debug("Readability-lxml extraction failed for %s: %s", url, e)
+                
+            # 3. Try Newspaper3k extraction third
             newspaper_content = None
             try:
                 from newspaper import Article
                 article = Article(url)
-                article.set_html(response.text)
+                article.set_html(html_content)
                 article.parse()
-                if article.text and article.text.strip():
+                if article.text and len(article.text.strip()) > 100:
                     newspaper_content = article.text.strip()
             except Exception as e:
                 logger.debug("Newspaper3k parse failed for %s: %s", url, e)
@@ -172,16 +211,19 @@ class ContentExtractor:
             if newspaper_content:
                 result["content"] = newspaper_content[:Config.ARCHIVE_MAX_CHARS]
                 result["content_format"] = "text"
-            else:
-                # Fallback to BeautifulSoup selector extraction
-                content = cls._extract_main_content(soup)
-                if content:
-                    result["content"] = content[:Config.ARCHIVE_MAX_CHARS]
-                    result["content_format"] = "text"
-            
+                logger.debug("Extracted content successfully via Newspaper3k.")
+                return result
+                
+            # 4. Fallback to manual BeautifulSoup selector extraction
+            content = cls._extract_main_content(soup)
+            if content:
+                result["content"] = content[:Config.ARCHIVE_MAX_CHARS]
+                result["content_format"] = "text"
+                logger.debug("Extracted content successfully via BeautifulSoup fallback.")
+                
         except Exception as e:
-            logger.debug("BeautifulSoup extraction failed for %s: %s", url, e)
-        
+            logger.debug("Local extraction failed for %s: %s", url, e)
+            
         return result
 
     @classmethod

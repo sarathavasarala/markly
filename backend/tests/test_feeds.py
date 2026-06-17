@@ -582,3 +582,104 @@ def test_feed_exponential_backoff_scaling_and_disable(mocker):
             else:
                 assert feed["is_active"] == 0
                 assert feed["last_error"].startswith("disabled after")
+
+
+def test_insert_hn_entry_clears_content():
+    from services.feeds import _insert_entry, should_bypass_entry_content
+    
+    assert should_bypass_entry_content("https://hnrss.org/best") is True
+    assert should_bypass_entry_content("https://news.ycombinator.com/rss") is True
+    assert should_bypass_entry_content("https://example.com/rss") is False
+    
+    user = upsert_user("hn-test@example.com", full_name="HN User")
+    feed_id = _insert_feed(user["id"], feed_url="https://hnrss.org/best")
+    
+    entry = {
+        "id": "https://news.ycombinator.com/item?id=123",
+        "link": "https://example.com/article",
+        "title": "Some Great Article",
+        "summary": "<p>Points: 100, Comments: 50</p>",
+    }
+    
+    with db_session() as conn:
+        assert _insert_entry(conn, user["id"], feed_id, entry, "https://hnrss.org/best") is True
+        row = conn.execute(
+            "SELECT url, content, summary FROM feed_items WHERE user_id = ?",
+            (user["id"],),
+        ).fetchone()
+        
+    assert row["url"] == "https://example.com/article"
+    assert row["content"] is None  # Content is cleared because it's HackerNews feed
+    assert row["summary"] == "Points: 100, Comments: 50"
+
+
+def test_get_item_content_retry_and_fallback(client, mocker):
+    user = upsert_user("test@example.com")
+    feed_id = _insert_feed(user["id"], feed_url="https://hnrss.org/best")
+    
+    with db_session() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO feed_items (
+                id, user_id, feed_id, guid, url, title, summary, content, content_format, status, first_seen_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)
+            """,
+            (
+                "retry-item-1",
+                user["id"],
+                feed_id,
+                "hn-guid-retry",
+                "https://example.com/retry-article",
+                "Retry Article Title",
+                "Original summary",
+                None,
+                None,
+                utc_now(),
+                utc_now(),
+            )
+        )
+        conn.commit()
+
+    # Mock ContentExtractor.extract to raise an error
+    from services.content_extractor import ContentExtractor
+    mock_extract = mocker.patch.object(ContentExtractor, "extract", side_effect=Exception("Failed connection"))
+
+    # Attempt 1: Expect 500 error, status updated to failed_1
+    res1 = client.get("/api/feeds/items/retry-item-1/content", headers=AUTH_HEADERS)
+    assert res1.status_code == 500
+    assert "Failed to extract content (attempt 1/3)" in res1.json["error"]
+    
+    with db_session() as conn:
+        row = conn.execute("SELECT content, content_format FROM feed_items WHERE id = 'retry-item-1'").fetchone()
+        assert row["content"] is None
+        assert row["content_format"] == "failed_1"
+        
+    # Attempt 2: Expect 500 error, status updated to failed_2
+    res2 = client.get("/api/feeds/items/retry-item-1/content", headers=AUTH_HEADERS)
+    assert res2.status_code == 500
+    assert "Failed to extract content (attempt 2/3)" in res2.json["error"]
+    
+    with db_session() as conn:
+        row = conn.execute("SELECT content, content_format FROM feed_items WHERE id = 'retry-item-1'").fetchone()
+        assert row["content_format"] == "failed_2"
+        
+    # Attempt 3: Expect 200, permanently fails, returns fallback HTML
+    res3 = client.get("/api/feeds/items/retry-item-1/content", headers=AUTH_HEADERS)
+    assert res3.status_code == 200
+    assert "Note: Full-text extraction failed after 3 attempts" in res3.json["content"]
+    assert "Original summary" in res3.json["content"]
+    assert res3.json["content_format"] == "html"
+    
+    with db_session() as conn:
+        row = conn.execute("SELECT content, content_format FROM feed_items WHERE id = 'retry-item-1'").fetchone()
+        assert "Note: Full-text extraction failed" in row["content"]
+        assert row["content_format"] == "html"
+        
+    # Future GET requests should directly return the stored fallback immediately without calling extract again
+    mock_extract.reset_mock()
+    mocker.patch.object(ContentExtractor, "extract")
+    res4 = client.get("/api/feeds/items/retry-item-1/content", headers=AUTH_HEADERS)
+    assert res4.status_code == 200
+    ContentExtractor.extract.assert_not_called()
+
+

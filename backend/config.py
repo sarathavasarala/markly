@@ -105,9 +105,18 @@ class Config:
     CLUSTER_EMBED_MAX_PER_RUN = int(os.getenv("CLUSTER_EMBED_MAX_PER_RUN", "100"))
     CLUSTER_MAX_SYNTHESIS_ARTICLES = int(os.getenv("CLUSTER_MAX_SYNTHESIS_ARTICLES", "5"))
 
+    # Force Full-Text feed extraction settings
+    ENABLE_FORCE_FULL_TEXT = os.getenv("ENABLE_FORCE_FULL_TEXT", "true").lower() == "true"
+    FORCE_FULL_TEXT_FEED_HOSTS = set(
+        x.strip().lower()
+        for x in os.getenv("FORCE_FULL_TEXT_FEED_HOSTS", "hnrss.org,news.ycombinator.com").split(",")
+        if x.strip()
+    )
+
     # Optional services
     JINA_READER_API_KEY = os.getenv("JINA_READER_API_KEY")
     PARALLEL_API_KEY = os.getenv("PARALLEL_API_KEY")
+
 
     
     @classmethod

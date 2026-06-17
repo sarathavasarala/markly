@@ -437,19 +437,83 @@ def extract_contents(selected_items):
         item_id = item["id"]
         with db_session() as thread_conn:
             cached_row = thread_conn.execute(
-                "SELECT content, content_format FROM feed_items WHERE id = ?", (item_id,)
+                """
+                SELECT i.content, i.content_format, i.summary, f.feed_url 
+                FROM feed_items i
+                JOIN feeds f ON i.feed_id = f.id
+                WHERE i.id = ?
+                """, (item_id,)
             ).fetchone()
-            if cached_row and cached_row["content"] and cached_row["content"].strip():
-                return (item_id, cached_row["content"], cached_row["content_format"], False)
+            
+            if not cached_row:
+                return None
+                
+            content = cached_row["content"]
+            content_format = cached_row["content_format"]
+            summary = cached_row["summary"]
+            feed_url = cached_row["feed_url"]
+
+        from services.feeds import should_bypass_entry_content
+        bypass_jina = should_bypass_entry_content(feed_url)
+
+        def _get_fallback_content(sum_text: str | None) -> str:
+            note = "<p><em>Note: Full-text extraction failed after 3 attempts. Displaying feed summary fallback.</em></p>"
+            if sum_text and sum_text.strip():
+                return f"{note}\n{sum_text.strip()}"
+            return f"{note}\n<p>No summary available for this item.</p>"
+
+        # If already permanently failed, return fallback
+        if content_format == "failed_3":
+            fallback = _get_fallback_content(summary)
+            if not content or "extraction failed" not in content:
+                with db_session() as thread_conn:
+                    thread_conn.execute(
+                        "UPDATE feed_items SET content = ?, content_format = 'html', updated_at = ? WHERE id = ?",
+                        (fallback, utc_now(), item_id),
+                    )
+            return (item_id, fallback, "html", False)
+
+        # If already has successful content, return it
+        if content and content.strip() and not (content_format and content_format.startswith("failed_")):
+            return (item_id, content, content_format, False)
+
+        # Track failure count
+        current_failures = 0
+        if content_format and content_format.startswith("failed_"):
+            try:
+                current_failures = int(content_format.split("_")[1])
+            except (IndexError, ValueError):
+                current_failures = 0
+
         try:
-            extracted = ContentExtractor.extract(item["url"])
-            content = extracted.get("content")
-            if content and content.strip():
-                content_format = extracted.get("content_format") or "markdown"
-                return (item_id, content, content_format, True)
+            if bypass_jina:
+                extracted = ContentExtractor.extract(item["url"], bypass_jina=True)
+            else:
+                extracted = ContentExtractor.extract(item["url"])
+            extracted_content = extracted.get("content")
+            if extracted_content and extracted_content.strip():
+                extracted_format = extracted.get("content_format") or "markdown"
+                return (item_id, extracted_content, extracted_format, True)
+            else:
+                raise ValueError("Extractor returned empty content")
         except Exception as exc:
             logger.error(f"Failed content extraction during signal generation for {item['url']}: {exc}")
-        return None
+            next_failures = current_failures + 1
+            if next_failures >= 3:
+                fallback = _get_fallback_content(summary)
+                with db_session() as thread_conn:
+                    thread_conn.execute(
+                        "UPDATE feed_items SET content = ?, content_format = 'html', updated_at = ? WHERE id = ?",
+                        (fallback, utc_now(), item_id),
+                    )
+                return (item_id, fallback, "html", False)
+            else:
+                with db_session() as thread_conn:
+                    thread_conn.execute(
+                        "UPDATE feed_items SET content_format = ?, updated_at = ? WHERE id = ?",
+                        (f"failed_{next_failures}", utc_now(), item_id),
+                    )
+                return None
 
     done = 0
     with ThreadPoolExecutor(max_workers=5) as executor:

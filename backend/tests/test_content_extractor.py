@@ -54,3 +54,26 @@ def test_extract_via_jina(mock_get):
     assert result["title"] == "Jina Title"
     assert result["description"] == "Jina Description"
     assert result["content"] == "Jina Content"
+
+
+@patch('requests.get')
+def test_extract_bypass_jina(mock_get):
+    # Mock fallback BeautifulSoup/local response
+    mock_response = MagicMock()
+    mock_response.content = (
+        b"<html><head><title>Fallback Title</title></head>"
+        b"<body><main>Fallback Local Content and more text to bypass threshold</main></body></html>"
+    )
+    mock_response.status_code = 200
+    mock_get.return_value = mock_response
+
+    url = "https://example.com"
+    # Even if JINA_READER_API_KEY is configured, bypass_jina=True should skip Jina
+    with patch('config.Config.JINA_READER_API_KEY', 'test-key'):
+        with patch.object(ContentExtractor, '_extract_via_jina') as mock_jina:
+            result = ContentExtractor.extract(url, bypass_jina=True)
+            mock_jina.assert_not_called()
+
+    assert result["title"] == "Fallback Title"
+    assert "Fallback Local Content" in result["content"]
+
