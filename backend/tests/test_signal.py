@@ -313,7 +313,7 @@ def test_signal_pipeline_research_and_synthesize(mocker):
     mock_synthesis.assert_called_once_with(
         "Brief: taste instructions Research: test research",
         "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown.",
-        verbosity="high"
+        verbosity="medium"
     )
 
     # 4. Test synthesize with custom template WITHOUT research_brief placeholder (safe formatter handles it)
@@ -328,7 +328,7 @@ def test_signal_pipeline_research_and_synthesize(mocker):
     mock_synthesis.assert_called_once_with(
         "Brief: taste instructions",
         "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown.",
-        verbosity="high"
+        verbosity="medium"
     )
 
 
