@@ -31,6 +31,8 @@ markly is built around a few core reading workflows:
 
 **Daily brief.** markly looks at recent posts from your followed feeds, filters for the items that match your briefing preferences, extracts the useful article text, and writes a concise briefing with source links. You can adjust your briefing preferences and, if you want deeper control, customize the prompts and article limits used by the brief pipeline.
 
+When enabled, Daily Brief tracing records the major generation stages to an external trace sink. markly owns the trace interface and Langfuse is only the first adapter, so traces can later be sent elsewhere without rewriting the brief pipeline.
+
 **Sources.** Add RSS feeds for the blogs, newsletters, and publications you care about. Sources keeps an inbox of new posts, lets you read clean article content inline, and gives you quick actions to save or dismiss each item.
 
 **Topic clusters.** markly can group related feed items into active clusters and generate focused reports from multiple sources, so a developing topic is easier to understand than a pile of isolated links.
@@ -47,6 +49,7 @@ markly is built around a few core reading workflows:
 | Backend | Python Flask 3, Flask-CORS, Flask-Compress, Gunicorn |
 | Database | SQLite owned by the Flask backend, including FTS5 for keyword search |
 | AI and extraction | Azure OpenAI, optional brief-specific model overrides, optional stored embeddings, optional Jina Reader, BeautifulSoup/newspaper/lxml fallback extraction |
+| AI observability | Optional Daily Brief tracing via a portable Markly trace adapter with Langfuse as the first sink |
 | Auth | Google OAuth with Flask cookie sessions, optional email allowlist, optional local dev auth bypass |
 | Background work | Flask routes plus background thread executors for enrichment, archiving, feed embeddings, and scheduled cron endpoints |
 | Testing | Pytest, Vitest, React Testing Library, Playwright |
@@ -205,6 +208,32 @@ The checked-in examples are [backend/.env.example](backend/.env.example) and [fr
 | `CLUSTER_ARCHIVE_AFTER_DAYS` | Auto-archives inactive clusters after this many days. |
 | `CLUSTER_EMBED_MAX_PER_RUN` | Per-run cap for cluster embedding work. |
 | `CLUSTER_MAX_SYNTHESIS_ARTICLES` | Maximum articles used in a generated cluster report. |
+
+### Daily Brief Tracing
+
+Daily Brief tracing is disabled by default and stores no bulky trace payloads in SQLite. When enabled with Langfuse, markly sends trace data directly to Langfuse and keeps the production `.db` lean.
+
+| Variable | Purpose |
+| --- | --- |
+| `BRIEF_TRACING_ENABLED` | Enables Daily Brief trace capture when set to `true`. Defaults to `false`. |
+| `BRIEF_TRACE_SINK` | Trace sink adapter. Use `langfuse` for Langfuse Cloud, or leave as `noop` to disable external tracing. |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse project public key. |
+| `LANGFUSE_SECRET_KEY` | Langfuse project secret key. |
+| `LANGFUSE_BASE_URL` | Langfuse host. Use `https://cloud.langfuse.com` for the default cloud region, or the region-specific/self-hosted URL. |
+
+To start with Langfuse Hobby:
+
+```bash
+BRIEF_TRACING_ENABLED=true
+BRIEF_TRACE_SINK=langfuse
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+```
+
+The traced stages are settings load, candidate selection, LLM filtering, content extraction, optional planning, background research, synthesis, optional style editing, and final brief save. Candidate traces include feed metadata, titles, summaries, URLs, selected IDs, and compact extraction statistics. Selected article content is limited to the exact truncated text passed into Signal synthesis, not the full raw article body.
+
+The Signal route calls [backend/services/brief_tracing.py](backend/services/brief_tracing.py), not Langfuse directly. To switch sinks later, add a new adapter behind the same interface and change `BRIEF_TRACE_SINK`.
 
 ### Feeds, Archives, and Cron
 

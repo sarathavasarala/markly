@@ -96,6 +96,14 @@ class Config:
     # smooths across multiple refreshes instead of bursting hundreds of calls at once.
     SIGNAL_EMBED_MAX_PER_RUN = int(os.getenv("SIGNAL_EMBED_MAX_PER_RUN", "200"))
 
+    # Daily Brief tracing. Markly owns the trace contract; Langfuse is the first
+    # optional sink and can be replaced without changing the Signal pipeline.
+    BRIEF_TRACING_ENABLED = os.getenv("BRIEF_TRACING_ENABLED", "false").lower() == "true"
+    BRIEF_TRACE_SINK = os.getenv("BRIEF_TRACE_SINK", "noop").strip().lower()
+    LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY")
+    LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY")
+    LANGFUSE_BASE_URL = os.getenv("LANGFUSE_BASE_URL")
+
     # Radar Cluster settings
     CLUSTER_LOOKBACK_DAYS = int(os.getenv("CLUSTER_LOOKBACK_DAYS", "30"))
     CLUSTER_MAX_CANDIDATES = int(os.getenv("CLUSTER_MAX_CANDIDATES", "500"))

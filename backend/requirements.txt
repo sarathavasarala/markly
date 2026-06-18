@@ -8,6 +8,9 @@ gunicorn==21.2.0
 # Azure OpenAI
 openai==2.14.0
 
+# Optional Daily Brief tracing sink
+langfuse==3.9.0
+
 # Content extraction
 beautifulsoup4==4.12.2
 requests==2.31.0

@@ -8,6 +8,7 @@ from flask import Blueprint, Response, g, jsonify, request, stream_with_context
 from database import db_session, get_db, utc_now, rows_to_dicts, new_id
 from middleware.auth import require_auth
 from services import signal_pipeline
+from services import brief_tracing
 from services.signal_pipeline import DEFAULT_TASTE_PROFILE, _resolve_taste_profile
 
 logger = logging.getLogger(__name__)
@@ -775,74 +776,135 @@ def list_briefs():
 @require_auth
 def generate_brief():
     conn = get_db()
+    trace = brief_tracing.start_daily_brief_trace(user_id=g.user.id, mode="blocking")
     try:
-        settings = signal_pipeline.load_user_settings(
-            conn,
-            g.user.id,
-            default_filter_template=FILTER_PROMPT_TEMPLATE,
-            default_planning_template=PLANNING_PROMPT_TEMPLATE,
-            default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
-        )
+        with trace.span("load_settings") as span:
+            settings = signal_pipeline.load_user_settings(
+                conn,
+                g.user.id,
+                default_filter_template=FILTER_PROMPT_TEMPLATE,
+                default_planning_template=PLANNING_PROMPT_TEMPLATE,
+                default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
+            )
+            span.update(output=brief_tracing.summarize_settings(settings))
         taste_profile = settings["taste_profile"]
 
-        items = signal_pipeline.select_candidates(
-            conn, g.user.id, settings["candidate_limit"], taste_profile=taste_profile
-        )
+        with trace.span("candidate_selection", input={"candidate_limit": settings["candidate_limit"]}) as span:
+            items = signal_pipeline.select_candidates(
+                conn, g.user.id, settings["candidate_limit"], taste_profile=taste_profile
+            )
+            span.update(output={
+                "candidate_count": len(items),
+                "candidates": brief_tracing.summarize_candidates(items),
+            })
         if not items:
+            trace.finish(output={"success": False, "reason": "no_content"})
             return jsonify({
                 "success": False,
                 "reason": "no_content",
                 "message": "No recent RSS feed content found to analyze. Try adding some sources first."
             }), 200
 
-        selected_items = signal_pipeline.llm_filter(
-            items, taste_profile, settings["filter_template"], synthesis_limit=settings.get("synthesis_limit")
-        )
+        with trace.generation(
+            "llm_filter",
+            model=brief_tracing.runtime_config()["signal_model"],
+            input={
+                "candidate_count": len(items),
+                "synthesis_limit": settings.get("synthesis_limit"),
+                "candidates": brief_tracing.summarize_candidates(items),
+            },
+        ) as generation:
+            selected_items = signal_pipeline.llm_filter(
+                items, taste_profile, settings["filter_template"], synthesis_limit=settings.get("synthesis_limit")
+            )
+            generation.update(output={
+                "selected_ids": [item["id"] for item in selected_items],
+                "selected_items": brief_tracing.summarize_selected_items(selected_items),
+            })
         if not selected_items:
+            trace.finish(output={"success": False, "reason": "no_high_signal_content"})
             return jsonify({
                 "success": False,
                 "reason": "no_high_signal_content",
                 "message": "We analyzed recent feeds, but none of them matched your Taste Profile. Adjust your profile or add more high-quality feeds!"
             }), 200
 
-        updates = signal_pipeline.run_extract_contents(selected_items)
-        signal_pipeline.persist_content_updates(conn, updates)
+        with trace.span("content_extraction", input={"selected_ids": [item["id"] for item in selected_items]}) as span:
+            updates = signal_pipeline.run_extract_contents(selected_items)
+            signal_pipeline.persist_content_updates(conn, updates)
+            span.update(output={
+                **brief_tracing.summarize_content_updates(updates),
+                "selected_items": brief_tracing.summarize_selected_items(selected_items, include_content=True),
+            })
 
         brief_plan = ""
         if settings.get("planning_enabled", True):
-            brief_plan = signal_pipeline.plan_brief(
+            with trace.generation(
+                "brief_planning",
+                model=brief_tracing.runtime_config()["signal_model"],
+                input={"selected_items": brief_tracing.summarize_selected_item_refs(selected_items)},
+            ) as generation:
+                brief_plan = signal_pipeline.plan_brief(
+                    selected_items,
+                    taste_profile,
+                    settings["planning_template"],
+                    recent_briefs=settings.get("recent_briefs", ""),
+                )
+                generation.update(output={"brief_plan": brief_plan})
+
+        with trace.generation(
+            "background_research",
+            model=brief_tracing.runtime_config()["signal_model"],
+            input={"web_search_enabled": settings["web_search_enabled"], "brief_plan": brief_plan},
+        ) as generation:
+            research_brief, queries = signal_pipeline.research(
+                selected_items,
+                web_search_enabled=settings["web_search_enabled"],
+                brief_plan=brief_plan,
+                taste_profile=taste_profile,
+            )
+            generation.update(output={"research_brief": research_brief, "queries": queries})
+
+        with trace.generation(
+            "brief_synthesis",
+            model=brief_tracing.runtime_config()["signal_model"],
+            input={
+                "selected_items": brief_tracing.summarize_selected_item_refs(selected_items),
+                "research_brief": research_brief,
+                "brief_plan": brief_plan,
+                "recent_briefs": settings.get("recent_briefs", ""),
+            },
+        ) as generation:
+            content = signal_pipeline.synthesize(
                 selected_items,
                 taste_profile,
-                settings["planning_template"],
+                settings["synthesis_template"],
+                research_brief=research_brief,
                 recent_briefs=settings.get("recent_briefs", ""),
+                brief_plan=brief_plan,
             )
-
-        research_brief, _ = signal_pipeline.research(
-            selected_items,
-            web_search_enabled=settings["web_search_enabled"],
-            brief_plan=brief_plan,
-            taste_profile=taste_profile,
-        )
-
-        content = signal_pipeline.synthesize(
-            selected_items,
-            taste_profile,
-            settings["synthesis_template"],
-            research_brief=research_brief,
-            recent_briefs=settings.get("recent_briefs", ""),
-            brief_plan=brief_plan,
-        )
+            generation.update(output={"content": content})
 
         from config import Config
         if Config.SIGNAL_HUMANIZER_ENABLED:
-            content = signal_pipeline.style_edit_brief(content, HUMANIZER_PROMPT_TEMPLATE)
+            with trace.generation(
+                "style_edit",
+                model=brief_tracing.runtime_config()["signal_model"],
+                input={"draft_content": brief_tracing.summarize_text(content)},
+            ) as generation:
+                content = signal_pipeline.style_edit_brief(content, HUMANIZER_PROMPT_TEMPLATE)
+                generation.update(output={"content": brief_tracing.summarize_text(content)})
 
         brief = signal_pipeline.save_brief(conn, g.user.id, content, selected_items)
+        trace.finish(brief=brief, output={"brief": brief, "selected_ids": [item["id"] for item in selected_items]})
         return jsonify(brief), 201
     except Exception as exc:
+        trace.fail(stage="non-streaming-generation", exc=exc)
         logger.exception("Error in non-streaming signal brief generation")
         log_telemetry_error(g.user.id, "non-streaming-generation", exc)
         return jsonify({"error": f"Failed to generate brief: {str(exc)}"}), 500
+    finally:
+        trace.flush()
 
 
 @signal_bp.route("/briefs/<brief_id>", methods=["DELETE"])
@@ -882,23 +944,31 @@ def _sse_event(data: dict) -> str:
     return f"data: {json.dumps(data)}\n\n"
 
 
-def _generate_brief_stream(user_id: str):
+def _generate_brief_stream_impl(user_id: str, trace: brief_tracing.BriefTrace):
     """Generator that yields SSE events as the shared pipeline runs."""
     try:
         with db_session() as conn:
-            settings = signal_pipeline.load_user_settings(
-                conn,
-                user_id,
-                default_filter_template=FILTER_PROMPT_TEMPLATE,
-                default_planning_template=PLANNING_PROMPT_TEMPLATE,
-                default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
-            )
+            with trace.span("load_settings") as span:
+                settings = signal_pipeline.load_user_settings(
+                    conn,
+                    user_id,
+                    default_filter_template=FILTER_PROMPT_TEMPLATE,
+                    default_planning_template=PLANNING_PROMPT_TEMPLATE,
+                    default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
+                )
+                span.update(output=brief_tracing.summarize_settings(settings))
             taste_profile = settings["taste_profile"]
 
-            items = signal_pipeline.select_candidates(
-                conn, user_id, settings["candidate_limit"], taste_profile=taste_profile
-            )
+            with trace.span("candidate_selection", input={"candidate_limit": settings["candidate_limit"]}) as span:
+                items = signal_pipeline.select_candidates(
+                    conn, user_id, settings["candidate_limit"], taste_profile=taste_profile
+                )
+                span.update(output={
+                    "candidate_count": len(items),
+                    "candidates": brief_tracing.summarize_candidates(items),
+                })
             if not items:
+                trace.finish(output={"success": False, "reason": "no_content"})
                 yield _sse_event({"stage": "error", "message": "No recent RSS feed content found to analyze. Try adding some sources first."})
                 return
 
@@ -912,6 +982,7 @@ def _generate_brief_stream(user_id: str):
                 "candidate_word_count": candidate_words,
             })
     except Exception as exc:
+        trace.fail(stage="scanning", exc=exc)
         logger.exception("Error during scanning/setting loading")
         log_telemetry_error(user_id, "scanning", exc)
         yield _sse_event({"stage": "error", "message": f"Failed during initial scan: {str(exc)}"})
@@ -920,16 +991,31 @@ def _generate_brief_stream(user_id: str):
     yield _sse_event({"stage": "filtering", "message": "Applying briefing preferences..."})
 
     try:
-        selected_items = signal_pipeline.llm_filter(
-            items, taste_profile, settings["filter_template"], synthesis_limit=settings.get("synthesis_limit")
-        )
+        with trace.generation(
+            "llm_filter",
+            model=brief_tracing.runtime_config()["signal_model"],
+            input={
+                "candidate_count": len(items),
+                "synthesis_limit": settings.get("synthesis_limit"),
+                "candidates": brief_tracing.summarize_candidates(items),
+            },
+        ) as generation:
+            selected_items = signal_pipeline.llm_filter(
+                items, taste_profile, settings["filter_template"], synthesis_limit=settings.get("synthesis_limit")
+            )
+            generation.update(output={
+                "selected_ids": [item["id"] for item in selected_items],
+                "selected_items": brief_tracing.summarize_selected_items(selected_items),
+            })
     except Exception as exc:
+        trace.fail(stage="filtering", exc=exc)
         logger.exception("Error in signal filtering LLM call")
         log_telemetry_error(user_id, "filtering", exc)
         yield _sse_event({"stage": "error", "message": f"Failed during filtering: {str(exc)}"})
         return
 
     if not selected_items:
+        trace.finish(output={"success": False, "reason": "no_high_signal_content"})
         yield _sse_event({"stage": "error", "message": "We analyzed recent feeds, but none of them matched your Taste Profile. Adjust your profile or add more high-quality feeds!"})
         return
 
@@ -945,15 +1031,21 @@ def _generate_brief_stream(user_id: str):
     yield _sse_event({"stage": "extracting", "message": "Extracting full text...", "current": 0, "total": extract_total})
 
     try:
-        gen = signal_pipeline.extract_contents(selected_items)
-        updates = []
-        try:
-            while True:
-                done, total = next(gen)
-                yield _sse_event({"stage": "extracting", "message": f"Extracting full text... {done} of {total}", "current": done, "total": total})
-        except StopIteration as stop:
-            updates = stop.value or []
+        with trace.span("content_extraction", input={"selected_ids": [item["id"] for item in selected_items]}) as span:
+            gen = signal_pipeline.extract_contents(selected_items)
+            updates = []
+            try:
+                while True:
+                    done, total = next(gen)
+                    yield _sse_event({"stage": "extracting", "message": f"Extracting full text... {done} of {total}", "current": done, "total": total})
+            except StopIteration as stop:
+                updates = stop.value or []
+            span.update(output={
+                **brief_tracing.summarize_content_updates(updates),
+                "selected_items": brief_tracing.summarize_selected_items(selected_items, include_content=True),
+            })
     except Exception as exc:
+        trace.fail(stage="extracting", exc=exc)
         logger.exception("Error during content extraction")
         log_telemetry_error(user_id, "extracting", exc)
         yield _sse_event({"stage": "error", "message": f"Failed during content extraction: {str(exc)}"})
@@ -963,6 +1055,7 @@ def _generate_brief_stream(user_id: str):
         with db_session() as conn:
             signal_pipeline.persist_content_updates(conn, updates)
     except Exception as exc:
+        trace.fail(stage="extracting_persist", exc=exc)
         logger.exception("Error persisting content updates")
         log_telemetry_error(user_id, "extracting_persist", exc)
         yield _sse_event({"stage": "error", "message": f"Failed to save extracted content: {str(exc)}"})
@@ -980,12 +1073,18 @@ def _generate_brief_stream(user_id: str):
         })
 
         try:
-            brief_plan = signal_pipeline.plan_brief(
-                selected_items,
-                taste_profile,
-                settings["planning_template"],
-                recent_briefs=settings.get("recent_briefs", ""),
-            )
+            with trace.generation(
+                "brief_planning",
+                model=brief_tracing.runtime_config()["signal_model"],
+                input={"selected_items": brief_tracing.summarize_selected_item_refs(selected_items)},
+            ) as generation:
+                brief_plan = signal_pipeline.plan_brief(
+                    selected_items,
+                    taste_profile,
+                    settings["planning_template"],
+                    recent_briefs=settings.get("recent_briefs", ""),
+                )
+                generation.update(output={"brief_plan": brief_plan})
             plan_words = len((brief_plan or "").split())
             yield _sse_event({
                 "stage": "planned",
@@ -994,6 +1093,7 @@ def _generate_brief_stream(user_id: str):
                 "extracted_word_count": extracted_words,
             })
         except Exception as exc:
+            trace.fail(stage="planning", exc=exc)
             logger.exception("Error during brief planning")
             log_telemetry_error(user_id, "planning", exc)
             yield _sse_event({"stage": "error", "message": f"Failed during theme planning: {str(exc)}"})
@@ -1008,7 +1108,13 @@ def _generate_brief_stream(user_id: str):
             "extracted_word_count": extracted_words,
         })
         try:
-            research_brief, queries = signal_pipeline.research(selected_items, web_search_enabled=True, brief_plan=brief_plan, taste_profile=taste_profile)
+            with trace.generation(
+                "background_research",
+                model=brief_tracing.runtime_config()["signal_model"],
+                input={"web_search_enabled": True, "brief_plan": brief_plan},
+            ) as generation:
+                research_brief, queries = signal_pipeline.research(selected_items, web_search_enabled=True, brief_plan=brief_plan, taste_profile=taste_profile)
+                generation.update(output={"research_brief": research_brief, "queries": queries})
             research_words = len((research_brief or "").split())
             yield _sse_event({
                 "stage": "researched",
@@ -1018,6 +1124,7 @@ def _generate_brief_stream(user_id: str):
                 "extracted_word_count": extracted_words,
             })
         except Exception as exc:
+            trace.fail(stage="researching", exc=exc)
             logger.exception("Error during background research")
             log_telemetry_error(user_id, "researching", exc)
             yield _sse_event({"stage": "error", "message": f"Failed during background research: {str(exc)}"})
@@ -1036,15 +1143,27 @@ def _generate_brief_stream(user_id: str):
     })
 
     try:
-        content = signal_pipeline.synthesize(
-            selected_items,
-            taste_profile,
-            settings["synthesis_template"],
-            research_brief=research_brief,
-            recent_briefs=settings.get("recent_briefs", ""),
-            brief_plan=brief_plan,
-        )
+        with trace.generation(
+            "brief_synthesis",
+            model=brief_tracing.runtime_config()["signal_model"],
+            input={
+                "selected_items": brief_tracing.summarize_selected_item_refs(selected_items),
+                "research_brief": research_brief,
+                "brief_plan": brief_plan,
+                "recent_briefs": settings.get("recent_briefs", ""),
+            },
+        ) as generation:
+            content = signal_pipeline.synthesize(
+                selected_items,
+                taste_profile,
+                settings["synthesis_template"],
+                research_brief=research_brief,
+                recent_briefs=settings.get("recent_briefs", ""),
+                brief_plan=brief_plan,
+            )
+            generation.update(output={"content": content})
     except Exception as exc:
+        trace.fail(stage="synthesizing", exc=exc)
         logger.exception("Error in signal brief synthesis LLM call")
         log_telemetry_error(user_id, "synthesizing", exc)
         yield _sse_event({"stage": "error", "message": f"Failed to generate brief content: {str(exc)}"})
@@ -1060,7 +1179,13 @@ def _generate_brief_stream(user_id: str):
             "plan_word_count": plan_words,
         })
         try:
-            content = signal_pipeline.style_edit_brief(content, HUMANIZER_PROMPT_TEMPLATE)
+            with trace.generation(
+                "style_edit",
+                model=brief_tracing.runtime_config()["signal_model"],
+                input={"draft_content": brief_tracing.summarize_text(content)},
+            ) as generation:
+                content = signal_pipeline.style_edit_brief(content, HUMANIZER_PROMPT_TEMPLATE)
+                generation.update(output={"content": brief_tracing.summarize_text(content)})
         except Exception as exc:
             logger.exception("Error in signal brief style edit agent")
             log_telemetry_error(user_id, "humanizing", exc)
@@ -1070,17 +1195,27 @@ def _generate_brief_stream(user_id: str):
         with db_session() as conn:
             brief = signal_pipeline.save_brief(conn, user_id, content, selected_items)
     except Exception as exc:
+        trace.fail(stage="saving", exc=exc)
         logger.exception("Error saving brief to database")
         log_telemetry_error(user_id, "saving", exc)
         yield _sse_event({"stage": "error", "message": f"Failed to save generated brief: {str(exc)}"})
         return
 
     synthesis_output_words = len((content or "").split())
+    trace.finish(brief=brief, output={"brief": brief, "selected_ids": [item["id"] for item in selected_items]})
     yield _sse_event({
         "stage": "complete",
         "brief": brief,
         "synthesis_output_word_count": synthesis_output_words
     })
+
+
+def _generate_brief_stream(user_id: str):
+    trace = brief_tracing.start_daily_brief_trace(user_id=user_id, mode="streaming")
+    try:
+        yield from _generate_brief_stream_impl(user_id, trace)
+    finally:
+        trace.flush()
 
 
 @signal_bp.route("/briefs/generate", methods=["POST"])
