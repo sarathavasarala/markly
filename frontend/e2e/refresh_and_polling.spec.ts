@@ -199,6 +199,12 @@ test.describe('Refresh and Polling Logic', () => {
 
         await page.getByRole('button', { name: 'Delete' }).click();
 
+        // Wait for the inline confirmation to appear
+        await expect(page.getByText('Delete bookmark?')).toBeVisible();
+
+        // Click the confirmation Delete button
+        await page.getByRole('button', { name: 'Delete' }).click();
+
         // Should remove the card from the UI
         await expect(page.getByText('Example Bookmark')).not.toBeVisible();
     });

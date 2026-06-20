@@ -564,9 +564,9 @@ export default function Radar() {
           </div>
 
           {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((item) => (
-                <div key={item} className="h-28 animate-pulse rounded-3xl bg-slate-200/70 dark:bg-slate-800/70" />
+            <div className="grid gap-6 md:grid-cols-2">
+              {[1, 2, 3, 4].map((item) => (
+                <div key={item} className="h-44 animate-pulse rounded-card bg-slate-200/70 dark:bg-slate-800/70" />
               ))}
             </div>
           ) : feeds.length === 0 ? (

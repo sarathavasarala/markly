@@ -380,13 +380,13 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
       )}
 
       {isLoading ? (
-        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)] w-full min-w-0">
+        <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)] w-full min-w-0">
           <div className="space-y-2 w-full min-w-0">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-12 animate-pulse rounded-2xl bg-slate-200/70 dark:bg-slate-800/70" />
             ))}
           </div>
-          <div className="h-96 animate-pulse rounded-3xl bg-slate-200/70 dark:bg-slate-800/70" />
+          <div className="max-w-3xl h-96 animate-pulse rounded-card bg-slate-200/70 dark:bg-slate-800/70" />
         </div>
       ) : briefs.length === 0 && !isGenerating ? (
         <div className="rounded-card bg-surface-light px-6 py-10 shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 sm:px-8 sm:py-12">
@@ -573,7 +573,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
             </div>
 
             {isGenerating ? (
-              <div className="rounded-card border border-slate-200/70 bg-white/70 p-4 sm:p-8 dark:border-slate-800/80 dark:bg-slate-900/50 min-h-[400px] flex flex-col justify-center">
+              <div className="max-w-3xl rounded-card border border-slate-200/70 bg-white/70 p-6 sm:p-10 dark:border-slate-800/80 dark:bg-slate-900/50 min-h-[400px] flex flex-col justify-center">
                 <h3 className="font-display text-lg font-medium text-slate-900 dark:text-slate-100 mb-6">
                   Preparing your daily brief
                 </h3>
