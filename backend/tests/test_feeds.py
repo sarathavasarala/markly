@@ -681,5 +681,3 @@ def test_get_item_content_retry_and_fallback(client, mocker):
     res4 = client.get("/api/feeds/items/retry-item-1/content", headers=AUTH_HEADERS)
     assert res4.status_code == 200
     ContentExtractor.extract.assert_not_called()
-
-

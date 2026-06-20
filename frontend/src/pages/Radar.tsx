@@ -21,6 +21,14 @@ const SAMPLE_FEEDS = [
   { title: "Last Week in AI", desc: "A digest of everything happening in artificial intelligence.", url: "https://lastweekin.ai/feed" },
 ]
 
+interface GroupedFeedItems {
+  feed_id: string
+  feed_title: string
+  feed_favicon_url: string | null
+  feed_site_url: string | null
+  items: FeedItem[]
+}
+
 export default function Radar() {
   const [feeds, setFeeds] = useState<Feed[]>([])
   const [items, setItems] = useState<FeedItem[]>([])
@@ -61,6 +69,7 @@ export default function Radar() {
   const [isExtractingClean, setIsExtractingClean] = useState(false)
   const [isSourcesExpanded, setIsSourcesExpanded] = useState(false)
   const [copiedFeedId, setCopiedFeedId] = useState<string | null>(null)
+  const [confirmDeleteFeedId, setConfirmDeleteFeedId] = useState<string | null>(null)
 
   const PAGE_SIZE = 30
   const [hasMore, setHasMore] = useState(false)
@@ -277,10 +286,10 @@ export default function Radar() {
     }
   }
 
-  const deleteFeed = async (feed: Feed) => {
-    if (!window.confirm(`Remove ${feed.title || feed.feed_url} from your sources?`)) return
+  const deleteFeed = async (feedId: string) => {
     try {
-      await feedsApi.delete(feed.id)
+      await feedsApi.delete(feedId)
+      setConfirmDeleteFeedId(null)
       await loadRadar()
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to remove source')
@@ -412,11 +421,11 @@ export default function Radar() {
       )}
 
       <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] w-full min-w-0">
-        <aside className="space-y-3 xl:sticky xl:top-20 xl:self-start w-full min-w-0">
+        <aside className="xl:sticky xl:top-20 xl:self-start w-full min-w-0">
           <button
             type="button"
             onClick={() => setIsSourcesExpanded(!isSourcesExpanded)}
-            className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-left text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800/80 dark:bg-slate-900/50 dark:text-slate-300 xl:hidden"
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-left text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800/80 dark:bg-slate-900/50 dark:text-slate-300 xl:hidden mb-3"
           >
             <div className="flex items-center gap-2">
               <span className="text-slate-500 dark:text-slate-400 font-semibold">Sources</span>
@@ -429,7 +438,7 @@ export default function Radar() {
             </span>
           </button>
 
-          <div className="hidden xl:block">
+          <div className="hidden xl:block mb-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sources</h2>
               {!isLoading && feeds.length > 0 && (
@@ -497,22 +506,50 @@ export default function Radar() {
                       </p>
                     )}
                   </button>
-                  <button
-                    onClick={() => handleCopyFeedUrl(feed)}
-                    className="rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-                    title="Copy feed URL"
-                  >
-                    {copiedFeedId === feed.id
-                      ? <Check className="h-3.5 w-3.5 text-green-500" />
-                      : <Clipboard className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
-                    onClick={() => deleteFeed(feed)}
-                    className="rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/20 dark:hover:text-rose-300"
-                    title="Remove source"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {confirmDeleteFeedId === feed.id ? (
+                    <div className="flex items-center gap-1 animate-in fade-in duration-200 flex-shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteFeed(feed.id)
+                        }}
+                        className="rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setConfirmDeleteFeedId(null)
+                        }}
+                        className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-350 hover:bg-slate-300 dark:hover:bg-slate-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleCopyFeedUrl(feed)}
+                        className="rounded-lg p-1.5 text-slate-350 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                        title="Copy feed URL"
+                      >
+                        {copiedFeedId === feed.id
+                          ? <Check className="h-3.5 w-3.5 text-green-500" />
+                          : <Clipboard className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setConfirmDeleteFeedId(feed.id)
+                        }}
+                        className="rounded-lg p-1.5 text-slate-355 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-900/20 dark:hover:text-rose-350"
+                        title="Remove source"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               ))
             )}
@@ -613,75 +650,114 @@ export default function Radar() {
               </button>
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <article
-                    key={item.id}
-                    className="rounded-3xl border border-slate-200/70 bg-white/80 p-4 shadow-sm transition hover:shadow-md dark:border-slate-800/80 dark:bg-slate-900/60"
-                  >
-                    <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
-                      {item.feed_favicon_url && (
-                        <img src={item.feed_favicon_url} alt="" className="h-4 w-4 rounded" />
-                      )}
-                      <span>{item.feed_title || item.feed_site_url || 'Feed source'}</span>
-                      {formatDate(item.published_at || item.first_seen_at) && (
-                        <>
-                          <span>&middot;</span>
-                          <span>{formatDate(item.published_at || item.first_seen_at)}</span>
-                        </>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleOpenReader(item)}
-                      className="block w-full text-left font-display text-lg font-normal leading-snug text-slate-950 transition hover:underline dark:text-slate-50 break-words"
-                    >
-                      {item.title}
-                    </button>
-                    {item.summary && (
-                      <div className="mt-1.5">
-                        <p className={`text-sm leading-5 text-slate-600 dark:text-slate-300 break-words ${expandedItems[item.id] ? '' : 'line-clamp-2'}`}>
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ p: 'span' }}>
-                            {item.summary}
-                          </ReactMarkdown>
-                        </p>
-                        {item.summary.length > 140 && (
-                          <button
-                            onClick={() => toggleExpandItem(item.id)}
-                            className="mt-1 text-xs font-semibold text-slate-600 hover:text-slate-950 hover:underline dark:text-slate-400 dark:hover:text-slate-50 transition-colors"
-                          >
-                            {expandedItems[item.id] ? 'Show less' : 'Show more'}
-                          </button>
+            <div className="space-y-10 select-text">
+              {(() => {
+                const groupedItems = items.reduce((acc: GroupedFeedItems[], item) => {
+                const feedId = item.feed_id || 'unknown';
+                let group = acc.find(g => g.feed_id === feedId);
+                if (!group) {
+                  group = {
+                    feed_id: feedId,
+                    feed_title: item.feed_title || item.feed_site_url || 'Feed source',
+                    feed_favicon_url: item.feed_favicon_url || null,
+                    feed_site_url: item.feed_site_url || null,
+                    items: []
+                  };
+                  acc.push(group);
+                }
+                group.items.push(item);
+                return acc;
+              }, []);
+
+              return (
+                <>
+                  {groupedItems.map((group) => (
+                    <div key={group.feed_id} className="space-y-4">
+                      {/* Source Header */}
+                      <div className="flex items-center gap-2 border-b border-slate-200/50 pb-2 dark:border-slate-800/50">
+                        {group.feed_favicon_url && (
+                          <img src={group.feed_favicon_url} alt="" className="h-4 w-4 rounded" />
                         )}
+                        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-350">
+                          {group.feed_title}
+                        </h3>
+                        <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          {group.items.length} {group.items.length === 1 ? 'post' : 'posts'}
+                        </span>
                       </div>
-                    )}
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={() => saveItem(item)}
-                        className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-                      >
-                        Save to Library
-                      </button>
-                      <button
-                        onClick={() => dismissItem(item)}
-                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                        Dismiss
-                      </button>
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Open Link
-                      </a>
+
+                      {/* Cards Grid */}
+                      <div className="grid gap-6 md:grid-cols-2">
+                        {group.items.map((item) => (
+                          <article
+                            key={item.id}
+                            className="group relative overflow-hidden rounded-card bg-surface-light p-6 shadow-card ring-1 ring-white/60 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover dark:bg-surface-dark dark:ring-white/10 flex flex-col justify-between"
+                          >
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 font-sans">
+                                {formatDate(item.published_at || item.first_seen_at) && (
+                                  <span>{formatDate(item.published_at || item.first_seen_at)}</span>
+                                )}
+                              </div>
+                              
+                              <button
+                                onClick={() => handleOpenReader(item)}
+                                className="block w-full text-left font-display text-lg font-normal leading-snug text-slate-950 transition hover:underline dark:text-slate-50 break-words"
+                              >
+                                {item.title}
+                              </button>
+
+                              {item.summary && (
+                                <div>
+                                  <p className={`text-sm leading-relaxed text-slate-600 dark:text-slate-300 break-words font-sans ${expandedItems[item.id] ? '' : 'line-clamp-2'}`}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ p: 'span' }}>
+                                      {item.summary}
+                                    </ReactMarkdown>
+                                  </p>
+                                  {item.summary.length > 140 && (
+                                    <button
+                                      onClick={() => toggleExpandItem(item.id)}
+                                      className="mt-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                                    >
+                                      {expandedItems[item.id] ? 'Show less' : 'Show more'}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="mt-5 border-t border-slate-200/50 pt-4 dark:border-slate-800/50 flex flex-wrap items-center gap-2">
+                              <button
+                                onClick={() => saveItem(item)}
+                                className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                              >
+                                Save to Library
+                              </button>
+                              <button
+                                onClick={() => dismissItem(item)}
+                                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-450 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                                Dismiss
+                              </button>
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-450 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Open Link
+                              </a>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
                     </div>
-                  </article>
-                ))}
-              </div>
+                  ))}
+                </>
+              );
+            })()}
 
               {hasMore && (
                 <div className="flex justify-center pt-4">

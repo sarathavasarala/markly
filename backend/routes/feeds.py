@@ -291,4 +291,3 @@ def get_item_content(item_id: str):
         "content": content,
         "content_format": content_format or "html"
     })
-

@@ -30,14 +30,14 @@ export default function TopicsBox({
     const displayedTags = showAll ? tags : tags.slice(0, limit)
 
     return (
-        <div className="rounded-card bg-surface-light px-6 py-5 shadow-card ring-1 ring-white/60 transition-colors duration-300 dark:bg-surface-dark dark:ring-white/5">
+        <div className="rounded-card bg-surface-light px-6 py-5 shadow-card ring-1 ring-white/60 transition-colors duration-300 dark:bg-surface-dark dark:ring-white/10">
             <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</h2>
                     {selectedTags.length > 0 && onClearFilters && (
                         <button
                             onClick={onClearFilters}
-                            className="flex items-center gap-1 text-xs font-medium text-indigo-700 transition-colors hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-200"
+                            className="flex items-center gap-1 text-xs font-medium text-slate-700 transition-colors hover:text-slate-900 dark:text-slate-350 dark:hover:text-slate-200"
                         >
                             Clear <X className="h-3 w-3" />
                         </button>
@@ -46,7 +46,7 @@ export default function TopicsBox({
                 {!isLoading && tags.length > limit && (
                     <button
                         onClick={() => setShowAll(!showAll)}
-                        className="text-xs font-medium text-slate-500 transition-colors hover:text-indigo-700 dark:text-slate-400 dark:hover:text-indigo-300"
+                        className="text-xs font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
                     >
                         {showAll ? 'Show less' : `Show all ${tags.length}`}
                     </button>

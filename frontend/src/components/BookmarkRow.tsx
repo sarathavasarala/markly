@@ -15,6 +15,7 @@ interface BookmarkRowProps {
 export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: BookmarkRowProps) {
     const [showMenu, setShowMenu] = useState(false)
     const [showFolderModal, setShowFolderModal] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState(false)
     const navigate = useNavigate()
     const { deleteBookmark, updateBookmark } = useBookmarksStore()
     const setEditingBookmark = useUIStore((state) => state.setEditingBookmark)
@@ -55,13 +56,13 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
                         href={bookmark.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="truncate font-display text-base font-normal text-slate-950 transition-colors hover:text-indigo-700 dark:text-slate-50 dark:hover:text-indigo-300"
+                        className="truncate font-display text-base font-normal text-slate-950 transition-colors hover:text-slate-800 dark:text-slate-50 dark:hover:text-slate-200"
                     >
                         {title}
                     </a>
                     <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{bookmark.domain}</span>
                     {(bookmark.archive_status === 'pending' || bookmark.archive_status === 'processing') && (
-                        <span className="flex items-center gap-1 text-[11px] text-indigo-500 dark:text-indigo-400 ml-2">
+                        <span className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 ml-2">
                             <Loader2 className="h-2.5 w-2.5 animate-spin" /> Saving copy...
                         </span>
                     )}
@@ -97,74 +98,102 @@ export default function BookmarkRow({ bookmark, onDeleted, onTagClick }: Bookmar
 
                 {showMenu && (
                     <>
-                        <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                        <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); setConfirmDelete(false); }} />
                         <div className="absolute right-0 top-10 z-20 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl animate-in fade-in zoom-in duration-200 dark:border-slate-700 dark:bg-slate-800">
-                            {bookmark.archive_status === 'completed' && (
-                                <button
-                                    onClick={() => {
-                                        navigate(`/bookmarks/${bookmark.id}/read`)
-                                        setShowMenu(false)
-                                    }}
-                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                                >
-                                    <BookOpen className="h-3.5 w-3.5" /> Read saved copy
-                                </button>
-                            )}
-                            {bookmark.archive_status === 'failed' && (
-                                <button
-                                    onClick={() => {
-                                        bookmarksApi.retryArchive(bookmark.id).then(() => {
-                                            updateBookmark(bookmark.id, { archive_status: 'pending', archive_error: null })
-                                        }).catch(err => console.error("Failed to retry archiving:", err))
-                                        setShowMenu(false)
-                                    }}
-                                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                                >
-                                    <RefreshCw className="h-3.5 w-3.5" /> Retry saved copy
-                                </button>
-                            )}
-                            <button
-                                onClick={() => {
-                                    window.open(bookmark.url, '_blank')
-                                    setShowMenu(false)
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                            >
-                                <ExternalLink className="h-3.5 w-3.5" /> Open link
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setEditingBookmark(bookmark)
-                                    setShowMenu(false)
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                            >
-                                <Edit2 className="h-3.5 w-3.5" /> Edit
-                            </button>
+                            {confirmDelete ? (
+                                <div className="p-3 space-y-2 text-center animate-in fade-in duration-150">
+                                    <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Delete bookmark?</p>
+                                    <div className="flex gap-1.5 justify-center">
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation()
+                                                await deleteBookmark(bookmark.id)
+                                                onDeleted?.(bookmark.id)
+                                                setConfirmDelete(false)
+                                                setShowMenu(false)
+                                            }}
+                                            className="rounded-full bg-rose-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-rose-700 transition"
+                                        >
+                                            Delete
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setConfirmDelete(false)
+                                            }}
+                                            className="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-350 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {bookmark.archive_status === 'completed' && (
+                                        <button
+                                            onClick={() => {
+                                                navigate(`/bookmarks/${bookmark.id}/read`)
+                                                setShowMenu(false)
+                                            }}
+                                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                        >
+                                            <BookOpen className="h-3.5 w-3.5" /> Read saved copy
+                                        </button>
+                                    )}
+                                    {bookmark.archive_status === 'failed' && (
+                                        <button
+                                            onClick={() => {
+                                                bookmarksApi.retryArchive(bookmark.id).then(() => {
+                                                    updateBookmark(bookmark.id, { archive_status: 'pending', archive_error: null })
+                                                }).catch(err => console.error("Failed to retry archiving:", err))
+                                                setShowMenu(false)
+                                            }}
+                                            className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                        >
+                                            <RefreshCw className="h-3.5 w-3.5" /> Retry saved copy
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            window.open(bookmark.url, '_blank')
+                                            setShowMenu(false)
+                                        }}
+                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                    >
+                                        <ExternalLink className="h-3.5 w-3.5" /> Open link
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setEditingBookmark(bookmark)
+                                            setShowMenu(false)
+                                        }}
+                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                    >
+                                        <Edit2 className="h-3.5 w-3.5" /> Edit
+                                    </button>
 
-                            <button
-                                onClick={() => {
-                                    setShowFolderModal(true)
-                                    setShowMenu(false)
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                            >
-                                <FolderIcon className="h-3.5 w-3.5" /> Move to folder
-                            </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowFolderModal(true)
+                                            setShowMenu(false)
+                                        }}
+                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                                    >
+                                        <FolderIcon className="h-3.5 w-3.5" /> Move to folder
+                                    </button>
 
-                            <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" />
-                            <button
-                                onClick={async () => {
-                                    if (window.confirm('Delete bookmark?')) {
-                                        await deleteBookmark(bookmark.id)
-                                        onDeleted?.(bookmark.id)
-                                    }
-                                    setShowMenu(false)
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                                <Trash2 className="h-3.5 w-3.5" /> Delete
-                            </button>
+                                    <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" />
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            setConfirmDelete(true)
+                                        }}
+                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </>
                 )}

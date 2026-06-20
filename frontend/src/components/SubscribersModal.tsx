@@ -17,6 +17,7 @@ export default function SubscribersModal({ isOpen, onClose, username }: Subscrib
     const [subscribers, setSubscribers] = useState<Subscriber[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [confirmDeleteEmail, setConfirmDeleteEmail] = useState<string | null>(null)
 
     useEffect(() => {
         if (isOpen && username) {
@@ -37,14 +38,15 @@ export default function SubscribersModal({ isOpen, onClose, username }: Subscrib
         }
     }, [isOpen, username])
 
-    const handleDelete = async (email: string) => {
-        if (!window.confirm(`Stop ${email} from being subscribed?`)) return
+    const handleDeleteConfirm = async (email: string) => {
         try {
             await publicApi.deleteSubscriber(username, email)
             setSubscribers(prev => prev.filter(s => s.email !== email))
         } catch (error: any) {
             console.error('Failed to delete subscriber:', error)
             alert('Failed to delete subscriber. Please try again.')
+        } finally {
+            setConfirmDeleteEmail(null)
         }
     }
 
@@ -57,7 +59,7 @@ export default function SubscribersModal({ isOpen, onClose, username }: Subscrib
                 onClick={onClose}
             />
 
-            <div className="relative w-full max-w-lg rounded-card bg-surface-light shadow-card-hover ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="relative w-full max-w-lg rounded-card bg-surface-light shadow-card-hover ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 overflow-hidden animate-in fade-in zoom-in duration-200">
                 <div className="px-6 py-5 flex items-center justify-between">
                     <div>
                         <h3 className="font-display text-2xl text-slate-950 dark:text-slate-50">Subscribers</h3>
@@ -82,7 +84,7 @@ export default function SubscribersModal({ isOpen, onClose, username }: Subscrib
                             <p className="text-rose-600 dark:text-rose-400 font-medium">{error}</p>
                             <button
                                 onClick={() => window.location.reload()}
-                                className="mt-3 text-sm text-indigo-700 dark:text-indigo-300 hover:underline"
+                                className="mt-3 text-sm text-slate-700 dark:text-slate-300 hover:underline"
                             >
                                 Refresh the page
                             </button>
@@ -103,13 +105,30 @@ export default function SubscribersModal({ isOpen, onClose, username }: Subscrib
                                         </div>
                                     </div>
 
-                                    <button
-                                        onClick={() => handleDelete(sub.email)}
-                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                                        title="Remove subscriber"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    {confirmDeleteEmail === sub.email ? (
+                                        <div className="flex gap-2 shrink-0">
+                                            <button
+                                                onClick={() => handleDeleteConfirm(sub.email)}
+                                                className="px-2.5 py-1 text-xs font-semibold text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition-colors"
+                                            >
+                                                Confirm
+                                            </button>
+                                            <button
+                                                onClick={() => setConfirmDeleteEmail(null)}
+                                                className="px-2.5 py-1 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 dark:text-slate-350 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => setConfirmDeleteEmail(sub.email)}
+                                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                            title="Remove subscriber"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
                                 </li>
                             ))}
                         </ul>

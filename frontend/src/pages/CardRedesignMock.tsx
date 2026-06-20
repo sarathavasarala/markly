@@ -103,7 +103,7 @@ export default function CardRedesignMock() {
               <SearchIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 placeholder="Search your bookmarks..."
-                className="w-full rounded-full border border-slate-200 bg-white px-12 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
+                className="w-full rounded-full border border-slate-200 bg-white px-12 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
               />
             </div>
             <button className="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white">
@@ -201,7 +201,7 @@ export default function CardRedesignMock() {
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-display text-xl text-slate-950 dark:text-slate-50">List view</h2>
               </div>
-              <div className="overflow-hidden rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5">
+              <div className="overflow-hidden rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10">
                 {bookmarks.map(b => (
                   <BookmarkRow key={b.id} bookmark={b} onTagClick={toggleTag} />
                 ))}

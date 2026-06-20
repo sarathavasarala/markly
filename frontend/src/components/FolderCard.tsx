@@ -17,15 +17,15 @@ export default function FolderCard({ folder, onClick, matchCount }: FolderCardPr
             tabIndex={0}
             onClick={onClick}
             onKeyDown={(e) => e.key === 'Enter' && onClick()}
-            className="group relative w-full cursor-pointer overflow-hidden rounded-card bg-surface-light p-4 shadow-card ring-1 ring-white/60 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover dark:bg-surface-dark dark:ring-white/5"
+            className="group relative w-full cursor-pointer overflow-hidden rounded-card bg-surface-light p-5 shadow-card ring-1 ring-white/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover dark:bg-surface-dark dark:ring-white/10"
         >
-            <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition-colors group-hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:text-indigo-300">
-                    <FolderIcon className="h-5 w-5" />
+            <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-[1rem] bg-[#eef1ee] text-slate-650 transition-colors group-hover:bg-slate-900 group-hover:text-white dark:bg-slate-900 dark:text-slate-350 dark:group-hover:bg-slate-100 dark:group-hover:text-slate-950">
+                    <FolderIcon className="h-6 w-6" />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-display text-lg font-normal leading-tight text-slate-950 transition-colors group-hover:text-indigo-700 dark:text-slate-50 dark:group-hover:text-indigo-300">
+                    <h3 className="truncate font-display text-xl font-normal leading-tight text-slate-950 transition-colors group-hover:text-slate-800 dark:text-slate-50 dark:group-hover:text-slate-200">
                         {folder.name}
                     </h3>
                     {isFiltering ? (

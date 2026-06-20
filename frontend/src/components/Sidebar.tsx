@@ -20,6 +20,7 @@ export default function Sidebar() {
     const [newFolderName, setNewFolderName] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editingName, setEditingName] = useState('')
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -93,7 +94,7 @@ export default function Sidebar() {
                                     autoFocus
                                     type="text"
                                     placeholder="Folder name..."
-                                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-indigo-500 dark:focus:ring-indigo-900/40"
+                                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40"
                                     value={newFolderName}
                                     onChange={(e) => setNewFolderName(e.target.value)}
                                     onBlur={() => !newFolderName && setIsCreating(false)}
@@ -112,7 +113,7 @@ export default function Sidebar() {
                                         {editingId === folder.id ? (
                                             <input
                                                 autoFocus
-                                                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                                                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                                                 value={editingName}
                                                 onChange={(e) => setEditingName(e.target.value)}
                                                 onBlur={() => handleEdit(folder.id)}
@@ -150,29 +151,51 @@ export default function Sidebar() {
                                                     )}
                                                 </div>
 
-                                                <div className="hidden items-center gap-1 group-hover:flex">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            setEditingId(folder.id)
-                                                            setEditingName(folder.name)
-                                                        }}
-                                                        className="p-1 text-slate-400 hover:text-indigo-700 dark:hover:text-indigo-300"
-                                                    >
-                                                        <Edit2 className="h-3 w-3" />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            if (window.confirm('Delete folder? Bookmarks will be unfiled.')) {
-                                                                deleteFolder(folder.id)
-                                                            }
-                                                        }}
-                                                        className="p-1 text-slate-400 hover:text-red-600"
-                                                    >
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </button>
-                                                </div>
+                                                {confirmDeleteId === folder.id ? (
+                                                    <div className="flex items-center gap-1 flex-shrink-0 animate-in fade-in duration-200">
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation()
+                                                                await deleteFolder(folder.id)
+                                                                setConfirmDeleteId(null)
+                                                            }}
+                                                            className="rounded bg-rose-600 px-1.5 py-0.5 text-[9px] font-bold text-white hover:bg-rose-700"
+                                                        >
+                                                            Confirm
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setConfirmDeleteId(null)
+                                                            }}
+                                                            className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 dark:text-slate-350 hover:bg-slate-300 dark:hover:bg-slate-600"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="hidden items-center gap-1 group-hover:flex">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setEditingId(folder.id)
+                                                                setEditingName(folder.name)
+                                                            }}
+                                                            className="p-1 text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                                                        >
+                                                            <Edit2 className="h-3 w-3" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setConfirmDeleteId(folder.id)
+                                                            }}
+                                                            className="p-1 text-slate-400 hover:text-red-655"
+                                                        >
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

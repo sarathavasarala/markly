@@ -32,6 +32,9 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     const [isCopied, setIsCopied] = useState(false)
     const [isSubscribersModalOpen, setIsSubscribersModalOpen] = useState(false)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [confirmUnsubscribe, setConfirmUnsubscribe] = useState(false)
+    const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
+    const [deleteConfirmationText, setDeleteConfirmationText] = useState('')
     const [saveModalOpen, setSaveModalOpen] = useState(false)
     const [bookmarkToSave, setBookmarkToSave] = useState<Bookmark | null>(null)
     const [saveSuccess, setSaveSuccess] = useState(false)
@@ -171,11 +174,11 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     }
 
     const handleUnsubscribe = async () => {
-        if (!window.confirm(`Stop receiving updates from ${firstName}?`)) return
         setIsLoading(true)
         try {
             await publicApi.unsubscribe(username!)
             setIsSubscribed(false)
+            setConfirmUnsubscribe(false)
             setSubscriberCount(prev => Math.max(0, prev - 1))
         } catch (err) {
             console.error('Unsubscribe error:', err)
@@ -185,13 +188,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
         }
     }
 
-    const handleDeleteAccount = async () => {
-        const confirmed = window.confirm("CRITICAL ACTION: This will permanently delete your markly account, all your bookmarks, and followers. This cannot be undone.\n\nAre you absolutely sure?")
-        if (!confirmed) return
-
-        const doubleConfirmed = window.prompt("To confirm, please type 'DELETE MY ACCOUNT' below:")
-        if (doubleConfirmed !== 'DELETE MY ACCOUNT') return
-
+    const executeDeleteAccount = async () => {
         setIsLoading(true)
         try {
             await bookmarksApi.deleteAccount()
@@ -203,6 +200,8 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
             setError('Failed to delete account. Please contact support.')
         } finally {
             setIsLoading(false)
+            setConfirmDeleteAccount(false)
+            setDeleteConfirmationText('')
         }
     }
 
@@ -334,7 +333,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
     }
 
     return (
-        <div className={`${!isOwner ? 'min-h-screen bg-[#eef1ee] dark:bg-[#0b0d11]' : 'bg-transparent'} text-slate-950 dark:text-slate-100 selection:bg-indigo-500/20 flex flex-col transition-colors duration-300`}>
+        <div className={`${!isOwner ? 'min-h-screen bg-[#eef1ee] dark:bg-[#0b0d11]' : 'bg-transparent'} text-slate-950 dark:text-slate-100 selection:bg-slate-500/20 flex flex-col transition-colors duration-300`}>
             <div className={`relative z-10 flex-1 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-8 w-full space-y-8`}>
                 {/* Hero & Grid Unit */}
                 {isLoadingBookmarks ? (
@@ -344,7 +343,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                 ) : (
                     <>
                         {/* Profile header */}
-                        <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 px-6 py-6 sm:px-8 sm:py-7 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                        <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 px-6 py-6 sm:px-8 sm:py-7 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                             <div className="flex items-center gap-5 sm:gap-6 min-w-0">
                                 <div className="shrink-0">
                                     {profileMetadata?.avatar_url ? (
@@ -417,37 +416,77 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                                     <MoreVertical className="w-5 h-5" />
                                                 </button>
                                                 {isMenuOpen && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-10" onClick={() => setIsMenuOpen(false)} />
-                                                        <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-white shadow-card ring-1 ring-slate-200/70 dark:bg-slate-900 dark:ring-slate-800 z-20 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
-                                                            <div className="p-1.5">
-                                                                <button
-                                                                    onClick={() => {
-                                                                        setIsMenuOpen(false)
-                                                                        handleDeleteAccount()
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20 transition-colors"
-                                                                >
-                                                                    <AlertTriangle className="w-4 h-4" />
-                                                                    Delete account
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </>
-                                                )}
+                                                     <>
+                                                         <div className="fixed inset-0 z-10" onClick={() => {
+                                                             setIsMenuOpen(false)
+                                                             setConfirmDeleteAccount(false)
+                                                             setDeleteConfirmationText('')
+                                                         }} />
+                                                         <div className="absolute right-0 mt-2 w-52 rounded-2xl bg-white shadow-card ring-1 ring-slate-200/70 dark:bg-slate-900 dark:ring-slate-800 z-20 overflow-hidden animate-in fade-in zoom-in duration-200 origin-top-right">
+                                                             <div className="p-1.5">
+                                                                {confirmDeleteAccount ? (
+                                                                    <div className="p-3 space-y-2 text-center animate-in fade-in duration-150">
+                                                                        <p className="text-xs font-semibold text-rose-600 dark:text-rose-450 leading-snug">Permanently delete account?</p>
+                                                                        <input
+                                                                            type="text"
+                                                                            value={deleteConfirmationText}
+                                                                            onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                                                                            placeholder="Type 'DELETE MY ACCOUNT'"
+                                                                            className="w-full px-2.5 py-2 rounded-xl text-[10px] bg-slate-50 border border-slate-200 placeholder-slate-400 outline-none focus:ring-2 focus:ring-slate-350 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder-slate-650 dark:focus:ring-slate-800"
+                                                                        />
+                                                                        <div className="flex gap-1.5 justify-center">
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation()
+                                                                                    if (deleteConfirmationText === 'DELETE MY ACCOUNT') {
+                                                                                        executeDeleteAccount()
+                                                                                    }
+                                                                                }}
+                                                                                disabled={deleteConfirmationText !== 'DELETE MY ACCOUNT'}
+                                                                                className="rounded-full bg-rose-600 px-3 py-1.5 text-[9px] font-bold text-white hover:bg-rose-700 transition disabled:opacity-50"
+                                                                            >
+                                                                                Delete
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation()
+                                                                                    setConfirmDeleteAccount(false)
+                                                                                    setDeleteConfirmationText('')
+                                                                                }}
+                                                                                className="rounded-full bg-slate-100 dark:bg-slate-850 px-3 py-1.5 text-[9px] font-semibold text-slate-600 dark:text-slate-350 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                                                                            >
+                                                                                Cancel
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setConfirmDeleteAccount(true)
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-900/20 transition-colors"
+                                                                    >
+                                                                        <AlertTriangle className="w-4 h-4" />
+                                                                        Delete account
+                                                                    </button>
+                                                                )}
+                                                             </div>
+                                                         </div>
+                                                     </>
+                                                 )}
                                             </div>
                                         </div>
                                     </div>
                                 ) : !isSubscribed ? (
                                     <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
                                         <div className="relative flex-1 sm:w-72 group">
-                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-300 transition-colors" />
+                                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-slate-800 dark:group-focus-within:text-slate-200 transition-colors" />
                                             <input
                                                 type="email"
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
                                                 placeholder="Your email"
-                                                className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white/80 ring-1 ring-slate-200 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+                                                className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white/80 ring-1 ring-slate-200 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-slate-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-slate-750/40"
                                                 required
                                             />
                                         </div>
@@ -465,12 +504,30 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                             <CheckCircle className="w-4 h-4" />
                                             Subscribed
                                         </div>
-                                        <button
-                                            onClick={handleUnsubscribe}
-                                            className="text-sm text-slate-500 hover:text-rose-600 transition-colors"
-                                        >
-                                            Unsubscribe
-                                        </button>
+                                        {confirmUnsubscribe ? (
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="text-slate-500 font-medium">Unsubscribe?</span>
+                                                <button
+                                                    onClick={handleUnsubscribe}
+                                                    className="font-semibold text-rose-600 hover:text-rose-700 underline"
+                                                >
+                                                    Confirm
+                                                </button>
+                                                <button
+                                                    onClick={() => setConfirmUnsubscribe(false)}
+                                                    className="font-medium text-slate-500 hover:text-slate-700"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setConfirmUnsubscribe(true)}
+                                                className="text-sm text-slate-500 hover:text-rose-600 transition-colors"
+                                            >
+                                                Unsubscribe
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -486,12 +543,12 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
 
                         {/* Masonry Grid Section */}
                         {profileNotFound ? (
-                            <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 py-16 text-center">
+                            <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 py-16 text-center">
                                 <p className="font-display text-xl text-slate-950 dark:text-slate-50">Profile not found</p>
-                                <button onClick={() => navigate('/')} className="mt-3 text-sm text-indigo-700 dark:text-indigo-300 hover:underline">Go home</button>
+                                <button onClick={() => navigate('/')} className="mt-3 text-sm text-slate-700 dark:text-slate-300 hover:underline">Go home</button>
                             </div>
                         ) : bookmarks.length === 0 ? (
-                            <div className="rounded-card bg-surface-light px-6 py-12 text-center shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 sm:px-8">
+                            <div className="rounded-card bg-surface-light px-6 py-12 text-center shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 sm:px-8">
                                 <div className="mx-auto max-w-xl space-y-5">
                                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                         {isOwner ? <BookMarked className="h-7 w-7" /> : <Mail className="h-7 w-7" />}
@@ -518,13 +575,13 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                     ) : !isSubscribed ? (
                                         <form onSubmit={handleSubscribe} className="mx-auto flex max-w-md flex-col gap-2 sm:flex-row">
                                             <div className="relative flex-1 group">
-                                                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-indigo-700 dark:group-focus-within:text-indigo-300" />
+                                                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-slate-800 dark:group-focus-within:text-slate-200" />
                                                 <input
                                                     type="email"
                                                     value={email}
                                                     onChange={(e) => setEmail(e.target.value)}
                                                     placeholder="Your email"
-                                                    className="w-full rounded-full bg-white/80 py-2.5 pl-11 pr-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 placeholder-slate-400 transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:text-slate-100 dark:ring-slate-700 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+                                                    className="w-full rounded-full bg-white/80 py-2.5 pl-11 pr-4 text-sm text-slate-900 outline-none ring-1 ring-slate-200 placeholder-slate-400 transition focus:ring-2 focus:ring-slate-300 dark:bg-slate-900/60 dark:text-slate-100 dark:ring-slate-700 dark:placeholder-slate-500 dark:focus:ring-slate-700/40"
                                                     required
                                                 />
                                             </div>
@@ -554,7 +611,7 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                         </h2>
                                         <button
                                             onClick={clearFilters}
-                                            className="text-sm text-indigo-700 hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-200 transition-colors"
+                                            className="text-sm text-slate-700 hover:text-slate-900 dark:text-slate-350 dark:hover:text-slate-250 transition-colors"
                                         >
                                             Clear filters
                                         </button>
@@ -577,9 +634,9 @@ export default function PublicProfile({ username = 'sarath' }: PublicProfileProp
                                     breakpoints={{ 0: 1, 640: 2, 1024: 3, 1280: 4 }}
                                 />
                                 {filteredBookmarks.length === 0 && (
-                                    <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 py-16 text-center">
+                                    <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 py-16 text-center">
                                         <p className="text-sm text-slate-500 dark:text-slate-400">No bookmarks match these topics</p>
-                                        <button onClick={clearFilters} className="mt-3 text-sm text-indigo-700 dark:text-indigo-300 hover:underline">Clear filters</button>
+                                        <button onClick={clearFilters} className="mt-3 text-sm text-slate-700 dark:text-slate-300 hover:underline">Clear filters</button>
                                     </div>
                                 )}
                             </div>

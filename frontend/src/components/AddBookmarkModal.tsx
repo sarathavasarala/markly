@@ -158,14 +158,14 @@ export default function AddBookmarkModal({ isOpen, onClose, folderId, prefill }:
   if (!isOpen) return null
 
   const labelClass = "block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2"
-  const inputClass = "w-full px-4 py-3 rounded-2xl bg-white/80 ring-1 ring-slate-200 text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+  const inputClass = "w-full px-4 py-3 rounded-2xl bg-white/80 ring-1 ring-slate-200 text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-slate-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-slate-700/40"
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity" onClick={handleClose} />
 
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative w-full max-w-4xl rounded-card bg-surface-light shadow-card-hover ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 overflow-hidden flex flex-col md:flex-row min-h-[480px]">
+        <div className="relative w-full max-w-4xl rounded-card bg-surface-light shadow-card-hover ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 overflow-hidden flex flex-col md:flex-row min-h-[480px]">
 
           <div className="w-full md:w-5/12 p-7 sm:p-8 md:border-r border-slate-200/70 dark:border-slate-800/70">
             <div className="mb-6">

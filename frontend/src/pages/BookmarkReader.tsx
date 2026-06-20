@@ -87,7 +87,7 @@ export default function BookmarkReader() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-500 dark:text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
+        <Loader2 className="w-8 h-8 animate-spin text-slate-500 mb-4" />
         <p className="text-sm font-medium">Loading saved copy...</p>
       </div>
     )
@@ -128,7 +128,7 @@ export default function BookmarkReader() {
             href={archive.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-950 dark:text-slate-350 dark:hover:text-slate-200 transition-colors"
           >
             <span>Open original</span>
             <ExternalLink className="w-3.5 h-3.5" />
@@ -140,7 +140,7 @@ export default function BookmarkReader() {
         <>
           {/* Article Info */}
           <div className="mb-8">
-            <span className="text-xs font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               {archive.domain || 'Local Copy'}
             </span>
             <h1 className="font-display text-3xl sm:text-4xl font-normal leading-tight text-slate-950 dark:text-slate-50 mt-2 mb-4">
@@ -169,7 +169,7 @@ export default function BookmarkReader() {
           {/* Pending / Processing State */}
           {(status === 'pending' || status === 'processing') && (
             <div className="flex flex-col items-center justify-center py-16 px-6 bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50 rounded-card text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
+              <Loader2 className="w-8 h-8 animate-spin text-slate-500 mb-4" />
               <h3 className="font-display text-lg text-slate-900 dark:text-white mb-2">Saving local copy...</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
                 We are currently downloading and formatting a clean, readable copy of this article. This page will update automatically.

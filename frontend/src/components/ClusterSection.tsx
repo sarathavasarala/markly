@@ -17,6 +17,7 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
   const [reportCluster, setReportCluster] = useState<SignalCluster | null>(null)
   const [reportsHistory, setReportsHistory] = useState<SignalClusterReport[]>([])
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   
   const [error, setError] = useState<string | null>(null)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
@@ -118,8 +119,7 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
     }
   }
 
-  const handleDeleteCluster = async (id: string) => {
-    if (!window.confirm('Delete this cluster? This will delete all its grouped information and generated reports.')) return
+  const handleDeleteConfirm = async (id: string) => {
     setError(null)
     try {
       await clustersApi.delete(id)
@@ -129,6 +129,8 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to delete cluster')
+    } finally {
+      setConfirmDeleteId(null)
     }
   }
 
@@ -263,13 +265,30 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
                 className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-slate-200/70 bg-white/80 shadow-sm hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-300 dark:border-slate-800/80 dark:bg-slate-900/50"
               >
                 {/* Dismiss button overlaid on top right */}
-                <button
-                  onClick={() => handleDeleteCluster(cluster.id)}
-                  className={`absolute top-4 right-4 z-10 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-850 dark:text-slate-500 dark:hover:text-rose-450 transition-all duration-200 ${clusterImage ? 'bg-slate-950/35 text-white/80 hover:bg-slate-950/60 hover:text-white' : ''} opacity-0 group-hover:opacity-100`}
-                  title="Dismiss cluster"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                {confirmDeleteId === cluster.id ? (
+                  <div className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-white dark:bg-slate-950 rounded-full shadow-md p-1.5 ring-1 ring-slate-200 dark:ring-slate-850 animate-in fade-in slide-in-from-top-1">
+                    <button
+                      onClick={() => handleDeleteConfirm(cluster.id)}
+                      className="px-2 py-0.5 text-[9px] font-bold text-white bg-rose-600 rounded-full hover:bg-rose-700 transition-colors"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="px-2 py-0.5 text-[9px] font-bold text-slate-650 bg-slate-100 dark:text-slate-350 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDeleteId(cluster.id)}
+                    className={`absolute top-4 right-4 z-10 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-850 dark:text-slate-500 dark:hover:text-rose-450 transition-all duration-200 ${clusterImage ? 'bg-slate-950/35 text-white/80 hover:bg-slate-950/60 hover:text-white' : ''} opacity-0 group-hover:opacity-100`}
+                    title="Dismiss cluster"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
 
                 {/* Card Header Banner (Image only) */}
                 {clusterImage && (
@@ -289,7 +308,7 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
                     </div>
                     {/* Title and Short Description */}
                     <div className="space-y-1.5">
-                      <h3 className="font-display text-base font-bold text-slate-950 dark:text-slate-50 leading-snug group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
+                      <h3 className="font-display text-base font-bold text-slate-950 dark:text-slate-50 leading-snug group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
                         {cluster.title}
                       </h3>
                       {cluster.summary && (
@@ -361,7 +380,7 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
                       {hasReport ? (
                         <>
                           {newCount > 0 && (
-                            <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 whitespace-nowrap">
+                           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-650 dark:bg-slate-800 dark:text-slate-350 whitespace-nowrap">
                               {newCount} new
                             </span>
                           )}

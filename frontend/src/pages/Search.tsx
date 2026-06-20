@@ -76,7 +76,7 @@ export default function Search() {
   return (
     <div className="space-y-8">
       {/* Search header */}
-      <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 px-6 py-6 sm:px-8 sm:py-7">
+      <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 px-6 py-6 sm:px-8 sm:py-7">
         <h1 className="font-display text-3xl text-slate-950 dark:text-slate-50 sm:text-4xl">Search your library</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Find any link by title, summary, or topic.</p>
 
@@ -87,7 +87,7 @@ export default function Search() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="What are you looking for?"
-            className="w-full pl-14 pr-12 py-4 rounded-full bg-white/80 ring-1 ring-slate-200 text-base text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+            className="w-full pl-14 pr-12 py-4 rounded-full bg-white/80 ring-1 ring-slate-200 text-base text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-slate-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-slate-700/40"
           />
           {query && (
             <button
@@ -115,7 +115,7 @@ export default function Search() {
           </div>
 
           {results.length === 0 ? (
-            <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 px-8 py-16 text-center">
+            <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 px-8 py-16 text-center">
               <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
                 <SearchIcon className="w-5 h-5" />
               </div>
@@ -139,7 +139,7 @@ export default function Search() {
       )}
 
       {!hasSearched && !isSearching && (
-        <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 px-8 py-16 text-center">
+        <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 px-8 py-16 text-center">
           <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
             <SearchIcon className="w-5 h-5" />
           </div>

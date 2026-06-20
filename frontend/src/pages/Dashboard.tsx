@@ -138,7 +138,7 @@ export default function Dashboard() {
       titleContent = (
         <span className="flex items-center gap-2">
           Filtered results ({countDisplay})
-          <button onClick={clearFilters} className="text-xs font-medium text-indigo-700 hover:underline flex items-center gap-1 dark:text-indigo-300">
+          <button onClick={clearFilters} className="text-xs font-medium text-slate-700 hover:text-slate-900 hover:underline flex items-center gap-1 dark:text-slate-350 dark:hover:text-slate-200">
             Clear filters <X className="w-3 h-3" />
           </button>
         </span>
@@ -152,7 +152,7 @@ export default function Dashboard() {
               setSelectedFolderId(null)
               setViewMode('folders')
             }}
-            className="text-slate-500 transition-colors hover:text-indigo-700 dark:text-slate-400 dark:hover:text-indigo-300"
+            className="text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
           >
             Your bookmarks
           </button>
@@ -172,29 +172,32 @@ export default function Dashboard() {
             {!isInsideFolder && (
               <button
                 onClick={() => setViewMode('folders' as BookmarkViewMode)}
-                className={`rounded-full p-1.5 transition-all ${viewMode === 'folders' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${viewMode === 'folders' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
                 title="Folders view"
               >
-                <FolderIcon className="h-4 w-4" />
+                <FolderIcon className="h-3.5 w-3.5" />
+                <span>Folders</span>
               </button>
             )}
             <button
               onClick={() => setViewMode('cards')}
-              className={`rounded-full p-1.5 transition-all ${viewMode === 'cards' || (isInsideFolder && viewMode !== 'list') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${viewMode === 'cards' || (isInsideFolder && viewMode !== 'list') ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
               title="Grid view"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
               </svg>
+              <span>Grid</span>
             </button>
             <button
               onClick={() => setViewMode('list' as BookmarkViewMode)}
-              className={`rounded-full p-1.5 transition-all ${viewMode === 'list' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${viewMode === 'list' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
               title="List view"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
+              <span>List</span>
             </button>
           </div>
         </div>
@@ -241,7 +244,7 @@ export default function Dashboard() {
                       placeholder="Folder name..."
                       value={newFolderInlineName}
                       onChange={(e) => setNewFolderInlineName(e.target.value)}
-                      className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       autoFocus
                       disabled={isFolderSubmitting}
                     />

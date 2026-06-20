@@ -62,9 +62,11 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [isTasteProfileOpen, setIsTasteProfileOpen] = useState(false)
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
   
-  const [error, setError] = useState<string | null>(null)
+   const [error, setError] = useState<string | null>(null)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [confirmDeleteBriefId, setConfirmDeleteBriefId] = useState<string | null>(null)
+  const [confirmResetProfile, setConfirmResetProfile] = useState(false)
 
   const [candidateWords, setCandidateWords] = useState<number | null>(null)
   const [extractedWords, setExtractedWords] = useState<number | null>(null)
@@ -299,31 +301,33 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   }
 
   const handleResetProfile = async () => {
-    if (window.confirm('Reset briefing preferences and prompts to the recommended default instructions?')) {
-      setSaveStatus('saving')
-      try {
-        const res = await signalApi.updateTasteProfile({
-          taste_profile: '',
-          signal_candidate_limit: null,
-          signal_synthesis_limit: null,
-          signal_filter_prompt: null,
-          signal_planning_prompt: null,
-          signal_synthesis_prompt: null,
-          signal_web_search_enabled: true,
-        })
-        setTasteProfileInput(res.data.taste_profile)
-        setSignalCandidateLimit(res.data.signal_candidate_limit)
-        setSignalSynthesisLimit(res.data.signal_synthesis_limit)
-        setSignalFilterPrompt(defaultFilterPrompt)
-        setSignalPlanningPrompt(defaultPlanningPrompt)
-        setSignalSynthesisPrompt(defaultSynthesisPrompt)
-        setSignalWebSearchEnabled(true)
-        setSaveStatus('saved')
-        setTimeout(() => setSaveStatus('idle'), 2000)
-      } catch (err) {
-        setSaveStatus('error')
-        setTimeout(() => setSaveStatus('idle'), 3000)
-      }
+    setSaveStatus('saving')
+    try {
+      const res = await signalApi.updateTasteProfile({
+        taste_profile: '',
+        signal_candidate_limit: null,
+        signal_synthesis_limit: null,
+        signal_filter_prompt: null,
+        signal_planning_prompt: null,
+        signal_synthesis_prompt: null,
+        signal_web_search_enabled: true,
+      })
+      setTasteProfileInput(res.data.taste_profile)
+      setSignalCandidateLimit(res.data.signal_candidate_limit)
+      setSignalSynthesisLimit(res.data.signal_synthesis_limit)
+      setSignalFilterPrompt(defaultFilterPrompt)
+      setSignalPlanningPrompt(defaultPlanningPrompt)
+      setSignalSynthesisPrompt(defaultSynthesisPrompt)
+      setSignalPlanningEnabled(res.data.signal_planning_enabled !== undefined ? !!res.data.signal_planning_enabled : true)
+      setSignalHumanizerEnabled(res.data.signal_humanizer_enabled !== undefined ? !!res.data.signal_humanizer_enabled : true)
+      setSignalWebSearchEnabled(res.data.signal_web_search_enabled !== undefined ? !!res.data.signal_web_search_enabled : true)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    } catch (err) {
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 3000)
+    } finally {
+      setConfirmResetProfile(false)
     }
   }
 
@@ -358,36 +362,6 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
 
   return (
     <div className="space-y-6">
-      {/* Action Bar */}
-      <div className="flex flex-col gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          Today's Brief
-        </h2>
-        
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setIsTasteProfileOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
-            title="Edit briefing preferences"
-          >
-            <Settings className="h-4 w-4" />
-            Briefing Preferences
-          </button>
-          
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-          >
-            {isGenerating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            {briefs.length > 0 ? 'Generate today\'s brief' : 'Generate brief'}
-          </button>
-        </div>
-      </div>
 
       {error && (
         <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-900/20 dark:text-rose-300">
@@ -459,7 +433,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
         </div>
       ) : (
         /* Signal Brief Viewport */
-        <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)] w-full min-w-0">
+        <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)] w-full min-w-0">
           {/* Left Column: Brief History Sidebar */}
           <aside className="space-y-3 w-full min-w-0">
             <button
@@ -502,7 +476,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       }`}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate" title={brief.title || formatShortDate(brief.created_at) || undefined}>
+                        <p className="text-sm font-medium line-clamp-2 break-words" title={brief.title || formatShortDate(brief.created_at) || undefined}>
                           {brief.title || formatShortDate(brief.created_at)}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500 truncate">
@@ -514,26 +488,49 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                       </div>
                       <ChevronRight className={`h-4 w-4 flex-shrink-0 ml-2 ${isSelected ? 'text-slate-600 dark:text-slate-400' : 'text-slate-300'}`} />
                     </button>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        if (!window.confirm('Delete this brief? You can regenerate a new one.')) return
-                        try {
-                          await signalApi.deleteBrief(brief.id)
-                          setBriefs(prev => prev.filter(b => b.id !== brief.id))
-                          if (selectedBriefId === brief.id) {
-                            const remaining = briefs.filter(b => b.id !== brief.id)
-                            setSelectedBriefId(remaining.length > 0 ? remaining[0].id : null)
-                          }
-                        } catch {
-                          setError('Failed to delete brief')
-                        }
-                      }}
-                      className="rounded-lg p-1.5 text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:hover:bg-rose-900/20 dark:hover:text-rose-300"
-                      title="Delete brief"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {confirmDeleteBriefId === brief.id ? (
+                      <div className="flex items-center gap-1 animate-in fade-in duration-200 flex-shrink-0">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              await signalApi.deleteBrief(brief.id)
+                              setBriefs(prev => prev.filter(b => b.id !== brief.id))
+                              if (selectedBriefId === brief.id) {
+                                const remaining = briefs.filter(b => b.id !== brief.id)
+                                setSelectedBriefId(remaining.length > 0 ? remaining[0].id : null)
+                              }
+                              setConfirmDeleteBriefId(null)
+                            } catch {
+                              setError('Failed to delete brief')
+                            }
+                          }}
+                          className="rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setConfirmDeleteBriefId(null)
+                          }}
+                          className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-350 hover:bg-slate-300 dark:hover:bg-slate-600"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setConfirmDeleteBriefId(brief.id)
+                        }}
+                        className="rounded-lg p-1.5 text-slate-300 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:hover:bg-rose-900/20 dark:hover:text-rose-300"
+                        title="Delete brief"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -541,7 +538,40 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
           </aside>
 
           {/* Right Column: Brief Viewer Area */}
-          <section className="space-y-4 w-full min-w-0">
+          <section className="space-y-6 w-full min-w-0">
+            {/* Action Bar (Aligned to reading card width) */}
+            <div className="max-w-3xl">
+              <div className="flex flex-col gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Today's Brief
+                </h2>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setIsTasteProfileOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
+                    title="Edit briefing preferences"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Preferences
+                  </button>
+                  
+                  <button
+                    onClick={handleGenerate}
+                    disabled={isGenerating}
+                    className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    {briefs.length > 0 ? 'Generate new' : 'Generate'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {isGenerating ? (
               <div className="rounded-card border border-slate-200/70 bg-white/70 p-4 sm:p-8 dark:border-slate-800/80 dark:bg-slate-900/50 min-h-[400px] flex flex-col justify-center">
                 <h3 className="font-display text-lg font-medium text-slate-900 dark:text-slate-100 mb-6">
@@ -742,47 +772,49 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
               </div>
             ) : selectedBrief ? (
               /* Brief Display Card */
-              <article className="rounded-card border border-slate-200/70 bg-white p-4 sm:p-6 shadow-sm dark:border-slate-800/80 dark:bg-slate-950">
-                {/* Header info */}
-                <div className="border-b border-slate-100 pb-4 mb-6 dark:border-slate-900">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                    {selectedBrief.title ? formatDate(selectedBrief.created_at) : 'Daily Briefing Memo'}
+              <article className="max-w-3xl rounded-card border border-slate-200/70 bg-white p-6 sm:p-10 shadow-sm dark:border-slate-800/80 dark:bg-slate-950">
+                <div>
+                  {/* Header info */}
+                  <div className="border-b border-slate-100 pb-4 mb-6 dark:border-slate-900">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                      {selectedBrief.title ? formatDate(selectedBrief.created_at) : 'Daily Briefing Memo'}
+                    </div>
+                    <h2 className="font-display text-2xl font-normal text-slate-900 dark:text-slate-50">
+                      {selectedBrief.title || formatDate(selectedBrief.created_at)}
+                    </h2>
                   </div>
-                  <h2 className="font-display text-2xl font-normal text-slate-900 dark:text-slate-50">
-                    {selectedBrief.title || formatDate(selectedBrief.created_at)}
-                  </h2>
-                </div>
 
-                {/* Briefing intro note */}
-                <div className="rounded-2xl bg-slate-50 px-4 py-3 mb-6 dark:bg-slate-900/40 ring-1 ring-slate-100 dark:ring-slate-800">
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span>
-                    {selectedBrief.article_count
-                      ? ` - based on analysis of ${selectedBrief.article_count} articles from your RSS feeds.`
-                      : ' - synthesized from recent articles across your RSS feeds.'}
-                    {' '}Below are the themes and developments that stood out today.
-                  </p>
-                </div>
-                
-                {/* Synthesized Brief Content */}
-                <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 select-text leading-relaxed font-sans text-base">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      a: ({ href, children }) => (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-slate-700 dark:text-slate-300 underline decoration-slate-400/50 underline-offset-2 transition hover:text-slate-950 hover:decoration-slate-700 dark:hover:text-slate-100 dark:decoration-slate-500/50 dark:hover:decoration-slate-300"
-                        >
-                          {children}
-                        </a>
-                      )
-                    }}
-                  >
-                    {selectedBrief.content}
-                  </ReactMarkdown>
+                  {/* Briefing intro note */}
+                  <div className="rounded-2xl bg-slate-50 px-4 py-3 mb-6 dark:bg-slate-900/40 ring-1 ring-slate-100 dark:ring-slate-800">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-sans">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">Your daily brief</span>
+                      {selectedBrief.article_count
+                        ? ` - based on analysis of ${selectedBrief.article_count} articles from your RSS feeds.`
+                        : ' - synthesized from recent articles across your RSS feeds.'}
+                      {' '}Below are the themes and developments that stood out today.
+                    </p>
+                  </div>
+                  
+                  {/* Synthesized Brief Content */}
+                  <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 select-text leading-relaxed font-sans text-base">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: ({ href, children }) => (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-slate-700 dark:text-slate-300 underline decoration-slate-400/50 underline-offset-2 transition hover:text-slate-950 hover:decoration-slate-700 dark:hover:text-slate-100 dark:decoration-slate-500/50 dark:hover:decoration-slate-300"
+                          >
+                            {children}
+                          </a>
+                        )
+                      }}
+                    >
+                      {selectedBrief.content}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </article>
             ) : null}
@@ -1050,14 +1082,32 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
 
             {/* Actions Footer */}
             <div className="border-t border-slate-200/60 pt-4 dark:border-slate-800/60 flex items-center justify-between gap-3">
-              <button
-                onClick={handleResetProfile}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                title="Reset to default prompt guidelines"
-              >
-                <Undo2 className="h-3.5 w-3.5" />
-                Reset to Default
-              </button>
+              {confirmResetProfile ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-medium">Reset instructions?</span>
+                  <button
+                    onClick={handleResetProfile}
+                    className="rounded-full bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 transition"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmResetProfile(false)}
+                    className="rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-650 dark:text-slate-350 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmResetProfile(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  title="Reset to default prompt guidelines"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Reset to Default
+                </button>
+              )}
               
               <div className="flex items-center gap-2">
                 <button

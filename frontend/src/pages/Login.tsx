@@ -106,7 +106,7 @@ export default function Login() {
         <div className="w-full max-w-md space-y-6">
           <div className="min-h-[440px] flex flex-col justify-between">
             {activeSlide === 0 ? (
-              <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-6 text-left flex-1 flex flex-col justify-between animate-in fade-in duration-500">
+              <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 p-6 text-left flex-1 flex flex-col justify-between animate-in fade-in duration-500">
                 <div>
                   <div className="border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">Wednesday</span>
@@ -124,7 +124,7 @@ export default function Login() {
                       <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">AI Architecture & Moats</h4>
                       <p className="text-xs sm:text-sm">
                         Apple and Meta are expanding their system-level advantages by routing computation and context differently. Apple is pursuing a split architecture to handle everyday tasks on-device, while Meta is leveraging its off-platform behavioral data to build context moats that stand apart from raw model capabilities.
-                        <span className="text-indigo-700 dark:text-indigo-300 font-medium ml-1">read more</span>
+                        <span className="text-slate-700 dark:text-slate-300 font-medium ml-1">read more</span>
                       </p>
                       <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                         Analyzed from Apple ML Research, Techmeme, and The Verge (and 4 related articles)
@@ -134,7 +134,7 @@ export default function Login() {
                       <h4 className="font-semibold text-slate-950 dark:text-slate-50 text-xs uppercase tracking-wider">Frontier Model Segmentation</h4>
                       <p className="text-xs sm:text-sm">
                         Enterprise adoption is shifting focus from benchmarks to operational controls. Anthropic is segmenting its API access by packaging safety classifiers and predictable safety classifiers directly into the Claude Fable model tier.
-                        <span className="text-indigo-700 dark:text-indigo-300 font-medium ml-1">read more</span>
+                        <span className="text-slate-700 dark:text-slate-300 font-medium ml-1">read more</span>
                       </p>
                       <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
                         Analyzed from Anthropic, Simon Willison's analysis, and Bloomberg (and 2 related articles)
@@ -144,7 +144,7 @@ export default function Login() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 p-6 text-left flex-1 flex flex-col justify-between animate-in fade-in duration-500">
+              <div className="rounded-card bg-surface-light shadow-card ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 p-6 text-left flex-1 flex flex-col justify-between animate-in fade-in duration-500">
                 <div>
                   <div className="border-b border-slate-200/60 pb-3 dark:border-slate-800/60">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">How it works</span>

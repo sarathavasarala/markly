@@ -4,7 +4,6 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  MoreVertical,
   Trash2,
   Edit2,
   Eye,
@@ -47,6 +46,7 @@ const BookmarkCard = memo(function BookmarkCard({
   const [copied, setCopied] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showFolderModal, setShowFolderModal] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const navigate = useNavigate()
 
   const { trackAccess, retryEnrichment, deleteBookmark, updateBookmark } = useBookmarksStore()
@@ -72,19 +72,6 @@ const BookmarkCard = memo(function BookmarkCard({
 
   const handleRetry = () => {
     retryEnrichment(bookmark.id)
-    setShowMenu(false)
-  }
-
-  const handleDelete = () => {
-    if (isDeleting) return
-    if (window.confirm('Delete this bookmark?')) {
-      setIsDeleting(true)
-      deleteBookmark(bookmark.id).then(() => {
-        onDeleted?.(bookmark.id)
-      }).finally(() => {
-        setIsDeleting(false)
-      })
-    }
     setShowMenu(false)
   }
 
@@ -117,19 +104,21 @@ const BookmarkCard = memo(function BookmarkCard({
   }
 
   return (
-    <div className={`group relative w-full overflow-hidden break-inside-avoid rounded-card bg-surface-light text-sm shadow-card ring-1 ring-white/60 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover dark:bg-surface-dark dark:ring-white/5 ${!bookmark.is_public && isPublicView ? 'hidden' : ''}`}>
+    <div className={`group relative w-full overflow-hidden break-inside-avoid rounded-card bg-surface-light text-sm shadow-card ring-1 ring-white/60 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover dark:bg-surface-dark dark:ring-white/10 ${!bookmark.is_public && isPublicView ? 'hidden' : ''}`}>
       {/* Thumbnail */}
       {bookmark.thumbnail_url && (
         <div className="p-3 pb-0">
-          <img
-            src={bookmark.thumbnail_url.replace(/^http:\/\//, 'https://')}
-            alt=""
-            className="h-36 w-full rounded-[1.25rem] object-cover"
-            onError={(e) => {
-              const container = (e.target as HTMLImageElement).parentElement;
-              if (container) container.style.display = 'none';
-            }}
-          />
+          <div className="aspect-[16/10] w-full overflow-hidden rounded-[1.25rem] border border-slate-200/50 bg-slate-50 dark:border-slate-800/80 dark:bg-slate-900">
+            <img
+              src={bookmark.thumbnail_url.replace(/^http:\/\//, 'https://')}
+              alt=""
+              className="h-full w-full object-cover filter saturate-[0.75] dark:saturate-[0.65] group-hover:saturate-100 transition-all duration-300"
+              onError={(e) => {
+                const container = (e.target as HTMLImageElement).parentElement?.parentElement;
+                if (container) container.style.display = 'none';
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -162,81 +151,122 @@ const BookmarkCard = memo(function BookmarkCard({
                   className="rounded-full p-2 text-slate-400 opacity-0 transition-all hover:bg-white hover:text-slate-700 group-hover:opacity-100 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   aria-label="Bookmark actions"
                 >
-                  <MoreVertical className="w-4 h-4" />
                 </button>
 
                 {showMenu && (
                   <>
                     <div
                       className="fixed inset-0 z-10"
-                      onClick={() => setShowMenu(false)}
+                      onClick={() => {
+                        setShowMenu(false)
+                        setConfirmDelete(false)
+                      }}
                     />
                     <div className="absolute right-0 top-10 z-20 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 shadow-xl animate-in fade-in zoom-in duration-200 dark:border-slate-700 dark:bg-slate-800">
-                      {bookmark.archive_status === 'completed' && (
-                        <button
-                          onClick={() => {
-                            navigate(`/bookmarks/${bookmark.id}/read`)
-                            setShowMenu(false)
-                          }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                        >
-                          <BookOpen className="w-4 h-4" />
-                          Read saved copy
-                        </button>
-                      )}
-                      {bookmark.archive_status === 'failed' && (
-                        <button
-                          onClick={() => {
-                            bookmarksApi.retryArchive(bookmark.id).then(() => {
-                              updateBookmark(bookmark.id, { archive_status: 'pending', archive_error: null })
-                            }).catch(err => console.error("Failed to retry archiving:", err))
-                            setShowMenu(false)
-                          }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          Retry saved copy
-                        </button>
-                      )}
-                      {isFailed && (
-                        <button
-                          onClick={handleRetry}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                        >
-                          <RefreshCw className="w-4 h-4" />
-                          Retry enrichment
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setEditingBookmark(bookmark)
-                          setShowMenu(false)
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                        Edit bookmark
-                      </button>
+                      {confirmDelete ? (
+                        <div className="p-3 space-y-2 text-center animate-in fade-in duration-150">
+                          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Delete bookmark?</p>
+                          <div className="flex gap-1.5 justify-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (isDeleting) return
+                                setIsDeleting(true)
+                                deleteBookmark(bookmark.id).then(() => {
+                                  onDeleted?.(bookmark.id)
+                                }).finally(() => {
+                                  setIsDeleting(false)
+                                  setConfirmDelete(false)
+                                  setShowMenu(false)
+                                })
+                              }}
+                              className="rounded-full bg-rose-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-rose-700 transition"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setConfirmDelete(false)
+                              }}
+                              className="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-350 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {bookmark.archive_status === 'completed' && (
+                            <button
+                              onClick={() => {
+                                navigate(`/bookmarks/${bookmark.id}/read`)
+                                setShowMenu(false)
+                              }}
+                              className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              <BookOpen className="w-4 h-4" />
+                              Read saved copy
+                            </button>
+                          )}
+                          {bookmark.archive_status === 'failed' && (
+                            <button
+                              onClick={() => {
+                                bookmarksApi.retryArchive(bookmark.id).then(() => {
+                                  updateBookmark(bookmark.id, { archive_status: 'pending', archive_error: null })
+                                }).catch(err => console.error("Failed to retry archiving:", err))
+                                setShowMenu(false)
+                              }}
+                              className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              Retry saved copy
+                            </button>
+                          )}
+                          {isFailed && (
+                            <button
+                              onClick={handleRetry}
+                              className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              Retry enrichment
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setEditingBookmark(bookmark)
+                              setShowMenu(false)
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                            Edit bookmark
+                          </button>
 
-                      <button
-                        onClick={() => {
-                          setShowFolderModal(true)
-                          setShowMenu(false)
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                      >
-                        <FolderIcon className="w-4 h-4" />
-                        Move to folder
-                      </button>
+                          <button
+                            onClick={() => {
+                              setShowFolderModal(true)
+                              setShowMenu(false)
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
+                          >
+                            <FolderIcon className="w-4 h-4" />
+                            Move to folder
+                          </button>
 
-                      <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" />
-                      <button
-                        onClick={handleDelete}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
+                          <div className="my-1 h-px bg-slate-100 dark:bg-slate-700" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setConfirmDelete(true)
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-2.5 text-xs font-medium text-red-650 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
@@ -255,7 +285,7 @@ const BookmarkCard = memo(function BookmarkCard({
 
         {/* Archive Status */}
         {(bookmark.archive_status === 'pending' || bookmark.archive_status === 'processing') && (
-          <div className="mb-4 flex items-center gap-2 rounded-2xl bg-indigo-50/50 px-3 py-2 text-xs font-medium text-indigo-600 dark:bg-indigo-950/10 dark:text-indigo-400">
+          <div className="mb-4 flex items-center gap-2 rounded-2xl bg-slate-100/80 px-3 py-2 text-xs font-medium text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
             <Loader2 className="w-3 h-3 animate-spin" />
             <span>Saving copy...</span>
           </div>
@@ -277,7 +307,7 @@ const BookmarkCard = memo(function BookmarkCard({
         )}
 
         {/* Title */}
-        <h3 className="mb-2 font-display text-[1.4rem] font-normal leading-tight text-slate-950 transition-colors group-hover:text-indigo-700 dark:text-slate-50 dark:group-hover:text-indigo-300">
+        <h3 className="mb-2 font-display text-[1.4rem] font-normal leading-tight text-slate-950 transition-colors group-hover:text-slate-800 dark:text-slate-50 dark:group-hover:text-slate-200">
           <a
             href={bookmark.url}
             target="_blank"

@@ -76,4 +76,3 @@ def test_extract_bypass_jina(mock_get):
 
     assert result["title"] == "Fallback Title"
     assert "Fallback Local Content" in result["content"]
-

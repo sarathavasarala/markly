@@ -74,13 +74,13 @@ export default function EditBookmarkModal({ bookmark, onClose }: EditBookmarkMod
     if (!bookmark) return null
 
     const labelClass = "block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2"
-    const inputClass = "w-full px-4 py-3 rounded-2xl bg-white/80 ring-1 ring-slate-200 text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-indigo-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-indigo-500/40"
+    const inputClass = "w-full px-4 py-3 rounded-2xl bg-white/80 ring-1 ring-slate-200 text-slate-900 placeholder-slate-400 outline-none transition focus:ring-2 focus:ring-slate-300 dark:bg-slate-900/60 dark:ring-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:ring-slate-700/40"
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity" onClick={onClose} />
             <div className="flex min-h-full items-center justify-center p-4">
-                <div className="relative w-full max-w-2xl rounded-card bg-surface-light shadow-card-hover ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/5 overflow-hidden p-7 sm:p-8">
+                <div className="relative w-full max-w-2xl rounded-card bg-surface-light shadow-card-hover ring-1 ring-white/60 dark:bg-surface-dark dark:ring-white/10 overflow-hidden p-7 sm:p-8">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="font-display text-2xl text-slate-950 dark:text-slate-50">Edit bookmark</h2>
                         <button onClick={onClose} className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors">
@@ -125,7 +125,7 @@ export default function EditBookmarkModal({ bookmark, onClose }: EditBookmarkMod
                                             const suggested = folders.find(f => f.name === bookmark.suggested_folder_name)
                                             if (suggested) setEditFolderId(suggested.id)
                                         }}
-                                        className="text-xs font-medium text-indigo-700 hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-200"
+                                        className="text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                                     >
                                         Apply
                                     </button>
