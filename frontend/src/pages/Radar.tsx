@@ -564,8 +564,8 @@ export default function Radar() {
           </div>
 
           {isLoading ? (
-            <div className="grid gap-6 md:grid-cols-2">
-              {[1, 2, 3, 4].map((item) => (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map((item) => (
                 <div key={item} className="h-44 animate-pulse rounded-card bg-slate-200/70 dark:bg-slate-800/70" />
               ))}
             </div>
@@ -687,7 +687,7 @@ export default function Radar() {
                       </div>
 
                       {/* Cards Grid */}
-                      <div className="grid gap-6 md:grid-cols-2">
+                      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {group.items.map((item) => (
                           <article
                             key={item.id}
