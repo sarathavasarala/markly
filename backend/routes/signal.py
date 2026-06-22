@@ -776,6 +776,16 @@ def list_briefs():
 @require_auth
 def generate_brief():
     conn = get_db()
+    preview = False
+    from middleware.auth import _dev_bypass_auth_enabled
+    if g.user.email.lower() == "sarathavasarala@gmail.com" or _dev_bypass_auth_enabled():
+        preview = request.args.get("preview", "false").lower() == "true"
+        if not preview and request.is_json:
+            try:
+                preview = bool(request.get_json().get("preview", False))
+            except Exception:
+                pass
+
     trace = brief_tracing.start_daily_brief_trace(user_id=g.user.id, mode="blocking")
     try:
         with trace.span("load_settings") as span:
@@ -895,7 +905,7 @@ def generate_brief():
                 content = signal_pipeline.style_edit_brief(content, HUMANIZER_PROMPT_TEMPLATE)
                 generation.update(output={"content": brief_tracing.summarize_text(content)})
 
-        brief = signal_pipeline.save_brief(conn, g.user.id, content, selected_items)
+        brief = signal_pipeline.save_brief(conn, g.user.id, content, selected_items, skip_last_briefed_update=preview)
         trace.finish(brief=brief, output={"brief": brief, "selected_ids": [item["id"] for item in selected_items]})
         return jsonify(brief), 201
     except Exception as exc:
@@ -944,7 +954,7 @@ def _sse_event(data: dict) -> str:
     return f"data: {json.dumps(data)}\n\n"
 
 
-def _generate_brief_stream_impl(user_id: str, trace: brief_tracing.BriefTrace):
+def _generate_brief_stream_impl(user_id: str, trace: brief_tracing.BriefTrace, skip_last_briefed_update=False):
     """Generator that yields SSE events as the shared pipeline runs."""
     try:
         with db_session() as conn:
@@ -1193,7 +1203,7 @@ def _generate_brief_stream_impl(user_id: str, trace: brief_tracing.BriefTrace):
 
     try:
         with db_session() as conn:
-            brief = signal_pipeline.save_brief(conn, user_id, content, selected_items)
+            brief = signal_pipeline.save_brief(conn, user_id, content, selected_items, skip_last_briefed_update=skip_last_briefed_update)
     except Exception as exc:
         trace.fail(stage="saving", exc=exc)
         logger.exception("Error saving brief to database")
@@ -1210,10 +1220,10 @@ def _generate_brief_stream_impl(user_id: str, trace: brief_tracing.BriefTrace):
     })
 
 
-def _generate_brief_stream(user_id: str):
+def _generate_brief_stream(user_id: str, skip_last_briefed_update=False):
     trace = brief_tracing.start_daily_brief_trace(user_id=user_id, mode="streaming")
     try:
-        yield from _generate_brief_stream_impl(user_id, trace)
+        yield from _generate_brief_stream_impl(user_id, trace, skip_last_briefed_update=skip_last_briefed_update)
     finally:
         trace.flush()
 
@@ -1222,8 +1232,13 @@ def _generate_brief_stream(user_id: str):
 @require_auth
 def generate_brief_stream():
     user_id = g.user.id
+    preview = False
+    from middleware.auth import _dev_bypass_auth_enabled
+    if g.user.email.lower() == "sarathavasarala@gmail.com" or _dev_bypass_auth_enabled():
+        preview = request.args.get("preview", "false").lower() == "true"
+
     return Response(
-        stream_with_context(_generate_brief_stream(user_id)),
+        stream_with_context(_generate_brief_stream(user_id, skip_last_briefed_update=preview)),
         content_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

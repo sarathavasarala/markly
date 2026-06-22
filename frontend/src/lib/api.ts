@@ -290,8 +290,8 @@ export const signalApi = {
     api.put<{ success: boolean } & SignalSettings>('/signal/taste-profile', settings),
   listBriefs: () => api.get<{ briefs: SignalBrief[] }>('/signal/briefs'),
   generateBrief: () => api.post<SignalBrief | { success: boolean; reason: string; message: string }>('/signal/briefs'),
-  generateBriefStream: () =>
-    fetch(`${API_BASE_URL}/signal/briefs/generate`, {
+  generateBriefStream: (preview?: boolean) =>
+    fetch(`${API_BASE_URL}/signal/briefs/generate${preview ? '?preview=true' : ''}`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

@@ -1034,3 +1034,83 @@ def test_style_edit_brief_error_fallback(mocker):
         assert result == "Draft content"
     finally:
         Config.SIGNAL_HUMANIZER_ENABLED = orig_enabled
+
+
+def test_save_brief_skip_last_briefed_update():
+    from database import db_session, upsert_user
+    from services.signal_pipeline import save_brief
+
+    user = upsert_user("safe-test@example.com", full_name="Safe Test User")
+    content = "# Theme: My Safe Mode Title\n\n## Subtheme\nBody details"
+    
+    feed_id = _insert_feed(user["id"], feed_url="https://example.com/safe-feed.xml")
+    item_id = _insert_feed_item(user["id"], feed_id, id="item-123", url="url-1", status="new")
+    selected_items = [{"id": item_id, "title": "Some article"}]
+
+    with db_session() as conn:
+        # Save brief in safe mode
+        brief = save_brief(conn, user["id"], content, selected_items, skip_last_briefed_update=True)
+        assert brief["title"] == "[Safe Mode] My Safe Mode Title"
+        assert brief["content"] == "## Subtheme\nBody details"
+
+        # Verify last_briefed_at is NOT updated (stays NULL)
+        item_row = conn.execute("SELECT last_briefed_at FROM feed_items WHERE id = ?", (item_id,)).fetchone()
+        assert item_row["last_briefed_at"] is None
+
+
+def test_generate_brief_preview_admin(client, mocker):
+    # Mock upsert_user to return admin user
+    mocker.patch("middleware.auth.upsert_user", return_value={
+        "id": "admin-id",
+        "email": "sarathavasarala@gmail.com",
+        "username": "sarath",
+        "full_name": "Sarath",
+    })
+
+    # Mock settings
+    mocker.patch("services.signal_pipeline.load_user_settings", return_value={
+        "taste_profile": "custom taste",
+        "candidate_limit": 10,
+        "filter_template": "filter {taste_profile}",
+        "planning_template": "plan {taste_profile}",
+        "synthesis_template": "synthesis {taste_profile}",
+        "web_search_enabled": False
+    })
+    mocker.patch("services.signal_pipeline.select_candidates", return_value=[{"id": "item-1", "title": "AI benchmarks", "feed_title": "B", "url": "http://a", "content": "body"}])
+    mocker.patch("services.signal_pipeline.llm_filter", return_value=[{"id": "item-1", "title": "AI benchmarks", "feed_title": "B", "url": "http://a", "content": "body"}])
+    mocker.patch("services.signal_pipeline.run_extract_contents", return_value=[])
+    mocker.patch("services.signal_pipeline.persist_content_updates")
+    mocker.patch("services.signal_pipeline.plan_brief", return_value="Plan")
+    mocker.patch("services.signal_pipeline.synthesize", return_value="# Theme: Apple shifts\nBody")
+    mocker.patch("services.signal_pipeline.style_edit_brief", side_effect=lambda x, *args, **kwargs: x)
+    mock_save = mocker.patch("services.signal_pipeline.save_brief", return_value={"id": "brief-123", "title": "[Safe Mode] Apple shifts", "content": "Body"})
+
+    response = client.post("/api/signal/briefs?preview=true", headers=AUTH_HEADERS)
+    assert response.status_code == 201
+    assert response.get_json()["title"] == "[Safe Mode] Apple shifts"
+    mock_save.assert_called_once_with(mocker.ANY, "admin-id", "# Theme: Apple shifts\nBody", mocker.ANY, skip_last_briefed_update=True)
+
+
+def test_generate_brief_preview_non_admin(client, mocker):
+    # Default test user is test@example.com (non-admin)
+    mocker.patch("services.signal_pipeline.load_user_settings", return_value={
+        "taste_profile": "custom taste",
+        "candidate_limit": 10,
+        "filter_template": "filter {taste_profile}",
+        "planning_template": "plan {taste_profile}",
+        "synthesis_template": "synthesis {taste_profile}",
+        "web_search_enabled": False
+    })
+    mocker.patch("services.signal_pipeline.select_candidates", return_value=[{"id": "item-1", "title": "AI benchmarks", "feed_title": "B", "url": "http://a", "content": "body"}])
+    mocker.patch("services.signal_pipeline.llm_filter", return_value=[{"id": "item-1", "title": "AI benchmarks", "feed_title": "B", "url": "http://a", "content": "body"}])
+    mocker.patch("services.signal_pipeline.run_extract_contents", return_value=[])
+    mocker.patch("services.signal_pipeline.persist_content_updates")
+    mocker.patch("services.signal_pipeline.plan_brief", return_value="Plan")
+    mocker.patch("services.signal_pipeline.synthesize", return_value="# Theme: Apple shifts\nBody")
+    mocker.patch("services.signal_pipeline.style_edit_brief", side_effect=lambda x, *args, **kwargs: x)
+    mock_save = mocker.patch("services.signal_pipeline.save_brief", return_value={"id": "brief-123", "title": "Apple shifts", "content": "Body"})
+
+    # Even though we pass preview=true, the backend ignores/overrides it since email is test@example.com
+    response = client.post("/api/signal/briefs?preview=true", headers=AUTH_HEADERS)
+    assert response.status_code == 201
+    mock_save.assert_called_once_with(mocker.ANY, mocker.ANY, "# Theme: Apple shifts\nBody", mocker.ANY, skip_last_briefed_update=False)

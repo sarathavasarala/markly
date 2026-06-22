@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Sparkles, Settings, Loader2, Calendar, ChevronRight, Info, X, RefreshCw, Undo2, Trash2, Check, Circle } from 'lucide-react'
+import { Sparkles, Settings, Loader2, Calendar, ChevronRight, Info, X, RefreshCw, Undo2, Trash2, Check, Circle, MoreVertical, Shield } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { signalApi, SignalBrief } from '../lib/api'
+import { useAuthStore } from '../stores/authStore'
 
 interface SignalSectionProps {
   onGenerateSuccess?: () => void
@@ -37,6 +38,12 @@ const getInitialSteps = (webSearchEnabled: boolean, planningEnabled: boolean, hu
 }
 
 export default function SignalSection({ onGenerateSuccess }: SignalSectionProps) {
+  const user = useAuthStore(state => state.user)
+  const isAdmin = user?.email?.toLowerCase() === 'sarathavasarala@gmail.com' || import.meta.env.DEV
+
+  const [isSafeMode, setIsSafeMode] = useState(false)
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
+
   const [briefs, setBriefs] = useState<SignalBrief[]>([])
   const [selectedBriefId, setSelectedBriefId] = useState<string | null>(null)
   const [tasteProfileInput, setTasteProfileInput] = useState<string>('')
@@ -117,6 +124,18 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
     loadSignalData()
   }, [loadSignalData])
 
+  useEffect(() => {
+    if (!isMoreMenuOpen) return
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.safe-mode-menu-container')) {
+        setIsMoreMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [isMoreMenuOpen])
+
   const updateStep = (stepId: string, updates: Partial<PipelineStep>) => {
     setPipelineSteps(prev => prev.map(s => s.id === stepId ? { ...s, ...updates } : s))
   }
@@ -156,7 +175,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
     setPipelineSteps(getInitialSteps(signalWebSearchEnabled, signalPlanningEnabled, signalHumanizerEnabled).map(s => ({ ...s, status: 'pending' as const, detail: undefined, titles: undefined })))
 
     try {
-      const response = await signalApi.generateBriefStream()
+      const response = await signalApi.generateBriefStream(isSafeMode)
       if (!response.ok) {
         const text = await response.text()
         try {
@@ -413,14 +432,58 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                 </div>
               ))}
             </div>
-            <div className="flex flex-col justify-center gap-3 pt-1 sm:flex-row">
-              <button
-                onClick={handleGenerate}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Generate Brief
-              </button>
+            <div className="flex flex-col justify-center gap-3 pt-1 sm:flex-row items-center">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGenerate}
+                  className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition ${
+                    isSafeMode
+                      ? 'bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400'
+                      : 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white'
+                  }`}
+                >
+                  {isSafeMode ? <Shield className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                  {isSafeMode ? 'Generate Brief (Safe Mode)' : 'Generate Brief'}
+                </button>
+
+                {isAdmin && (
+                  <div className="relative safe-mode-menu-container">
+                    <button
+                      onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                      className="inline-flex items-center justify-center p-2.5 rounded-full bg-white text-slate-500 hover:text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                      title="More options"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+
+                    {isMoreMenuOpen && (
+                      <div className="absolute left-0 sm:right-0 sm:left-auto mt-2 w-56 rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-md p-3 shadow-lg ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-950/95 dark:ring-white/5 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-150">
+                        <label className="flex items-center gap-3 px-2 py-1.5 cursor-pointer rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition">
+                          <input
+                            type="checkbox"
+                            checked={isSafeMode}
+                            onChange={(e) => {
+                              setIsSafeMode(e.target.checked)
+                              setIsMoreMenuOpen(false)
+                            }}
+                            className="rounded border-slate-355 text-slate-900 focus:ring-slate-900 dark:border-slate-755 dark:bg-slate-900 dark:focus:ring-offset-slate-955"
+                          />
+                          <div className="flex flex-col text-left">
+                            <span className="text-sm font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                              <Shield className={`h-3.5 w-3.5 ${isSafeMode ? 'text-amber-500' : 'text-slate-400'}`} />
+                              Safe Mode
+                            </span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
+                              Skip stamping last_briefed_at
+                            </span>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={() => setIsTasteProfileOpen(true)}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
@@ -559,15 +622,61 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                   <button
                     onClick={handleGenerate}
                     disabled={isGenerating}
-                    className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
+                      isSafeMode
+                        ? 'bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400'
+                        : 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white'
+                    }`}
                   >
                     {isGenerating ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isSafeMode ? (
+                      <Shield className="h-4 w-4" />
                     ) : (
                       <RefreshCw className="h-4 w-4" />
                     )}
-                    {briefs.length > 0 ? 'Generate new' : 'Generate'}
+                    {briefs.length > 0
+                      ? isSafeMode ? 'Generate new (Safe Mode)' : 'Generate new'
+                      : isSafeMode ? 'Generate (Safe Mode)' : 'Generate'
+                    }
                   </button>
+
+                  {isAdmin && (
+                    <div className="relative safe-mode-menu-container">
+                      <button
+                        onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                        className="inline-flex items-center justify-center p-2 rounded-full bg-white text-slate-500 hover:text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                        title="More options"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+
+                      {isMoreMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white/95 backdrop-blur-md p-3 shadow-lg ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-950/95 dark:ring-white/5 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-150">
+                          <label className="flex items-center gap-3 px-2 py-1.5 cursor-pointer rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition">
+                            <input
+                              type="checkbox"
+                              checked={isSafeMode}
+                              onChange={(e) => {
+                                setIsSafeMode(e.target.checked)
+                                setIsMoreMenuOpen(false)
+                              }}
+                              className="rounded border-slate-355 text-slate-900 focus:ring-slate-900 dark:border-slate-755 dark:bg-slate-900 dark:focus:ring-offset-slate-955"
+                            />
+                            <div className="flex flex-col text-left">
+                              <span className="text-sm font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                <Shield className={`h-3.5 w-3.5 ${isSafeMode ? 'text-amber-500' : 'text-slate-400'}`} />
+                                Safe Mode
+                              </span>
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
+                                Skip stamping last_briefed_at
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -786,8 +786,8 @@ def parse_and_clean_brief(content: str) -> tuple[str | None, str]:
 # Stage 8: persist brief
 # ---------------------------------------------------------------------------
 
-def save_brief(conn, user_id, content, selected_items):
-    """Persist the brief and stamp last_briefed_at on the synthesized items.
+def save_brief(conn, user_id, content, selected_items, skip_last_briefed_update=False):
+    """Persist the brief and stamp last_briefed_at on the synthesized items unless skip_last_briefed_update is True.
 
     Stamping and the insert happen in one transaction, committed before the row
     is returned, so callers never report success on an uncommitted brief."""
@@ -796,20 +796,26 @@ def save_brief(conn, user_id, content, selected_items):
     created_at = utc_now()
 
     title, clean_content = parse_and_clean_brief(content)
+    if skip_last_briefed_update:
+        if title:
+            title = f"[Safe Mode] {title}"
+        else:
+            title = "[Safe Mode]"
 
     conn.execute(
         "INSERT INTO signal_briefs (id, user_id, content, title, article_count, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         (brief_id, user_id, clean_content, title, article_count, created_at),
     )
 
-    briefed_ids = [item["id"] for item in selected_items]
-    if briefed_ids:
-        placeholders = ",".join("?" for _ in briefed_ids)
-        conn.execute(
-            f"UPDATE feed_items SET last_briefed_at = ?, updated_at = ? "
-            f"WHERE user_id = ? AND id IN ({placeholders})",
-            (created_at, created_at, user_id, *briefed_ids),
-        )
+    if not skip_last_briefed_update:
+        briefed_ids = [item["id"] for item in selected_items]
+        if briefed_ids:
+            placeholders = ",".join("?" for _ in briefed_ids)
+            conn.execute(
+                f"UPDATE feed_items SET last_briefed_at = ?, updated_at = ? "
+                f"WHERE user_id = ? AND id IN ({placeholders})",
+                (created_at, created_at, user_id, *briefed_ids),
+            )
     conn.commit()
 
     row = conn.execute("SELECT * FROM signal_briefs WHERE id = ?", (brief_id,)).fetchone()
