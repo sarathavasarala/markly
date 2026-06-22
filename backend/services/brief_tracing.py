@@ -115,6 +115,7 @@ def summarize_settings(settings: dict[str, Any]) -> dict[str, Any]:
         "synthesis_limit": settings.get("synthesis_limit"),
         "planning_enabled": settings.get("planning_enabled"),
         "web_search_enabled": settings.get("web_search_enabled"),
+        "research_provider": Config.RESEARCH_PROVIDER or "parallel",
         "prompt_version": PROMPT_VERSION,
         "filter_prompt_sha256": _hash_text(settings.get("filter_template")),
         "planning_prompt_sha256": _hash_text(settings.get("planning_template")),

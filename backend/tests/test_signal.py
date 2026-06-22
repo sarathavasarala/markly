@@ -285,16 +285,34 @@ def test_signal_pipeline_research_and_synthesize(mocker):
     # 1. Test research(web_search_enabled=False) returns ("", [])
     assert research([], web_search_enabled=False) == ("", [])
 
-    # 2. Test research(web_search_enabled=True) calls generate_research_with_search
+    # 2. Test research(web_search_enabled=True): question extractor runs first,
+    #    then generate_research_with_search is called with questions (not article content).
+    mock_client = mocker.MagicMock()
+    mock_client.chat.completions.create.return_value = mocker.MagicMock(
+        choices=[mocker.MagicMock(message=mocker.MagicMock(content="1. What is X?\n2. Why did Y happen?"))]
+    )
+    mocker.patch(
+        "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+        return_value=(mock_client, "gpt-chat-latest")
+    )
     mock_research = mocker.patch(
         "services.openai_service.AzureOpenAIService.generate_research_with_search",
         return_value=("My research brief", ["query 1"])
     )
-    brief, queries = research([{"id": "1", "title": "A", "feed_title": "B", "url": "http://a", "content": "body"}], web_search_enabled=True, brief_plan="Plan context")
+    brief, queries = research(
+        [{"id": "1", "title": "A", "feed_title": "B", "url": "http://a", "content": "body", "summary": "s"}],
+        web_search_enabled=True,
+        brief_plan="Plan context",
+    )
     assert brief == "My research brief"
     assert queries == ["query 1"]
     mock_research.assert_called_once()
-    assert "Plan context" in mock_research.call_args.args[0]
+    # Prompt sent to Responses API should contain the extracted questions, not full article content
+    prompt_used = mock_research.call_args.args[0]
+    assert "What is X?" in prompt_used
+    assert "Why did Y happen?" in prompt_used
+    # Full article body must NOT be sent to the Responses API
+    assert "body" not in prompt_used
 
     # 3. Test synthesize formatting and fallback
     mock_synthesis = mocker.patch(
@@ -439,42 +457,40 @@ def test_generate_research_with_search_success(mocker):
     from services.openai_service import AzureOpenAIService
     from config import Config
 
-    # Mock endpoint/key config
+    # Clear Signal overrides so test values below take effect
+    Config.SIGNAL_AZURE_OPENAI_ENDPOINT = None
+    Config.SIGNAL_AZURE_OPENAI_API_KEY = None
+    Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME = None
     Config.AZURE_OPENAI_ENDPOINT = "https://my-endpoint.openai.azure.com"
     Config.AZURE_OPENAI_API_KEY = "my-key"
     Config.AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-4o"
     Config.PARALLEL_API_KEY = "parallel-key"
+    Config.RESEARCH_PROVIDER = "parallel"
 
-    # Mock successful requests.post response
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "output": [
             {
                 "type": "mcp_call",
-                "arguments": {
-                    "objective": "Find latest Nvidia news"
-                }
+                "arguments": {"objective": "Find latest Nvidia news"}
             },
             {
                 "type": "message",
                 "role": "assistant",
-                "content": [
-                    {"type": "output_text", "text": "Factual research brief content"}
-                ]
+                "content": [{"type": "output_text", "text": "Factual research brief content"}]
             }
         ]
     }
-    
+
     mock_post = mocker.patch("requests.post", return_value=mock_response)
-    
+
     brief, queries = AzureOpenAIService.generate_research_with_search("prompt", "instructions")
-    
+
     assert brief == "Factual research brief content"
     assert queries == ["Find latest Nvidia news"]
     mock_post.assert_called_once()
-    
-    # Check that headers and data sent to requests.post are correct
+
     args, kwargs = mock_post.call_args
     assert kwargs["headers"]["api-key"] == "my-key"
     assert "https://search.parallel.ai/mcp" in kwargs["json"]["tools"][0]["server_url"]
@@ -485,18 +501,20 @@ def test_generate_research_with_search_api_failure_fallback(mocker):
     from services.openai_service import AzureOpenAIService
     from config import Config
 
+    Config.SIGNAL_AZURE_OPENAI_ENDPOINT = None
+    Config.SIGNAL_AZURE_OPENAI_API_KEY = None
+    Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME = None
     Config.AZURE_OPENAI_ENDPOINT = "https://my-endpoint.openai.azure.com"
     Config.AZURE_OPENAI_API_KEY = "my-key"
     Config.AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-4o"
+    Config.RESEARCH_PROVIDER = "parallel"
 
-    # Mock Requests post failure
     mock_post = mocker.patch("requests.post", side_effect=Exception("API Timeout"))
 
-    # Mock fallback standard chat completion client
     mock_openai_client = mocker.MagicMock()
     mocker.patch(
-        "services.openai_service.AzureOpenAIService.get_chat_client",
-        return_value=mock_openai_client
+        "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+        return_value=(mock_openai_client, "gpt-4o")
     )
     mock_completion_res = mocker.MagicMock()
     mock_completion_res.choices = [
@@ -510,6 +528,146 @@ def test_generate_research_with_search_api_failure_fallback(mocker):
     assert queries == []
     mock_post.assert_called_once()
     mock_openai_client.chat.completions.create.assert_called_once()
+
+
+def test_generate_research_with_search_azure_provider_success(mocker):
+    from services.openai_service import AzureOpenAIService
+    from config import Config
+
+    Config.SIGNAL_AZURE_OPENAI_ENDPOINT = None
+    Config.SIGNAL_AZURE_OPENAI_API_KEY = None
+    Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME = None
+    Config.AZURE_OPENAI_ENDPOINT = "https://my-endpoint.openai.azure.com"
+    Config.AZURE_OPENAI_API_KEY = "my-key"
+    Config.AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-5"
+    Config.RESEARCH_PROVIDER = "azure"
+    Config.AZURE_RESEARCH_REASONING_EFFORT = "medium"
+
+    mock_response = mocker.MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "output": [
+            {
+                "type": "web_search_call",
+                "status": "completed",
+                "action": {"type": "search", "query": "Nvidia H200 availability 2025"}
+            },
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Azure grounded research brief"}]
+            }
+        ]
+    }
+
+    mock_post = mocker.patch("requests.post", return_value=mock_response)
+
+    brief, queries = AzureOpenAIService.generate_research_with_search("prompt", "instructions")
+
+    assert brief == "Azure grounded research brief"
+    assert queries == ["Nvidia H200 availability 2025"]
+    mock_post.assert_called_once()
+
+    args, kwargs = mock_post.call_args
+    assert kwargs["headers"]["api-key"] == "my-key"
+    assert kwargs["json"]["tools"][0] == {"type": "web_search"}
+    assert kwargs["json"]["reasoning"] == {"effort": "medium"}
+    assert "web_search_call.action.sources" in kwargs["json"]["include"]
+
+
+def test_generate_research_with_search_azure_provider_fallback(mocker):
+    from services.openai_service import AzureOpenAIService
+    from config import Config
+
+    Config.SIGNAL_AZURE_OPENAI_ENDPOINT = None
+    Config.SIGNAL_AZURE_OPENAI_API_KEY = None
+    Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME = None
+    Config.AZURE_OPENAI_ENDPOINT = "https://my-endpoint.openai.azure.com"
+    Config.AZURE_OPENAI_API_KEY = "my-key"
+    Config.AZURE_OPENAI_DEPLOYMENT_NAME = "gpt-5"
+    Config.RESEARCH_PROVIDER = "azure"
+
+    mock_post = mocker.patch("requests.post", side_effect=Exception("Azure timeout"))
+
+    mock_openai_client = mocker.MagicMock()
+    mocker.patch(
+        "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+        return_value=(mock_openai_client, "gpt-5")
+    )
+    mock_completion_res = mocker.MagicMock()
+    mock_completion_res.choices = [
+        mocker.MagicMock(message=mocker.MagicMock(content="azure fallback brief"))
+    ]
+    mock_openai_client.chat.completions.create.return_value = mock_completion_res
+
+    brief, queries = AzureOpenAIService.generate_research_with_search("prompt", "instructions")
+
+    assert brief == "azure fallback brief"
+    assert queries == []
+    mock_post.assert_called_once()
+    mock_openai_client.chat.completions.create.assert_called_once()
+
+
+def test_research_pipeline_uses_azure_prompt_template(mocker):
+    """research() should use the Azure execution prompt (no web_fetch) when provider=azure."""
+    import services.signal_pipeline as sp
+    from config import Config
+
+    Config.RESEARCH_PROVIDER = "azure"
+
+    mock_client = mocker.MagicMock()
+    mock_client.chat.completions.create.return_value = mocker.MagicMock(
+        choices=[mocker.MagicMock(message=mocker.MagicMock(content="1. What is the latest funding round?"))]
+    )
+    mocker.patch(
+        "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+        return_value=(mock_client, "gpt-chat-latest")
+    )
+    mock_generate = mocker.patch(
+        "services.openai_service.AzureOpenAIService.generate_research_with_search",
+        return_value=("azure brief", ["q1"])
+    )
+
+    items = [{"id": "1", "title": "T", "url": "http://x.com", "content": "body", "summary": "s", "feed_title": "f"}]
+    brief, queries = sp.research(items, web_search_enabled=True, brief_plan="plan", taste_profile="profile")
+
+    assert brief == "azure brief"
+    prompt_used = mock_generate.call_args[0][0]
+    # Azure template must NOT mention web_fetch (tool doesn't exist in Azure path)
+    assert "web_fetch" not in prompt_used
+    # Questions should be present
+    assert "What is the latest funding round?" in prompt_used
+    Config.RESEARCH_PROVIDER = "parallel"
+
+
+def test_research_pipeline_uses_parallel_prompt_template(mocker):
+    """research() should use the Parallel execution prompt (with web_fetch) when provider=parallel."""
+    import services.signal_pipeline as sp
+    from config import Config
+
+    Config.RESEARCH_PROVIDER = "parallel"
+
+    mock_client = mocker.MagicMock()
+    mock_client.chat.completions.create.return_value = mocker.MagicMock(
+        choices=[mocker.MagicMock(message=mocker.MagicMock(content="1. What happened with the merger?"))]
+    )
+    mocker.patch(
+        "services.openai_service.AzureOpenAIService.get_signal_chat_client_and_model",
+        return_value=(mock_client, "gpt-chat-latest")
+    )
+    mock_generate = mocker.patch(
+        "services.openai_service.AzureOpenAIService.generate_research_with_search",
+        return_value=("parallel brief", ["q1", "q2"])
+    )
+
+    items = [{"id": "1", "title": "T", "url": "http://x.com", "content": "body", "summary": "s", "feed_title": "f"}]
+    brief, queries = sp.research(items, web_search_enabled=True, brief_plan="plan", taste_profile="profile")
+
+    assert brief == "parallel brief"
+    prompt_used = mock_generate.call_args[0][0]
+    # Parallel template explicitly mentions the web_fetch tool
+    assert "web_fetch" in prompt_used
+    assert "What happened with the merger?" in prompt_used
 
 
 def test_generate_brief_with_verbosity_success(mocker):

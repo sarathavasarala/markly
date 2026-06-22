@@ -628,76 +628,159 @@ def plan_brief(selected_items, taste_profile, planning_template, recent_briefs="
 # Stage 6: research (web search grounding)
 # ---------------------------------------------------------------------------
 
-RESEARCH_PROMPT_TEMPLATE = """You are a research assistant preparing background context for a daily intelligence brief.
+RESEARCH_QUESTION_EXTRACTOR_PROMPT = """You are a research planner for a daily intelligence brief.
 
-You are given a set of high-signal articles selected from RSS feeds. Your job is NOT to analyze or summarize them. Your job is to find the factual context a smart reader would want in order to understand these stories properly, using web search and page fetches.
+Reader's priorities:
+\"\"\"{taste_profile}\"\"\"
 
-Reader's priorities (use these to decide which factual gaps are worth closing first):
-\"\"\"
-{taste_profile}
-\"\"\"
-
-Here are the articles:
-\"\"\"
-{articles_contents_str}
-\"\"\"
+Articles (title + summary only):
+\"\"\"{articles_list_str}\"\"\"
 
 Editorial Brief Plan:
-\"\"\"
-{brief_plan}
-\"\"\"
+\"\"\"{brief_plan}\"\"\"
 
-Instructions:
-1. Read the articles and the Editorial Brief Plan. Identify the factual gaps a sharp reader would want filled for the planned themes, standalone stories, source tensions, and novelty claims: relevant dates, prior context, competitor or regulatory status, financial figures, what a referenced term or product actually is, what happened before this that the article assumes you know.
-2. Formulate at least 5 and up to 8 specific, factual questions that close those gaps. Prefer questions tied to the planned themes and the reader's priorities rather than generic background.
-3. You have two tools:
-   - web_search: find candidate sources and snippets.
-   - web_fetch: pull the full text of the most relevant URLs.
-4. Run at least 5 distinct search queries using the web_search tool. For meaningful search results, you MUST use the web_fetch tool to download the webpage content fully to extract grounded facts.
-5. For each question, write a comprehensive factual grounding entry answering it with detailed context and findings from the search. Include source URLs.
-6. Do NOT analyze or editorialize. Only report retrieved facts.
-7. If everything in the articles is already clear and needs no follow-up, return a brief note saying no additional context is needed.
+Task: Identify the 3 to 5 most important factual gaps a sharp reader would need filled before engaging with today's brief. Focus on gaps tied to the planned themes and the reader's priorities: prior context, regulatory or competitive status, financial figures, what a referenced product/term actually is, what happened before that the articles assume you know.
 
-Output Format:
-Return plain text, one entry per paragraph, in this shape:
+Rules for the questions:
+- Each question must be ATOMIC: one fact, one answerable lookup. Do not combine multiple asks with "and".
+- A question must be answerable by a single focused web search.
+- Be specific. Name the company, product, person, or event. Avoid vague phrasing.
 
-**[Question or concept]**: [Detailed factual grounding and findings]. Source: [URL if available]
+Return ONLY a numbered list of atomic factual questions — one per line. No preamble, no commentary.
 
-Keep the total under about 2000 words.
+Example format:
+1. What was the valuation in Anthropic's most recent funding round?
+2. What is Microsoft's Phi-4-mini and when was it released?
 """
+
+RESEARCH_EXECUTION_PROMPT_PARALLEL = """You are a research assistant. Answer each question below using live web search, for a daily intelligence brief.
+
+Questions to answer:
+\"\"\"{questions_str}\"\"\"
+
+Hard requirements:
+1. You have two tools: web_search (find sources) and web_fetch (pull full page text).
+2. You MUST run at least one web_search for EVERY question before answering it. Do not answer any question from your own prior knowledge — only report facts returned by the search tools.
+3. Handle the questions one at a time, in order. For each: search, then (for the important ones) web_fetch the top result, then write the entry.
+4. Every entry must cite a source URL returned by the tools. If search returns nothing usable for a question, write "No reliable source found" for that question — do not fill it from memory.
+5. Do NOT analyze or editorialize. Report retrieved facts only.
+
+Output format — plain text, one entry per question, in order:
+**[Question]**: [Factual findings from search]. Source: [URL]
+
+Keep total under 1200 words.
+"""
+
+RESEARCH_EXECUTION_PROMPT_AZURE = """You are a research assistant. Answer each question below using the web_search tool, for a daily intelligence brief.
+
+Questions to answer:
+\"\"\"{questions_str}\"\"\"
+
+Hard requirements:
+1. You MUST call the web_search tool at least once for EVERY question before answering it. Run a separate, focused search per question — do not merge several questions into one broad query.
+2. Do not answer any question from your own prior knowledge. Only report facts that appear in the search results.
+3. Handle the questions one at a time, in order.
+4. Every entry must cite a source URL from the search results. If a search returns nothing usable for a question, write "No reliable source found" for that question — do not fill it from memory.
+5. Do NOT analyze or editorialize. Report retrieved facts only.
+
+Output format — plain text, one entry per question, in order:
+**[Question]**: [Factual findings from search]. Source: [URL]
+
+Keep total under 1200 words.
+"""
+
+
+def _extract_research_questions(selected_items, brief_plan="", taste_profile="") -> list[str]:
+    """Use the Signal model to extract 3-5 research questions from article titles/summaries.
+
+    Sends only titles + summaries (no full content) so this is a cheap, fast call.
+    Returns a list of question strings, or an empty list on failure.
+    """
+    articles_list_str = _build_articles_list_str(selected_items)
+    prompt = (
+        RESEARCH_QUESTION_EXTRACTOR_PROMPT
+        .replace("{taste_profile}", taste_profile or "No specific priorities provided.")
+        .replace("{articles_list_str}", articles_list_str)
+        .replace("{brief_plan}", brief_plan or "No separate editorial plan was generated.")
+    )
+
+    try:
+        logger.info("[research/planner] Extracting research questions from %d articles...", len(selected_items))
+        client, model = AzureOpenAIService.get_signal_chat_client_and_model()
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a research planning assistant. Return only a numbered list of factual questions."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        raw = (response.choices[0].message.content or "").strip()
+        questions = []
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # Strip leading "1. " / "- " prefixes
+            cleaned = re.sub(r"^[\d]+[\.\)]\s*", "", line).strip()
+            cleaned = re.sub(r"^[-*]\s*", "", cleaned).strip()
+            if cleaned:
+                questions.append(cleaned)
+        questions = questions[:5]
+        logger.info("[research/planner] Extracted %d questions: %r", len(questions), questions)
+        return questions
+    except Exception as exc:
+        logger.warning("[research/planner] Question extraction failed: %s", exc)
+        return []
 
 
 def research(selected_items, web_search_enabled=True, brief_plan="", taste_profile=""):
     """Run web search grounding on the selected articles and return a research brief and queries list.
 
     When web_search_enabled is False, this step is skipped and returns ("", []).
-    Uses the default (cheaper) model with the Responses API for web search.
-    The taste profile steers which factual gaps are worth closing.
+
+    Architecture:
+      Step 1 (planner): Extract 3-5 research questions from article titles/summaries only.
+      Step 2 (search):  Pass only those questions to the Responses API web search tool.
+    This keeps the Responses API payload small and focused.
     """
     if not web_search_enabled:
         return "", []
 
-    articles_contents_str = _build_articles_contents_str(selected_items)
-    research_prompt = (
-        RESEARCH_PROMPT_TEMPLATE
-        .replace("{articles_contents_str}", articles_contents_str)
-        .replace("{brief_plan}", brief_plan or "No separate editorial plan was generated.")
-        .replace("{taste_profile}", taste_profile or "No specific reader priorities provided.")
-    )
+    provider = Config.RESEARCH_PROVIDER or "parallel"
+    logger.info("[research] Starting (provider=%s, articles=%d).", provider, len(selected_items))
+
+    # Step 1: extract questions (cheap — titles+summaries only, Signal model)
+    questions = _extract_research_questions(selected_items, brief_plan=brief_plan, taste_profile=taste_profile)
+    if not questions:
+        logger.warning("[research] No questions extracted — skipping web search.")
+        return "", []
+
+    questions_str = "\n".join(f"{i + 1}. {q}" for i, q in enumerate(questions))
+    logger.info("[research] Proceeding with %d questions.", len(questions))
+
+    # Step 2: web search against only the extracted questions
+    template = RESEARCH_EXECUTION_PROMPT_AZURE if provider == "azure" else RESEARCH_EXECUTION_PROMPT_PARALLEL
+    research_prompt = template.replace("{questions_str}", questions_str)
 
     system_content = (
-        "You are an elite research assistant. Think like an intelligent Executive or smart operator. "
-        "Formulate smart search queries to answer critical follow-up questions about the articles, "
-        "and retrieve factual grounding. Do not analyze or editorialize."
+        "You are an elite research assistant. Answer each question with grounded, factual findings from the web. "
+        "Do not analyze or editorialize."
     )
 
     try:
-        research_brief, queries = AzureOpenAIService.generate_research_with_search(
+        research_brief, found_queries = AzureOpenAIService.generate_research_with_search(
             research_prompt, system_content
         )
-        return research_brief.strip(), queries
+        research_brief = research_brief.strip()
+        logger.info(
+            "[research] Done — searches=%d, brief_chars=%d, questions=%d. Coverage ratio searches/questions=%.2f",
+            len(found_queries), len(research_brief), len(questions),
+            (len(found_queries) / len(questions)) if questions else 0.0,
+        )
+        logger.info("[research] Brief preview:\n%s", research_brief[:1500])
+        return research_brief, found_queries
     except Exception as exc:
-        logger.warning("Research step failed, proceeding without research brief: %s", exc)
+        logger.warning("[research] Web search step failed: %s", exc)
         return "", []
 
 

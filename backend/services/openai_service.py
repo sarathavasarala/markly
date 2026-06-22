@@ -348,23 +348,27 @@ class AzureOpenAIService:
 
     @classmethod
     def generate_research_with_search(cls, prompt: str, instructions: str) -> tuple[str, list[str]]:
-        """Run web search research using the default (cheaper) model via Responses API.
+        """Run web search research via the Responses API.
 
-        Falls back to a plain completions call (without search) if the Responses API
-        is unavailable. Uses the default Azure OpenAI endpoint and deployment, not
-        the Signal-specific overrides.
+        Dispatches to the Parallel Search MCP or the Azure native web_search tool
+        based on Config.RESEARCH_PROVIDER ("parallel" by default, "azure" for the
+        native Bing-backed tool). Falls back to a plain Chat Completions call if
+        the Responses API is unavailable or returns a non-200 response.
+
+        Uses the default Azure OpenAI endpoint and deployment, not the
+        Signal-specific overrides.
         """
         import requests
 
-        endpoint = Config.AZURE_OPENAI_ENDPOINT
-        api_key = Config.AZURE_OPENAI_API_KEY
-        deployment = Config.AZURE_OPENAI_DEPLOYMENT_NAME
+        endpoint = Config.SIGNAL_AZURE_OPENAI_ENDPOINT or Config.AZURE_OPENAI_ENDPOINT
+        api_key = Config.SIGNAL_AZURE_OPENAI_API_KEY or Config.AZURE_OPENAI_API_KEY
+        deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME
 
         if not endpoint or not api_key:
-            logger.warning("Azure OpenAI endpoint or API key not configured. Falling back to standard Completions.")
-            client = cls.get_chat_client()
+            logger.warning("Azure OpenAI endpoint or API key not configured. Falling back to Signal Chat Completions.")
+            client, model = cls.get_signal_chat_client_and_model()
             response = client.chat.completions.create(
-                model=deployment,
+                model=model,
                 messages=[
                     {"role": "system", "content": instructions},
                     {"role": "user", "content": prompt},
@@ -383,15 +387,32 @@ class AzureOpenAIService:
 
         headers = {
             "api-key": api_key,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
-        # Configure the Parallel Search MCP tool definition
-        mcp_tool = {
+        provider = Config.RESEARCH_PROVIDER or "parallel"
+        if provider == "azure":
+            return cls._research_via_azure_websearch(prompt, instructions, url, headers, deployment)
+        else:
+            return cls._research_via_parallel_mcp(prompt, instructions, url, headers, deployment)
+
+    @classmethod
+    def _research_via_parallel_mcp(
+        cls,
+        prompt: str,
+        instructions: str,
+        url: str,
+        headers: dict,
+        deployment: str,
+    ) -> tuple[str, list[str]]:
+        """Research using the Parallel Search MCP server."""
+        import requests
+
+        mcp_tool: dict = {
             "type": "mcp",
             "server_label": "parallel-search",
             "server_url": "https://search.parallel.ai/mcp",
-            "require_approval": "never"
+            "require_approval": "never",
         }
         if Config.PARALLEL_API_KEY:
             mcp_tool["headers"] = {"Authorization": f"Bearer {Config.PARALLEL_API_KEY}"}
@@ -400,44 +421,142 @@ class AzureOpenAIService:
             "model": deployment,
             "tools": [mcp_tool],
             "instructions": instructions,
-            "input": prompt
+            "input": prompt,
         }
 
+        logger.info(
+            "[research/parallel] Starting — deployment=%s has_api_key=%s endpoint=%s",
+            deployment, bool(Config.PARALLEL_API_KEY), url,
+        )
         try:
-            logger.info("Calling Azure OpenAI Responses API for research with Parallel Search MCP...")
+            logger.info("[research/parallel] Sending request to Responses API (timeout=45s)...")
             res = requests.post(url, headers=headers, json=data, timeout=45)
+            logger.info("[research/parallel] Response received — HTTP %d", res.status_code)
+
             if res.status_code == 200:
                 res_data = res.json()
                 output_items = res_data.get("output", [])
-                
-                text = ""
-                queries = []
-                for item in output_items:
-                    # Parse queries recursively
-                    queries.extend(cls._extract_queries_from_item(item))
-                    if item.get("type") == "message" and item.get("role") == "assistant":
-                        contents = item.get("content", [])
-                        for content_item in contents:
-                            if content_item.get("type") == "output_text":
-                                text = content_item.get("text", "")
-                
-                # Remove duplicates preserving order
-                queries = list(dict.fromkeys(queries))
-                
-                if text:
-                    logger.info("Responses API research successful. Extracted %d queries.", len(queries))
-                    return text, queries
-                else:
-                    logger.warning("Responses API returned 200 but empty assistant text.")
-            else:
-                logger.warning("Responses API returned %d for research: %s", res.status_code, res.text[:500])
-        except Exception as e:
-            logger.warning("Responses API research call failed: %s", e)
+                logger.info("[research/parallel] Output contains %d items.", len(output_items))
 
-        logger.info("Falling back to standard Chat Completions research generation...")
-        client = cls.get_chat_client()
+                text, queries = cls._parse_research_response(res_data)
+                if text:
+                    logger.info(
+                        "[research/parallel] Success — text_chars=%d queries_found=%d queries=%r",
+                        len(text), len(queries), queries,
+                    )
+                    return text, queries
+                logger.warning("[research/parallel] Responses API returned 200 but assistant text was empty.")
+            else:
+                logger.warning(
+                    "[research/parallel] Non-200 response — HTTP %d body=%s",
+                    res.status_code, res.text[:500],
+                )
+        except Exception as e:
+            logger.warning("[research/parallel] Request failed: %s", e)
+
+        logger.info("[research/parallel] Falling back to Chat Completions.")
+        return cls._research_completions_fallback(prompt, instructions, deployment)
+
+    @classmethod
+    def _research_via_azure_websearch(
+        cls,
+        prompt: str,
+        instructions: str,
+        url: str,
+        headers: dict,
+        deployment: str,
+    ) -> tuple[str, list[str]]:
+        """Research using Azure OpenAI's native web_search tool (Bing-backed).
+
+        Reasoning effort is controlled by Config.AZURE_RESEARCH_REASONING_EFFORT
+        (default "low"). Set to "medium" or "high" for deeper page reads at the
+        cost of latency. Requires a reasoning-capable deployment.
+        """
+        import requests
+
+        effort = Config.AZURE_RESEARCH_REASONING_EFFORT or "low"
+        data = {
+            "model": deployment,
+            "tools": [{"type": "web_search"}],
+            "reasoning": {"effort": effort},
+            "include": ["web_search_call.action.sources"],
+            "instructions": instructions,
+            "input": prompt,
+        }
+
+        logger.info(
+            "[research/azure] Starting — deployment=%s reasoning_effort=%s endpoint=%s",
+            deployment, effort, url,
+        )
+        try:
+            logger.info("[research/azure] Sending request to Responses API (timeout=120s)...")
+            res = requests.post(url, headers=headers, json=data, timeout=120)
+            logger.info("[research/azure] Response received — HTTP %d", res.status_code)
+
+            if res.status_code == 200:
+                res_data = res.json()
+                output_items = res_data.get("output", [])
+                logger.info("[research/azure] Output contains %d items.", len(output_items))
+
+                for i, item in enumerate(output_items):
+                    itype = item.get("type", "unknown")
+                    if itype == "web_search_call":
+                        action = item.get("action", {})
+                        logger.info(
+                            "[research/azure] Item %d: web_search_call — action=%s query=%r",
+                            i, action.get("type"), action.get("query"),
+                        )
+                    elif itype == "reasoning":
+                        tokens = item.get("summary", [])
+                        logger.info("[research/azure] Item %d: reasoning (%d summary tokens)", i, len(tokens))
+                    elif itype == "message":
+                        role = item.get("role")
+                        content_count = len(item.get("content", []))
+                        logger.info("[research/azure] Item %d: message role=%s content_blocks=%d", i, role, content_count)
+                    else:
+                        logger.info("[research/azure] Item %d: type=%s", i, itype)
+
+                text, queries = cls._parse_research_response(res_data)
+                if text:
+                    logger.info(
+                        "[research/azure] Success — text_chars=%d queries_found=%d queries=%r",
+                        len(text), len(queries), queries,
+                    )
+                    return text, queries
+                logger.warning("[research/azure] Responses API returned 200 but assistant text was empty.")
+            else:
+                logger.warning(
+                    "[research/azure] Non-200 response — HTTP %d body=%s",
+                    res.status_code, res.text[:500],
+                )
+        except Exception as e:
+            logger.warning("[research/azure] Request failed: %s", e)
+
+        logger.info("[research/azure] Falling back to Chat Completions.")
+        return cls._research_completions_fallback(prompt, instructions, deployment)
+
+    @classmethod
+    def _parse_research_response(cls, res_data: dict) -> tuple[str, list[str]]:
+        """Extract assistant text and query list from a Responses API output."""
+        output_items = res_data.get("output", [])
+        text = ""
+        queries: list[str] = []
+        for item in output_items:
+            queries.extend(cls._extract_queries_from_item(item))
+            if item.get("type") == "message" and item.get("role") == "assistant":
+                for content_item in item.get("content", []):
+                    if content_item.get("type") == "output_text":
+                        text = content_item.get("text", "")
+        queries = list(dict.fromkeys(queries))
+        return text, queries
+
+    @classmethod
+    def _research_completions_fallback(cls, prompt: str, instructions: str, deployment: str) -> tuple[str, list[str]]:
+        """Fall back to plain Chat Completions when the Responses API is unavailable."""
+        logger.info("[research] Falling back to Signal Chat Completions.")
+        client, model = cls.get_signal_chat_client_and_model()
         response = client.chat.completions.create(
-            model=deployment,
+            model=model,
             messages=[
                 {"role": "system", "content": instructions},
                 {"role": "user", "content": prompt},

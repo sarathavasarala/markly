@@ -124,6 +124,15 @@ class Config:
     # Optional services
     JINA_READER_API_KEY = os.getenv("JINA_READER_API_KEY")
     PARALLEL_API_KEY = os.getenv("PARALLEL_API_KEY")
+    # Research provider for the daily brief research step.
+    # "parallel" (default) uses the Parallel Search MCP server.
+    # "azure" uses Azure OpenAI's native web_search tool (Bing-backed; data
+    # leaves your Azure compliance boundary — see Azure pricing for tool call costs).
+    RESEARCH_PROVIDER = os.getenv("RESEARCH_PROVIDER", "parallel").lower()
+    # Reasoning effort for the Azure native web_search research path.
+    # Valid values: "low" (fast, shallow), "medium", "high" (deep, slow).
+    # Only applies when RESEARCH_PROVIDER=azure.
+    AZURE_RESEARCH_REASONING_EFFORT = os.getenv("AZURE_RESEARCH_REASONING_EFFORT", "low")
 
 
     
