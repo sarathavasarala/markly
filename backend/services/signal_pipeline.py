@@ -14,7 +14,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
-from config import Config
+from config import Config, Prompts
 from database import db_session, new_id, row_to_dict, utc_now
 from services.content_extractor import ContentExtractor
 from services.openai_service import AzureOpenAIService
@@ -23,27 +23,7 @@ from services.text_patch import apply_search_replace
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_TASTE_PROFILE = (
-    "Topics I follow: AI agents, large language models, machine learning, model performance, "
-    "and AI memory; OpenAI, Anthropic, Microsoft, Google, and Nvidia; software engineering, "
-    "enterprise software, and systems of record; product design, product strategy, and product "
-    "management; design, interactive learning, decision traces, and critical thinking; company "
-    "culture and leadership; and the technology industry broadly.\n\n"
-    "I want analysis, not summaries: what actually changed, why it matters, and what "
-    "sharp operators or practitioners would notice beneath the surface narrative.\n\n"
-    "I care most about strategic implications, incentives, product direction, business "
-    "mechanics, technical tradeoffs, ecosystem shifts, and second-order effects. Why a "
-    "company is doing something, what constraints it is reacting to, what hidden incentives "
-    "exist, and what longer pattern a move represents interest me more than the raw event.\n\n"
-    "Significant developments matter even when they are announcements: a major launch, "
-    "release, financing, policy change, or strategic move from a company that matters.\n\n"
-    "A benchmark or metric only interests me when it signals something broader about "
-    "capability, economics, adoption, market position, or competitive dynamics. Numbers for "
-    "their own sake do not.\n\n"
-    "What I do not value: incremental news with no larger meaning, engagement bait, shallow "
-    "hot takes, marketing fluff, repetitive benchmark coverage, and low-information reactions.\n\n"
-    "I am sharp but not a specialist in every domain these feeds cover."
-)
+DEFAULT_TASTE_PROFILE = Prompts.DEFAULT_TASTE_PROFILE
 
 
 # ---------------------------------------------------------------------------
@@ -628,66 +608,11 @@ def plan_brief(selected_items, taste_profile, planning_template, recent_briefs="
 # Stage 6: research (web search grounding)
 # ---------------------------------------------------------------------------
 
-RESEARCH_QUESTION_EXTRACTOR_PROMPT = """You are a research planner for a daily intelligence brief.
+RESEARCH_QUESTION_EXTRACTOR_PROMPT = Prompts.RESEARCH_QUESTION_EXTRACTOR_PROMPT
 
-Reader's priorities:
-\"\"\"{taste_profile}\"\"\"
+RESEARCH_EXECUTION_PROMPT_PARALLEL = Prompts.RESEARCH_EXECUTION_PROMPT_PARALLEL
 
-Articles (title + summary only):
-\"\"\"{articles_list_str}\"\"\"
-
-Editorial Brief Plan:
-\"\"\"{brief_plan}\"\"\"
-
-Task: Identify the 3 to 5 most important factual gaps a sharp reader would need filled before engaging with today's brief. Focus on gaps tied to the planned themes and the reader's priorities: prior context, regulatory or competitive status, financial figures, what a referenced product/term actually is, what happened before that the articles assume you know.
-
-Rules for the questions:
-- Each question must be ATOMIC: one fact, one answerable lookup. Do not combine multiple asks with "and".
-- A question must be answerable by a single focused web search.
-- Be specific. Name the company, product, person, or event. Avoid vague phrasing.
-
-Return ONLY a numbered list of atomic factual questions — one per line. No preamble, no commentary.
-
-Example format:
-1. What was the valuation in Anthropic's most recent funding round?
-2. What is Microsoft's Phi-4-mini and when was it released?
-"""
-
-RESEARCH_EXECUTION_PROMPT_PARALLEL = """You are a research assistant. Answer each question below using live web search, for a daily intelligence brief.
-
-Questions to answer:
-\"\"\"{questions_str}\"\"\"
-
-Hard requirements:
-1. You have two tools: web_search (find sources) and web_fetch (pull full page text).
-2. You MUST run at least one web_search for EVERY question before answering it. Do not answer any question from your own prior knowledge — only report facts returned by the search tools.
-3. Handle the questions one at a time, in order. For each: search, then (for the important ones) web_fetch the top result, then write the entry.
-4. Every entry must cite a source URL returned by the tools. If search returns nothing usable for a question, write "No reliable source found" for that question — do not fill it from memory.
-5. Do NOT analyze or editorialize. Report retrieved facts only.
-
-Output format — plain text, one entry per question, in order:
-**[Question]**: [Factual findings from search]. Source: [URL]
-
-Keep total under 1200 words.
-"""
-
-RESEARCH_EXECUTION_PROMPT_AZURE = """You are a research assistant. Answer each question below using the web_search tool, for a daily intelligence brief.
-
-Questions to answer:
-\"\"\"{questions_str}\"\"\"
-
-Hard requirements:
-1. You MUST call the web_search tool at least once for EVERY question before answering it. Run a separate, focused search per question — do not merge several questions into one broad query.
-2. Do not answer any question from your own prior knowledge. Only report facts that appear in the search results.
-3. Handle the questions one at a time, in order.
-4. Every entry must cite a source URL from the search results. If a search returns nothing usable for a question, write "No reliable source found" for that question — do not fill it from memory.
-5. Do NOT analyze or editorialize. Report retrieved facts only.
-
-Output format — plain text, one entry per question, in order:
-**[Question]**: [Factual findings from search]. Source: [URL]
-
-Keep total under 1200 words.
-"""
+RESEARCH_EXECUTION_PROMPT_AZURE = Prompts.RESEARCH_EXECUTION_PROMPT_AZURE
 
 
 def _extract_research_questions(selected_items, brief_plan="", taste_profile="") -> list[str]:

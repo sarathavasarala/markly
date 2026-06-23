@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import logging
-import os
 from flask import Blueprint, jsonify, request
 
 from database import db_session
 from services.feeds import refresh_feeds, embed_pending_feed_items_async
 from services import signal_pipeline
-from routes.signal import FILTER_PROMPT_TEMPLATE, PLANNING_PROMPT_TEMPLATE, SYNTHESIS_PROMPT_TEMPLATE
+from config import Config, Prompts
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ cron_bp = Blueprint("cron", __name__)
 
 def _authenticate_cron() -> bool:
     """Validate Bearer token against CRON_SECRET env variable."""
-    cron_secret = os.getenv("CRON_SECRET")
+    cron_secret = Config.CRON_SECRET
     if not cron_secret:
         logger.warning("CRON_SECRET environment variable is not set. Rejecting cron request.")
         return False
@@ -90,9 +89,9 @@ def cron_brief():
                 settings = signal_pipeline.load_user_settings(
                     conn,
                     user_id,
-                    default_filter_template=FILTER_PROMPT_TEMPLATE,
-                    default_planning_template=PLANNING_PROMPT_TEMPLATE,
-                    default_synthesis_template=SYNTHESIS_PROMPT_TEMPLATE,
+                    default_filter_template=Prompts.FILTER_PROMPT_TEMPLATE,
+                    default_planning_template=Prompts.PLANNING_PROMPT_TEMPLATE,
+                    default_synthesis_template=Prompts.SYNTHESIS_PROMPT_TEMPLATE,
                 )
                 taste_profile = settings["taste_profile"]
                 candidate_limit = settings["candidate_limit"]

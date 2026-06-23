@@ -6,7 +6,7 @@ import logging
 from typing import Any, Optional
 from openai import AzureOpenAI, OpenAI
 
-from config import Config
+from config import Config, Prompts
 
 logger = logging.getLogger(__name__)
 
@@ -140,29 +140,14 @@ class AzureOpenAIService:
             last_part = content[-2000:]
             content = f"{first_part}\n\n[... middle content truncated ...]\n\n{last_part}"
         
-        prompt = f"""Analyze this bookmarked article and provide structured metadata.
-        If the content is missing or sparse, use the URL and title to infer the most likely metadata.
-
-        CONTEXT:
-        URL: {url}
-        Title: {title or 'Unknown'}
-        Content: {content or 'No content extracted'}
-        User Notes: {user_notes or 'None provided'}
-        Available Folders: {", ".join(folders) if folders else "None created yet"}
-
-        TASK:
-        Provide a JSON object with strictly these fields:
-        1. "clean_title": A clean, concise title (max 60 chars). Remove clickbait or site names if redundant.
-        2. "ai_summary": A single, dense summary (max 220 chars). Focus on "What is this?" and "Why save it?". No fluff.
-        3. "auto_tags": Array (3-5 items). Lowercase, hyphenated (e.g. "ai-agents", "python-dev").
-        4. "intent_type": EXACTLY one of: ["reference", "tutorial", "inspiration", "deep-dive", "tool"]
-        5. "technical_level": EXACTLY one of: ["beginner", "intermediate", "advanced", "general"]
-        6. "content_type": EXACTLY one of: ["article", "documentation", "video", "tool", "paper", "other"]
-        7. "key_quotes": Array (0-3 short, impactful quotes). Leave empty if no specific quotes stand out.
-        8. "suggested_folder": EXACT NAME from 'Available Folders' or null if no fit.
-
-        OUTPUT FORMAT:
-        Return ONLY valid JSON. No markdown, no pre-amble, no code blocks."""
+        folders_str = ", ".join(folders) if folders else "None created yet"
+        prompt = Prompts.BOOKMARK_ENRICHMENT_PROMPT_TEMPLATE.format(
+            url=url,
+            title=title or 'Unknown',
+            content=content or 'No content extracted',
+            user_notes=user_notes or 'None provided',
+            folders=folders_str
+        )
 
         deployment_name = (
             Config.AZURE_OPENAI_NANO_DEPLOYMENT_NAME
@@ -358,8 +343,6 @@ class AzureOpenAIService:
         Uses the default Azure OpenAI endpoint and deployment, not the
         Signal-specific overrides.
         """
-        import requests
-
         endpoint = Config.SIGNAL_AZURE_OPENAI_ENDPOINT or Config.AZURE_OPENAI_ENDPOINT
         api_key = Config.SIGNAL_AZURE_OPENAI_API_KEY or Config.AZURE_OPENAI_API_KEY
         deployment = Config.SIGNAL_AZURE_OPENAI_DEPLOYMENT_NAME or Config.AZURE_OPENAI_DEPLOYMENT_NAME

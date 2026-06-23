@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from config import Config
+from config import Config, Prompts
 from database import db_session, new_id, row_to_dict, rows_to_dicts, utc_now
 from services.openai_service import AzureOpenAIService
 from services.signal_pipeline import (
@@ -27,112 +27,9 @@ logger = logging.getLogger(__name__)
 # LLM Prompts
 # ---------------------------------------------------------------------------
 
-CLUSTER_VALIDATION_PROMPT_TEMPLATE = """You are organizing RSS articles into meaningful topic clusters for an intelligence briefing product.
-
-The user's Taste Profile is:
-
-\"\"\"
-{taste_profile}
-\"\"\"
-
-You are given a candidate group of articles. Decide whether these articles form a real cluster. A real cluster means they are about the same story, topic, product shift, market debate, company move, technical pattern, or ecosystem change. Do not force a cluster just because the articles share broad words like AI, startup, cloud, chips, or productivity.
-
-Candidate articles:
-
-\"\"\"
-{articles_list}
-\"\"\"
-
-Return only valid JSON with this shape:
-
-{{
-  "is_real_cluster": true,
-  "title": "Short specific cluster title",
-  "summary": "One or two plain sentences explaining what connects these articles.",
-  "topic_key": "short-stable-slug",
-  "confidence": 0.0,
-  "reject_reason": null
-}}
-
-Rules:
-- If the connection is weak, set "is_real_cluster" to false.
-- The title should be specific, not generic. Bad: "AI News". Good: "OpenAI's enterprise push meets reliability concerns".
-- The summary should explain the actual relationship between the articles.
-- The topic_key should be lowercase, hyphenated, and stable enough that future related articles could map to it.
-- confidence must be between 0 and 1.
-"""
-
-CLUSTER_REPORT_PROMPT_TEMPLATE = """You are a top-tier analyst writing a focused intelligence report from a cluster of related RSS articles.
-
-The user's Taste Profile is:
-
-\"\"\"
-{taste_profile}
-\"\"\"
-
-Cluster title:
-
-\"\"\"
-{cluster_title}
-\"\"\"
-
-Cluster description:
-
-\"\"\"
-{cluster_summary}
-\"\"\"
-
-Articles in this cluster:
-
-\"\"\"
-{articles_contents_str}
-\"\"\"
-
-Background Research:
-
-\"\"\"
-{research_brief}
-\"\"\"
-
-Your task:
-Write a thorough analysis of this cluster. This is not a summary of each article. It is a synthesis across multiple sources and takes.
-
-Instructions:
-1. Start by explaining what this cluster is actually about in plain language.
-2. Identify what changed, what is newly visible, or why this topic matters now.
-3. Compare the articles. Explain where they agree, where they disagree, and what each source notices that the others miss.
-4. Separate signal from noise. Call out claims that seem overstated, weakly supported, or mostly narrative.
-5. Explain the incentives, constraints, technical tradeoffs, business mechanics, ecosystem shifts, or second-order effects that matter.
-6. If the evidence is thin, say so. Do not manufacture certainty.
-7. Include inline Markdown links when referencing specific articles.
-8. Do not group all sources at the end.
-9. Use clean prose. Avoid bullet points unless a short watch-list genuinely helps.
-10. Do not use em dashes.
-11. Do not write a generic conclusion. End with what the reader should watch next if there is something concrete to watch.
-
-Output format:
-- Markdown.
-- First line must be an H1 title starting with "# ".
-- Use "##" section headings.
-- Include a section called "## What the sources collectively show".
-- Include a section called "## Where the tension is".
-- Include a section called "## What to watch next" only if there are concrete next indicators.
-"""
-
-REPORT_TITLE_CLEANUP_PROMPT_TEMPLATE = """Extract a short report title from this Markdown report.
-
-Return only valid JSON:
-
-{{
-  "title": "Short title"
-}}
-
-Report:
-
-\"\"\"
-{report_content}
-\"\"\"
-"""
+CLUSTER_VALIDATION_PROMPT_TEMPLATE = Prompts.CLUSTER_VALIDATION_PROMPT_TEMPLATE
+CLUSTER_REPORT_PROMPT_TEMPLATE = Prompts.CLUSTER_REPORT_PROMPT_TEMPLATE
+REPORT_TITLE_CLEANUP_PROMPT_TEMPLATE = Prompts.REPORT_TITLE_CLEANUP_PROMPT_TEMPLATE
 
 # ---------------------------------------------------------------------------
 # Formatting Helpers

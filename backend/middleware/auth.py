@@ -2,20 +2,20 @@
 from __future__ import annotations
 
 import logging
-import os
 from functools import wraps
 from types import SimpleNamespace
 
 from flask import g, jsonify, request, session
 
 from database import get_user_by_id, upsert_user
+from config import Config
 
 logger = logging.getLogger(__name__)
 
 def _dev_bypass_auth_enabled() -> bool:
     return (
-        os.getenv("APP_ENV", "").lower() != "test"
-        and os.getenv("DEV_BYPASS_AUTH", "false").lower() == "true"
+        Config.APP_ENV.lower() != "test"
+        and Config.DEV_BYPASS_AUTH
     )
 
 
@@ -25,8 +25,8 @@ def dev_bypass_user():
     The account is configured via DEV_BYPASS_EMAIL / DEV_BYPASS_NAME in your
     local (gitignored) .env. Falls back to a generic dev user if unset.
     """
-    email = os.getenv("DEV_BYPASS_EMAIL", "dev@local")
-    full_name = os.getenv("DEV_BYPASS_NAME", "Development User")
+    email = Config.DEV_BYPASS_EMAIL
+    full_name = Config.DEV_BYPASS_NAME
     return upsert_user(email, full_name=full_name)
 
 
@@ -43,9 +43,8 @@ def _load_session_user():
 
 def _load_test_user():
     """Allow existing tests and local harnesses to pass a bearer token."""
-    app_env = os.getenv("APP_ENV", "").lower()
     auth_header = request.headers.get("Authorization", "")
-    if app_env == "test" and auth_header.startswith("Bearer "):
+    if Config.APP_ENV.lower() == "test" and auth_header.startswith("Bearer "):
         return upsert_user(
             "test@example.com",
             full_name="Test User",
