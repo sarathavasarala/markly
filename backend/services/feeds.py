@@ -26,7 +26,6 @@ HEADERS = {
 }
 COMMON_FEED_PATHS = ("/feed/", "/feed.xml", "/rss/", "/rss.xml", "/atom.xml", "/index.xml")
 REQUEST_TIMEOUT = 10
-MAX_RESPONSE_BYTES = 2_000_000
 MAX_ENTRIES_PER_FEED = 25
 
 # Aggregator feeds whose entry link is a permalink to a roundup page rather than
@@ -73,13 +72,22 @@ def _fetch(url: str, *, etag: str | None = None, last_modified: str | None = Non
         headers["If-None-Match"] = etag
     if last_modified:
         headers["If-Modified-Since"] = last_modified
-    response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+    response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT, allow_redirects=True, stream=True)
     response.raise_for_status()
     final_url = response.url or url
     parsed = urlparse(final_url)
     _reject_private_host(parsed.hostname)
-    if len(response.content) > MAX_RESPONSE_BYTES:
-        raise FeedError("Feed response is too large")
+    
+    limit = Config.FEED_MAX_RESPONSE_BYTES
+    content = bytearray()
+    for chunk in response.iter_content(chunk_size=65536):
+        content.extend(chunk)
+        if len(content) > limit:
+            logger.warning("Feed response from %s exceeded size limit of %d bytes. Truncating fetch.", url, limit)
+            response.close()
+            break
+            
+    response._content = bytes(content)
     return response
 
 

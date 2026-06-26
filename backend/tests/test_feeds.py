@@ -681,3 +681,63 @@ def test_get_item_content_retry_and_fallback(client, mocker):
     res4 = client.get("/api/feeds/items/retry-item-1/content", headers=AUTH_HEADERS)
     assert res4.status_code == 200
     ContentExtractor.extract.assert_not_called()
+
+
+class DummyResponse:
+    def __init__(self, chunks):
+        self.url = "https://example.com/feed.xml"
+        self.headers = {}
+        self.status_code = 200
+        self._content = b""
+        self.closed = False
+        self.chunks = chunks
+        
+    def raise_for_status(self):
+        pass
+        
+    def iter_content(self, chunk_size=1):
+        for chunk in self.chunks:
+            yield chunk
+        
+    def close(self):
+        self.closed = True
+
+    @property
+    def content(self):
+        return self._content
+
+
+def test_fetch_streaming_truncation(mocker):
+    from services.feeds import _fetch
+    from config import Config
+
+    dummy_response = DummyResponse([b"a" * 65536, b"b" * 65536])
+    
+    mocker.patch("services.feeds.requests.get", return_value=dummy_response)
+    mocker.patch("services.feeds._reject_private_host")
+
+    mocker.patch.object(Config, "FEED_MAX_RESPONSE_BYTES", 80000)
+
+    res = _fetch("https://example.com/feed.xml")
+
+    assert dummy_response.closed is True
+    assert len(res.content) == 131072
+    assert res.content.startswith(b"a" * 65536)
+
+
+def test_fetch_no_truncation(mocker):
+    from services.feeds import _fetch
+    from config import Config
+
+    dummy_response = DummyResponse([b"a" * 10000, b"b" * 10000])
+    
+    mocker.patch("services.feeds.requests.get", return_value=dummy_response)
+    mocker.patch("services.feeds._reject_private_host")
+
+    mocker.patch.object(Config, "FEED_MAX_RESPONSE_BYTES", 50000)
+
+    res = _fetch("https://example.com/feed.xml")
+
+    assert dummy_response.closed is False
+    assert len(res.content) == 20000
+    assert res.content == b"a" * 10000 + b"b" * 10000

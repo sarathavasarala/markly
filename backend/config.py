@@ -282,6 +282,11 @@ class Config(metaclass=ConfigMeta):
     # Default: 1440
     FEED_BACKOFF_MAX_MINUTES = int(os.getenv("FEED_BACKOFF_MAX_MINUTES", "1440"))
 
+    # FEED_MAX_RESPONSE_BYTES: Maximum allowed bytes for RSS/Atom feed fetches.
+    # Possible values: Positive integer.
+    # Default: 5000000 (5MB)
+    FEED_MAX_RESPONSE_BYTES = int(os.getenv("FEED_MAX_RESPONSE_BYTES", "5000000"))
+
     # ENABLE_FORCE_FULL_TEXT: Force scraping full-text of configured feeds instead of relying on RSS description.
     # Possible values: True, False
     # Default: True
