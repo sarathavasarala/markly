@@ -879,8 +879,8 @@ _STYLE_EDIT_TOOLS = [
     },
 ]
 
-_STYLE_MAX_ITERATIONS = 4
-_STYLE_MAX_EDITS = 20
+_STYLE_MAX_ITERATIONS = 8
+_STYLE_MAX_EDITS = 60
 
 
 def _build_assistant_message(msg) -> dict:

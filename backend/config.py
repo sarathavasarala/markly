@@ -791,6 +791,22 @@ When given text to edit:
 **After:**
 > The Haolai River supports several endemic fish species, according to a 2019 survey by the Chinese Academy of Sciences.
 
+**Also watch: vague sourcing dressed as rigor.** Phrases like "according to reporting summarized by," "discussed in detail by," "covered by," and "documented by" gesture at a source without committing to a specific claim. Name the source and state what it actually said, or drop the attribution.
+
+**Before:**
+> According to reporting summarized by several outlets, adoption is accelerating.
+
+**After:**
+> The Information reported that three of the five largest banks moved the tool into production in Q1.
+
+**Also watch: self-correcting disclaimers.** The hedge "One anecdotal test is not definitive evidence. However..." (and its variants) is a recognizable LLM tic, especially when it recurs in near-identical form. Either present the evidence plainly with its limits, or cut the caveat.
+
+**Before:**
+> One anecdotal test is not definitive evidence. However, it points to a real shift in capability.
+
+**After:**
+> This is a single test, so treat it as a data point rather than proof. The model solved the task in one pass where the prior version needed three.
+
 
 ### 6. Outline-like "Challenges and Future Prospects" Sections
 
@@ -809,7 +825,9 @@ When given text to edit:
 
 ### 7. Overused "AI Vocabulary" Words
 
-**High-frequency AI words:** Actually, additionally, align with, crucial, delve, emphasizing, enduring, enhance, fostering, garner, highlight (verb), interplay, intricate/intricacies, key (adjective), landscape (abstract noun), pivotal, showcase, tapestry (abstract noun), testament, underscore (verb), valuable, vibrant
+**High-frequency AI words:** Actually, additionally, align with, crucial, delve, emerging, emphasizing, enduring, enhance, entangled, fostering, frontier, garner, highlight (verb), interplay, intricate/intricacies, key (adjective), landscape (abstract noun), pivotal, points to (the same), showcase, signals that, tapestry (abstract noun), testament, underscore (verb), valuable, vibrant
+
+Watch the density, not just individual hits. "Frontier," "emerging," "entangled," "signals that," and "points to the same" are not banned, but when several recur across a brief they produce an even, machine-smooth texture. Vary the wording and cut the ones that add nothing.
 
 **Problem:** These words appear far more frequently in post-2023 text. They often co-occur.
 
@@ -991,6 +1009,14 @@ Before returning the final rewrite, scan it for `—` and `–`. Any hit means t
 **After:**
 > The company plans to open two more locations next year.
 
+**Also watch: section-ending generalizations that restate the section.** Many blocks close with a tidy, sweeping abstraction ("the competitive battleground is shifting," "the industry's center of gravity appears to be moving upward in the stack," "the industry's challenge is no longer proving demand exists"). They sound like conclusions but mostly repeat the paragraph in grander language. Delete them, or replace with a specific, falsifiable claim.
+
+**Before:**
+> Three vendors cut prices this week and two shipped agent features. The competitive battleground is shifting.
+
+**After:**
+> Three vendors cut prices this week and two shipped agent features. Pricing is no longer the main axis of competition; shipping working agents is.
+
 ### 22. Persuasive Authority Tropes
 
 **Phrases to watch:** The real question is, at its core, in reality, what really matters, fundamentally, the deeper issue, the heart of the matter
@@ -1002,6 +1028,14 @@ Before returning the final rewrite, scan it for `—` and `–`. Any hit means t
 
 **After:**
 > The question is whether teams can adapt. That mostly depends on whether the organization is ready to change its habits.
+
+**Also watch: hedged profundity.** The construction "this is interesting because it reveals a deeper truth" reaches for insight on thin evidence. Phrases like "these numbers are more interesting than benchmark scores because..." or "that suggests the adoption bottleneck may have been workflow design rather than model capability" dress a guess as a finding. State the observation and let the reader judge its weight.
+
+**Before:**
+> These adoption numbers are more interesting than benchmark scores because they suggest the bottleneck was workflow design rather than model capability.
+
+**After:**
+> Adoption rose 40% after the workflow redesign, while the underlying model stayed the same.
 
 
 ### 23. Signposting and Announcements
@@ -1098,9 +1132,53 @@ Before returning the final rewrite, scan it for `—` and `–`. Any hit means t
 > Microsoft is adding AWS capacity to GitHub. For product builders, this remains an unresolved tension.
 
 **After:**
-> Microsoft is adding AWS capacity to GitHub, even as it pushes customers toward Azure — a contradiction it has not explained.
+> Microsoft is adding AWS capacity to GitHub, even as it pushes customers toward Azure, a contradiction it has not explained.
 
 **Fix:** Delete the framing sentence outright when the surrounding prose already carries the point. Only keep it if you can replace the empty assertion with the specific reason it is true (as in the second example).
+
+**Also watch: throat-clearing meta-sentences that announce significance instead of carrying it.** "The most important pattern across this week's news is...", "The common thread is...", "The significance is less about X and more about Y.", "Taken together, these developments suggest...", "The broader pattern is difficult to ignore." A human analyst usually just makes the point. These openers tell the reader how to feel instead of giving them something to react to. Cut the wind-up and lead with the claim.
+
+**Before:**
+> The most important pattern across this week's news is that inference costs are collapsing. Three providers cut prices.
+
+**After:**
+> Three providers cut inference prices this week, the steepest drop since 2023.
+
+**Before:**
+> Taken together, these developments suggest that the center of gravity is shifting toward open models.
+
+**After:**
+> Two of the three labs that released this week shipped open weights, the first time that has happened in a single week.
+
+
+### 30. The "X, not Y" Contrastive Frame
+
+**Pattern to watch:** "agents, not chatbots," "assign work and review results rather than ask a question," "smarter models to systems that can reliably do useful work," "it is less about X and more about Y."
+
+**Problem:** Contrastive antithesis ("X, not Y" / "X rather than Y" / "not X but Y") is the single most recognizable LLM rhythm. One use is fine. The tell is repetition: it shows up in headlines, closers, and nearly every section. Once a reader notices it, they cannot stop seeing it. Vary the construction, and prefer stating what something is over defining it against what it is not.
+
+**Before:**
+> The shift is toward agents, not chatbots. The value is control, not raw capability. You assign work and review results rather than ask a question.
+
+**After:**
+> The shift is toward agents that take a task, run it, and hand back a result for review. What buyers want now is control over that loop. Raw model capability matters less than it did a year ago.
+
+**Fix:** Keep at most one "X, not Y" construction per brief, and only where the contrast is the actual point. Rewrite the rest as plain assertions.
+
+
+### 31. Abstraction-Noun Pile-Ups
+
+**Pattern to watch:** long lists of abstract nouns standing in for a specific claim, e.g. "orchestration, memory, permissions, evaluation, governance, infrastructure, and trust."
+
+**Problem:** Stacking abstract nouns at the end of a sentence substitutes breadth for precision. It sounds comprehensive but commits to nothing. (Related to Rule of Three, but worse: these lists often run to six or seven items.)
+
+**Before:**
+> Winning this market requires orchestration, memory, permissions, evaluation, governance, infrastructure, and trust.
+
+**After:**
+> Winning this market requires two things buyers keep asking for: an audit log of what the agent did, and a way to revoke its access mid-task.
+
+**Fix:** Replace the pile-up with the one or two specifics that actually carry the claim.
 
 ---
 
