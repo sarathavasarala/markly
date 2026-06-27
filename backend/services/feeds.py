@@ -404,6 +404,9 @@ def refresh_feeds(
     checked = inserted = skipped = failed = unchanged = feeds_backoff = 0
     for row in rows:
         feed = row_to_dict(row)
+        # Never HTTP-fetch internal sentinel feeds (e.g. markly-internal://hn-synthesis)
+        if (feed.get("feed_url") or "").startswith("markly-internal://"):
+            continue
         if _is_feed_in_backoff(feed, force):
             feeds_backoff += 1
             continue

@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, request
 
 from database import db_session
 from services.feeds import refresh_feeds, embed_pending_feed_items_async
-from services import signal_pipeline
+from services import signal_pipeline, hn_synthesis
 from config import Config, Prompts
 
 logger = logging.getLogger(__name__)
@@ -178,3 +178,18 @@ def cron_brief():
             }
 
     return jsonify({"success": True, "results": results})
+
+
+@cron_bp.route("/hn-synthesis", methods=["POST"])
+def cron_hn_synthesis():
+    """Trigger HN synthesis pipeline: fetch frontpage, classify, synthesize, fan out to feed_items."""
+    if not _authenticate_cron():
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        with db_session() as conn:
+            summary = hn_synthesis.run_hn_synthesis(conn)
+        return jsonify({"success": True, "summary": summary})
+    except Exception as exc:
+        logger.exception("HN synthesis cron failed")
+        return jsonify({"error": str(exc)}), 500

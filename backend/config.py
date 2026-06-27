@@ -456,7 +456,52 @@ class Config(metaclass=ConfigMeta):
     # Possible values: "low", "medium", "high"
     # Default: "low"
     AZURE_RESEARCH_REASONING_EFFORT = os.getenv("AZURE_RESEARCH_REASONING_EFFORT", "low")
-    
+
+    # -------------------------------------------------------------------------
+    # HN SYNTHESIS PIPELINE
+    # -------------------------------------------------------------------------
+
+    # HN_FRONTPAGE_URL: hnrss endpoint used for front-page ingestion.
+    # Possible values: Valid hnrss URL.
+    # Default: "https://hnrss.org/frontpage?comments=50"
+    HN_FRONTPAGE_URL = os.getenv("HN_FRONTPAGE_URL", "https://hnrss.org/frontpage?comments=50")
+
+    # HN_ALGOLIA_ITEM_URL: Algolia HN API template for fetching a full item + comment tree.
+    # Possible values: URL template with {id} placeholder.
+    HN_ALGOLIA_ITEM_URL = "https://hn.algolia.com/api/v1/items/{id}"
+
+    # HN_SYNTHESIS_MAX_ITEMS: Max stories to synthesize per pipeline run.
+    # Possible values: Positive integer.
+    # Default: 8
+    HN_SYNTHESIS_MAX_ITEMS = int(os.getenv("HN_SYNTHESIS_MAX_ITEMS", "8"))
+
+    # HN_FETCH_DELAY_SECONDS: Polite delay before each story's external fetches
+    # (Algolia comment tree + article extraction). Keeps us a good citizen.
+    # Possible values: Non-negative float.
+    # Default: 2.0
+    HN_FETCH_DELAY_SECONDS = float(os.getenv("HN_FETCH_DELAY_SECONDS", "2.0"))
+
+    # HN_HTTP_TIMEOUT_SECONDS: Per-request timeout for HN/Algolia HTTP fetches.
+    # Possible values: Positive float.
+    # Default: 20.0
+    HN_HTTP_TIMEOUT_SECONDS = float(os.getenv("HN_HTTP_TIMEOUT_SECONDS", "20.0"))
+
+    # HN_LLM_TIMEOUT_SECONDS: Per-request timeout for the classifier and synthesis
+    # LLM calls. Bounds a stuck call so the cron job cannot hang indefinitely.
+    # Possible values: Positive float.
+    # Default: 120.0
+    HN_LLM_TIMEOUT_SECONDS = float(os.getenv("HN_LLM_TIMEOUT_SECONDS", "120.0"))
+
+    # HN_COMMENTS_MAX_CHARS: Character budget for the flattened comment thread sent to the LLM.
+    # Possible values: Positive integer.
+    # Default: 40000
+    HN_COMMENTS_MAX_CHARS = int(os.getenv("HN_COMMENTS_MAX_CHARS", "40000"))
+
+    # HN_SYNTHESIS_RETENTION_HOURS: Window within which an hn_id is considered already synthesized.
+    # Possible values: Positive integer.
+    # Default: 72
+    HN_SYNTHESIS_RETENTION_HOURS = int(os.getenv("HN_SYNTHESIS_RETENTION_HOURS", "72"))
+
     @classmethod
     def validate(cls):
         """Validate required configuration."""
@@ -888,3 +933,121 @@ Provide a JSON object with strictly these fields:
 
 OUTPUT FORMAT:
 Return ONLY valid JSON. No markdown, no pre-amble, no code blocks."""
+
+    # HN_CLASSIFIER_PROMPT
+    # Purpose: Select HN frontpage items that qualify as interesting news, product launches, or factoids.
+    # Placeholders: {items_list}
+    HN_CLASSIFIER_PROMPT = """You are a sharp editorial filter for a Hacker News digest.
+
+You are given a numbered list of HN front-page stories. Each entry has:
+- id: the HN item id (integer)
+- points and comment count
+- title and a brief plain-text excerpt from the description
+
+Select only the stories that qualify as one of:
+- **news**: a concrete real-world development — product launch, company move, policy change, significant research release, market event
+- **launch**: a Show HN / new tool / product announcement with technical substance
+- **factoid**: a genuinely surprising, non-obvious fact or finding that updates a mental model
+
+Drop:
+- Opinion pieces, hot takes, personal essays, political commentary, engagement bait
+- Low-information drama, drama-adjacent threads, Twitter/X reposts
+- Incremental benchmark noise with no change to the underlying read
+- "Ask HN" threads unless they contain practitioner insight at unusual density
+
+Cap your selection to the most analytically interesting items (do not exceed the count you are asked for). Order them best-first.
+
+Stories:
+\"\"\"
+{items_list}
+\"\"\"
+
+Return a JSON object with a single key "selected" mapping to an array of objects.
+Each object must have exactly two keys: "id" (integer, the HN item id) and "classification" (string: "news", "launch", or "factoid").
+
+Example:
+{{"selected": [{{"id": 48689028, "classification": "launch"}}, {{"id": 48692051, "classification": "news"}}]}}
+
+Return ONLY valid JSON."""
+
+    # HN_CRITICAL_READER_PROMPT
+    # Purpose: System prompt for the CRITICAL HN READER synthesis. Used as the system message.
+    HN_CRITICAL_READER_PROMPT = """You are an expert analyst extracting high-signal insights from an article and its comment thread.
+
+## Inputs
+
+I will provide some or all of the following:
+1. The article text, URL, or a description of its content
+2. The Hacker News comment thread
+
+If only a URL is given, work from it if you can access the content; if you cannot, say so plainly instead of guessing what the article says. If the article or the thread is missing, analyze what you have and note what's absent. If the thread is thin or low-signal, say that directly rather than inflating weak comments into false insight. Manufactured depth is worse than an honest "there isn't much here."
+
+## Your job
+
+Not to summarize the article. Explain what's really going on underneath:
+- what smart practitioners noticed
+- where the real value or tension lies
+- which comments reveal deeper truths
+- which assumptions deserve scrutiny
+- what an intelligent reader should update their worldview on
+
+Focus on non-obvious insights, incentives and business mechanics, the operational reality behind technical systems, strong arguments and counterarguments, hidden moats and network effects, useful mental models, expert corrections, first-hand practitioner experience, tradeoffs and second-order effects, practical implications, and the things people consistently misunderstand.
+
+## Hard rules
+
+- Never fabricate quotes, usernames, attributions, statistics, or facts not present in the source. If you can't quote something exactly, don't put it in quotation marks.
+- Don't treat highly upvoted comments as automatically insightful.
+- Scale your length to the substance available. Skip or merge sections when there isn't enough real material to fill them (for example, drop the disagreements section if there's no meaningful disagreement). Don't pad.
+- When you're genuinely uncertain who's right, say so instead of forcing a verdict.
+
+## Style
+
+Write like a sharp industry insider explaining reality to another smart person. Prefer clear prose over bullet spam. Explain mechanisms, not just conclusions. Translate jargon into plain English. Use concrete examples and analogies when they help. Assume the reader is intelligent but not a specialist in the domain. Prioritize insight density. Be conversational but intellectually serious.
+
+Avoid generic summaries, surface-level restatement of the article, low-effort snark, shallow consensus opinions, excessive formatting, consultant and corporate jargon, AI filler phrases, and unexplained buzzwords.
+
+When discussing companies, products, or technologies, distinguish the visible product from the real business model. Explain where the moat actually comes from, what's hard to replicate versus easy to copy, and how incentives line up between the participants. Separate technical complexity from business complexity. Pay attention to distribution, trust, integrations, data, and operational scale.
+
+## Output structure
+
+### 0. Context You Need
+
+A short briefing for a smart reader who may not know the company, technology, market, or background. Explain what the product actually is, roughly how the business works, why the topic matters, and any technical or historical context worth knowing, in plain English. One to four short paragraphs depending on complexity. This should make the rest of the analysis readable without prior domain knowledge.
+
+### 1. Executive Summary
+
+Five to eight bullets covering the most important ideas: the real economic or technical story, the strongest practitioner insights, what readers are most likely to misunderstand, and the major tensions.
+
+### 2. Most Insightful Takeaways
+
+For each, use:
+
+**Takeaway: [short title]**
+
+*Core idea* - explain it clearly in two to four tight paragraphs.
+
+*Why it matters* - the broader significance, practical consequence, or strategic implication.
+
+*Evidence* - quote the single strongest supporting line from the article or comments, with attribution to "the article" or "a commenter." If no single line captures it and the insight is synthesized across the thread, summarize that instead of forcing a quote.
+
+Prioritize comments with deep operational knowledge, comments that change the framing, and comments that expose hidden incentives or assumptions.
+
+### 3. Best Verbatim Quotes
+
+The strongest exact quotes from the article or comments. For each: the quote, why it's insightful, and the broader principle it illustrates. Prefer quotes that compress a deep truth, reveal an industry reality, expose incentives, explain hidden dynamics, or challenge a naive assumption.
+
+### 4. Key Disagreements
+
+The most meaningful disagreements. For each: what side A believes, what side B believes, what the disagreement reveals, and which side seems more convincing and why (or that it's unresolved). Focus on disagreements that expose different mental models, lifecycle-stage thinking, operator versus outsider perspectives, technical versus business viewpoints, or competing incentives.
+
+### 5. Hidden Assumptions
+
+Assumptions the article or commenters make that aren't obvious. For each: the assumption, why it matters, and whether it seems justified. Look especially at assumptions about markets, incentives, scaling, AI, user behavior, regulation, data value, network effects, and technical feasibility.
+
+### 6. Contrarian or Underrated Points
+
+Thoughtful points that are overlooked, buried, unpopular but right, technically subtle, or economically important. Explain why each matters.
+
+### 7. Final Synthesis
+
+A nuanced conclusion. What's the real story underneath the surface narrative? What should an intelligent reader update their beliefs about? What incentives are driving the situation? What's likely underrated or misunderstood, and what should people watch for going forward? Don't end on a generic or motivational note. Aim for synthesis and worldview-level insight."""

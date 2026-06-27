@@ -126,6 +126,21 @@ erDiagram
         text created_at
     }
 
+    hn_syntheses {
+        text id PK
+        integer hn_id UNIQUE
+        text title
+        text article_url
+        text comments_url
+        integer points
+        integer num_comments
+        text classification
+        text synthesis_md
+        text story_published_at
+        text created_at
+        text updated_at
+    }
+
     bookmarks_fts {
         text bookmark_id UNINDEXED
         text user_id UNINDEXED
@@ -141,7 +156,10 @@ erDiagram
     feeds ||--o{ feed_items : "delivers"
     bookmarks ||--o| feed_items : "originates"
     bookmarks ||--o| bookmarks_fts : "indexes"
+    hn_syntheses ||--o{ feed_items : "fans out to"
 ```
+
+> **Internal HN Synthesis feed:** Each user has one internal `feeds` row with `feed_url = 'markly-internal://hn-synthesis'` and `is_active = 0`. `hn_syntheses` rows are fanned out as `feed_items` attached to this feed so syntheses appear in the inbox and are included as daily-brief candidates. The internal feed is never HTTP-fetched by `refresh_feeds`.
 
 ---
 
@@ -231,3 +249,49 @@ sequenceDiagram
     BE->>DB: save_brief() (Commit brief to signal_briefs)
     BE->>User: Event: stage: 'complete' (Return final brief data)
 ```
+
+---
+
+## 🔶 HN Synthesis Pipeline
+
+A background cron pipeline (`POST /api/cron/hn-synthesis`, every 12 h) ingests Hacker News front-page stories, synthesizes them with a "critical reader" LLM prompt, and lands results as `feed_items` in each user's internal **HN Synthesis** feed. Syntheses are cached in `hn_syntheses` (synthesized once globally) then fanned out cheaply per user.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Scheduler as Cron Scheduler
+    participant BE as Flask Backend (/api/cron/hn-synthesis)
+    participant HNRSS as hnrss.org/frontpage
+    participant Algolia as Algolia HN API
+    participant CE as ContentExtractor
+    participant AI as Azure OpenAI
+    participant DB as SQLite DB
+
+    Scheduler->>BE: POST /api/cron/hn-synthesis (Bearer CRON_SECRET)
+    BE->>DB: Load already-synthesized hn_ids (within 72h retention window)
+    BE->>HNRSS: Fetch front page RSS (comments=50)
+    HNRSS-->>BE: RSS feed (titles, points, comment counts, article URLs)
+    BE->>AI: Classify items (JSON mode — news / launch / factoid; drop noise)
+    AI-->>BE: Selected items with classification labels (max 8)
+    loop For each selected story
+        BE->>Algolia: GET /api/v1/items/{hn_id} (single request — full comment tree)
+        Algolia-->>BE: Nested comment tree JSON
+        BE->>BE: Flatten comments (depth-first, char budget)
+        BE->>CE: Extract article text (Jina / BS4 fallback)
+        CE-->>BE: Article body markdown/text
+        BE->>AI: CRITICAL HN READER prompt (article + flattened comments)
+        AI-->>BE: Synthesis markdown
+        BE->>DB: INSERT INTO hn_syntheses (global cache)
+        loop For each user
+            BE->>DB: ensure_hn_feed() — get-or-create internal feed row
+            BE->>DB: INSERT OR IGNORE INTO feed_items (guid='hn-synthesis:{hn_id}')
+        end
+    end
+    BE->>Scheduler: {stories_seen, classified, synthesized, fanned_out}
+```
+
+**Key properties:**
+- Comments fetched via a single Algolia API request per story; HN HTML is never scraped.
+- Internal feed `markly-internal://hn-synthesis` has `is_active=0` and is explicitly skipped by `refresh_feeds`.
+- `guid = 'hn-synthesis:{hn_id}'` and `url = comments_url` ensure deduplication across runs.
+- Syntheses appear in the inbox and are candidates for `select_candidates` (daily brief).

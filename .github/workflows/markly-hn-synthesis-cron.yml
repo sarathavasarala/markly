@@ -1,0 +1,27 @@
+name: Markly HN Synthesis
+
+on:
+  schedule:
+    # Twice a day, every 12 hours: 06:30 and 18:30 UTC
+    - cron: '30 6,18 * * *'
+  workflow_dispatch:
+
+jobs:
+  hn-synthesis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute HTTP POST request
+        run: |
+          if [ -z "${{ secrets.MARKLY_APP_URL }}" ]; then
+            echo "Error: secrets.MARKLY_APP_URL is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.MARKLY_CRON_SECRET }}" ]; then
+            echo "Error: secrets.MARKLY_CRON_SECRET is not set"
+            exit 1
+          fi
+
+          curl -X POST "${{ secrets.MARKLY_APP_URL }}/api/cron/hn-synthesis" \
+            -H "Authorization: Bearer ${{ secrets.MARKLY_CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f

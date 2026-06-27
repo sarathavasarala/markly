@@ -258,6 +258,23 @@ def initialize_database():
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS hn_syntheses (
+                id TEXT PRIMARY KEY,
+                hn_id INTEGER NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                article_url TEXT,
+                comments_url TEXT NOT NULL,
+                points INTEGER DEFAULT 0,
+                num_comments INTEGER DEFAULT 0,
+                classification TEXT,
+                synthesis_md TEXT NOT NULL,
+                story_published_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_hn_syntheses_created ON hn_syntheses(created_at);
+
             CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
                 bookmark_id UNINDEXED,
                 user_id UNINDEXED,
