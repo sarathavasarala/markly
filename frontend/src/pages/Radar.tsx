@@ -70,6 +70,7 @@ export default function Radar() {
   const [isSourcesExpanded, setIsSourcesExpanded] = useState(false)
   const [copiedFeedId, setCopiedFeedId] = useState<string | null>(null)
   const [confirmDeleteFeedId, setConfirmDeleteFeedId] = useState<string | null>(null)
+  const [isDeletingFeed, setIsDeletingFeed] = useState(false)
 
   const PAGE_SIZE = 30
   const [hasMore, setHasMore] = useState(false)
@@ -288,11 +289,14 @@ export default function Radar() {
 
   const deleteFeed = async (feedId: string) => {
     try {
+      setIsDeletingFeed(true)
       await feedsApi.delete(feedId)
       setConfirmDeleteFeedId(null)
       await loadRadar()
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to remove source')
+    } finally {
+      setIsDeletingFeed(false)
     }
   }
 
@@ -509,20 +513,29 @@ export default function Radar() {
                   {confirmDeleteFeedId === feed.id ? (
                     <div className="flex items-center gap-1 animate-in fade-in duration-200 flex-shrink-0">
                       <button
+                        disabled={isDeletingFeed}
                         onClick={(e) => {
                           e.stopPropagation()
                           deleteFeed(feed.id)
                         }}
-                        className="rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700"
+                        className="rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1"
                       >
-                        Confirm
+                        {isDeletingFeed ? (
+                          <>
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          'Confirm'
+                        )}
                       </button>
                       <button
+                        disabled={isDeletingFeed}
                         onClick={(e) => {
                           e.stopPropagation()
                           setConfirmDeleteFeedId(null)
                         }}
-                        className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-350 hover:bg-slate-300 dark:hover:bg-slate-600"
+                        className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-350 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
                       >
                         Cancel
                       </button>

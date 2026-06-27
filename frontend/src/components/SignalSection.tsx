@@ -73,6 +73,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
   const [infoMessage, setInfoMessage] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [confirmDeleteBriefId, setConfirmDeleteBriefId] = useState<string | null>(null)
+  const [isDeletingBrief, setIsDeletingBrief] = useState(false)
   const [confirmResetProfile, setConfirmResetProfile] = useState(false)
 
   const [candidateWords, setCandidateWords] = useState<number | null>(null)
@@ -554,9 +555,11 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                     {confirmDeleteBriefId === brief.id ? (
                       <div className="flex items-center gap-1 animate-in fade-in duration-200 flex-shrink-0">
                         <button
+                          disabled={isDeletingBrief}
                           onClick={async (e) => {
                             e.stopPropagation()
                             try {
+                              setIsDeletingBrief(true)
                               await signalApi.deleteBrief(brief.id)
                               setBriefs(prev => prev.filter(b => b.id !== brief.id))
                               if (selectedBriefId === brief.id) {
@@ -566,18 +569,28 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                               setConfirmDeleteBriefId(null)
                             } catch {
                               setError('Failed to delete brief')
+                            } finally {
+                              setIsDeletingBrief(false)
                             }
                           }}
-                          className="rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700"
+                          className="rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1"
                         >
-                          Confirm
+                          {isDeletingBrief ? (
+                            <>
+                              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            'Confirm'
+                          )}
                         </button>
                         <button
+                          disabled={isDeletingBrief}
                           onClick={(e) => {
                             e.stopPropagation()
                             setConfirmDeleteBriefId(null)
                           }}
-                          className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-350 hover:bg-slate-300 dark:hover:bg-slate-600"
+                          className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-350 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
                         >
                           Cancel
                         </button>
