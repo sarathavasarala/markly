@@ -548,7 +548,7 @@ def _fallback_brief_plan(selected_items) -> str:
         "Editorial plan:",
         "- Treat each selected article as a standalone candidate unless the final writer finds a clear connection in the full text.",
         "- Collapse duplicate coverage if multiple articles describe the same event without adding distinct analysis.",
-        "- Prefer source tensions, concrete mechanisms, and what changed over generic theme labels.",
+        "- Prefer source tensions, concrete cause-and-effect details, and what changed over generic theme labels.",
         "",
         "Selected items:",
     ]
@@ -748,7 +748,7 @@ def synthesize(selected_items, taste_profile, synthesis_template, research_brief
             .replace("{brief_plan}", brief_plan)
         )
 
-    system_content = "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown."
+    system_content = Prompts.SYNTHESIS_SYSTEM_PROMPT
 
     # Use Responses API with medium verbosity for final memo generation
     content = AzureOpenAIService.generate_brief_with_verbosity(
@@ -920,8 +920,10 @@ def style_edit_brief(draft_content: str, style_template: str) -> str:
 
     system_content = (
         "You are a senior copyeditor. Use the apply_edit tool to make targeted, minimal edits "
-        "that remove AI writing patterns from the brief. Do not rewrite entire sections. "
-        "Preserve every fact, figure, URL, and Markdown heading verbatim. "
+        "that remove AI writing patterns from the brief. Before finishing, scan the entire draft "
+        "for repeated rhetorical shapes across sections, especially binary contrasts, meta-framing, "
+        "and abstract closers. Do not rewrite entire sections. Preserve every fact, figure, "
+        "URL, and named entity. You may edit section headings, but not the first title line. "
         "Call finish when you have no more edits to make."
     )
     user_prompt = style_template.replace("{draft_brief_content}", draft_content)

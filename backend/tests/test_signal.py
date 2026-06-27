@@ -9,7 +9,7 @@ def test_get_taste_profile_default(client):
     assert response.status_code == 200
     data = response.get_json()
     assert "taste_profile" in data
-    assert "I want analysis, not summaries" in data["taste_profile"]
+    assert "explains what changed" in data["taste_profile"]
 
 def test_update_taste_profile(client):
     upsert_user("test@example.com", full_name="Test User")
@@ -243,7 +243,7 @@ def test_reset_taste_profile_customizations(client):
     assert data["success"] is True
     
     # When reset, taste_profile falls back to default, limit is null/None, templates are null/None
-    assert "I want analysis, not summaries" in data["taste_profile"]
+    assert "explains what changed" in data["taste_profile"]
     assert data["signal_candidate_limit"] is None
     assert data["signal_synthesis_limit"] is None
     assert data["signal_filter_prompt"] is None
@@ -254,7 +254,7 @@ def test_reset_taste_profile_customizations(client):
     response = client.get("/api/signal/taste-profile", headers=AUTH_HEADERS)
     assert response.status_code == 200
     data = response.get_json()
-    assert "I want analysis, not summaries" in data["taste_profile"]
+    assert "explains what changed" in data["taste_profile"]
     assert data["signal_candidate_limit"] is None
     assert data["signal_synthesis_limit"] is None
     assert data["signal_filter_prompt"] is None
@@ -263,6 +263,96 @@ def test_reset_taste_profile_customizations(client):
     assert "You are a sharp editor" in data["default_filter_prompt"]
     assert "editorial planning assistant" in data["default_planning_prompt"]
     assert "You are writing a daily intelligence brief" in data["default_synthesis_prompt"]
+
+
+def test_default_signal_prompts_have_briefing_voice_guardrails():
+    from config import Prompts
+
+    assert "{brief_plan}" in Prompts.SYNTHESIS_PROMPT_TEMPLATE
+    assert "Private editorial plan" in Prompts.SYNTHESIS_PROMPT_TEMPLATE
+
+    synthesis_prompt = Prompts.SYNTHESIS_PROMPT_TEMPLATE
+    assert "Avoid repeated binary-contrast slogans" in synthesis_prompt
+    assert "End sections on a concrete consequence" in synthesis_prompt
+    assert "Do not use a caveat as a springboard" in synthesis_prompt
+    assert "Replace long lists of abstract nouns" in synthesis_prompt
+    assert "same sentence skeleton" in synthesis_prompt
+    assert "Lead with the actual claim" in synthesis_prompt
+
+    planning_prompt = Prompts.PLANNING_PROMPT_TEMPLATE
+    assert "Do not write the section hook for the final writer" in planning_prompt
+    assert "action -> constraint or incentive -> likely consequence" in planning_prompt
+
+    taste_profile = Prompts.DEFAULT_TASTE_PROFILE
+    assert "explains what changed" in taste_profile
+    assert "strategic implications" not in taste_profile
+    assert "business mechanics" not in taste_profile
+
+
+def test_default_signal_prompts_avoid_literal_ai_tell_priming():
+    from config import Prompts
+
+    runtime_prompts = "\n".join(
+        [
+            Prompts.DEFAULT_TASTE_PROFILE,
+            Prompts.PLANNING_PROMPT_TEMPLATE,
+            Prompts.SYNTHESIS_PROMPT_TEMPLATE,
+            Prompts.SYNTHESIS_SYSTEM_PROMPT,
+            Prompts.HUMANIZER_PROMPT_TEMPLATE,
+        ]
+    )
+    banned_literals = [
+        "less about X, more about Y",
+        "matters less for X than Y",
+        "not A but B",
+        "the common thread",
+        "taken together",
+        "what stands out",
+        "the broader pattern",
+        "whether or not...",
+        "regardless of specifics",
+        "strategic implication",
+        "business mechanics",
+    ]
+
+    assert "X, not Y" not in runtime_prompts
+    for literal in banned_literals:
+        assert literal not in runtime_prompts
+
+
+def test_humanizer_prompt_can_edit_section_headings():
+    from config import Prompts
+
+    prompt = Prompts.HUMANIZER_PROMPT_TEMPLATE
+    assert "You may edit section headings" in prompt
+    assert "Do not alter the first title line" in prompt
+    assert "Markdown heading verbatim" not in prompt
+
+
+def test_default_synthesis_prompt_injects_brief_plan(mocker):
+    from config import Prompts
+    from services.signal_pipeline import synthesize
+
+    mock_synthesis = mocker.patch(
+        "services.openai_service.AzureOpenAIService.generate_brief_with_verbosity",
+        return_value="synthesis brief content"
+    )
+
+    result = synthesize(
+        selected_items=[{"id": "1", "title": "A", "feed_title": "B", "url": "http://a", "content": "body"}],
+        taste_profile="taste instructions",
+        synthesis_template=Prompts.SYNTHESIS_PROMPT_TEMPLATE,
+        research_brief="research context",
+        recent_briefs="- Previous title",
+        brief_plan="Use this concrete planning note",
+    )
+
+    assert result == "synthesis brief content"
+    prompt_used = mock_synthesis.call_args.args[0]
+    assert "Use this concrete planning note" in prompt_used
+    assert "Private editorial plan" in prompt_used
+    assert "Avoid repeated binary-contrast slogans" in prompt_used
+    assert mock_synthesis.call_args.args[1] == Prompts.SYNTHESIS_SYSTEM_PROMPT
 
 
 def test_taste_profile_reports_planning_feature_flag(client):
@@ -281,6 +371,7 @@ def test_taste_profile_reports_planning_feature_flag(client):
 
 def test_signal_pipeline_research_and_synthesize(mocker):
     from services.signal_pipeline import research, synthesize
+    from config import Prompts
 
     # 1. Test research(web_search_enabled=False) returns ("", [])
     assert research([], web_search_enabled=False) == ("", [])
@@ -330,7 +421,7 @@ def test_signal_pipeline_research_and_synthesize(mocker):
     assert res == "synthesis brief content"
     mock_synthesis.assert_called_once_with(
         "Brief: taste instructions Research: test research",
-        "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown.",
+        Prompts.SYNTHESIS_SYSTEM_PROMPT,
         verbosity="medium"
     )
 
@@ -345,7 +436,7 @@ def test_signal_pipeline_research_and_synthesize(mocker):
     assert res == "synthesis brief content"
     mock_synthesis.assert_called_once_with(
         "Brief: taste instructions",
-        "You are a thoughtful industry analyst writing briefings for a CEO. Always write in clean prose and format in Markdown.",
+        Prompts.SYNTHESIS_SYSTEM_PROMPT,
         verbosity="medium"
     )
 
