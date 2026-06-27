@@ -836,8 +836,9 @@ _STYLE_EDIT_TOOLS = [
         "function": {
             "name": "apply_edit",
             "description": (
-                "Replace an exact span of text in the brief. "
+                "Replace an exact span of text in the brief, or delete it. "
                 "`search` must appear verbatim (or very close) in the current draft. "
+                "Pass an empty string for `replace` to delete the matched span entirely. "
                 "Call once per distinct edit; multiple calls per turn are fine."
             ),
             "parameters": {
@@ -853,7 +854,7 @@ _STYLE_EDIT_TOOLS = [
                     },
                     "replace": {
                         "type": "string",
-                        "description": "Replacement text covering the same content.",
+                        "description": "Replacement text. Use an empty string to delete the matched span entirely, which is correct for a sentence that adds no value or a redundant framing.",
                     },
                 },
                 "required": ["reason", "search", "replace"],

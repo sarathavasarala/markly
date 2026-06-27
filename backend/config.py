@@ -515,15 +515,13 @@ Recent articles:
 \"\"\"
 
 Selection rules:
-Discard engagement bait, rumor with no substance, marketing fluff, low-information hot takes, and the tenth rewrite of a story already covered elsewhere in the list.
+Discard engagement bait, rumor with no substance, marketing fluff, and low-information hot takes.
 
-Keep genuinely significant developments even when they are announcements. A major product launch, a strategic move, a notable release, a financing, a policy change, or a real shift from a company that matters belongs in the brief when the implications are analyzable.
+Keep genuinely significant developments - a major product launch, a strategic move, a notable release, a financing, a policy change, or a real shift from a company that matters belongs in the brief when the implications are analyzable.
 
 Also keep pieces with genuine insight, real strategic relevance, ecosystem shifts, product direction, business mechanics, technical constraints, market structure, incentives, or important second-order implications.
 
 Favor articles that contain enough substance to support a real analyst read: concrete facts, numbers, process detail, disagreement between sources, customer behavior, financing terms, operational constraints, or a mechanism worth unpacking.
-
-It is fine to select few. A short list of strong items beats a padded one. If little qualifies today, return a short list.
 
 Order the selected IDs from most to least important, since only the strongest will be fully processed.
 
@@ -692,15 +690,6 @@ Prefer explanation over interpretation when forced to choose.
 
 Embed sources inline as Markdown links where they support the claim. Every thematic section should contain at least one source link, woven naturally into the prose rather than grouped at the end.
 
-Avoid these structural tells:
-
-- Do not open the brief or any section with a contrastive thesis such as "The biggest story is not X, it is Y" or "This is not about A, it is about B." Lead with the claim itself. If the section header already makes the point, do not restate it by negating the obvious.
-- Do not open a section with a single short sentence that just restates its header. Begin with a concrete fact or development.
-- Do not end a section with a tidy generalization that restates what you just said in grander language (for example "the competitive battleground is shifting" or "the center of gravity is moving up the stack"). Stop when the analysis is done, or end on a specific, falsifiable claim.
-- Do not insert throat-clearing sentences that announce significance instead of carrying it (for example "The key fact is behavioral rather than legal", "The most important pattern is", "Taken together, these developments suggest"). Make the point directly.
-- Do not close sentences with long piles of abstract nouns (for example "orchestration, memory, permissions, evaluation, governance, infrastructure, and trust") as a stand-in for a specific claim. Name the one or two things that actually carry it.
-- Use an "X, not Y" or "X rather than Y" contrast at most once in the whole brief, and only where the contrast is the actual finding.
-
 No greeting, no signature, and no closing recap.
 
 =========================================================
@@ -730,7 +719,7 @@ You are a writing editor that identifies and removes signs of AI-generated text 
 When given text to edit:
 
 1. **Identify AI patterns** - Scan the draft for the patterns listed below. Only flag genuine hits, not false positives (see DETECTION GUIDANCE).
-2. **Targeted edits only** - Replace AI-isms with natural alternatives using the `apply_edit` tool. Do not touch prose that contains no AI patterns.
+2. **Edit or delete** - Replace AI-isms with natural alternatives using the `apply_edit` tool, or delete them outright by passing an empty string ("") as `replace`. Deleting is the correct move for a sentence that adds no value, a throat-clearing significance line, or a "not X, but Y" framing that survives removal without losing any fact. Do not touch prose that contains no AI patterns.
 3. **Preserve meaning** - Keep every fact, figure, URL, and Markdown heading verbatim.
 4. **Match the house voice** - Aim for the natural, opinionated, varied tone. Do not imitate the style of the input draft.
 
@@ -1195,13 +1184,13 @@ Before returning the final rewrite, scan it for `—` and `–`. Any hit means t
 
 You receive the draft brief below. Scan it for instances of the patterns above. For each issue:
 
-1. Call `apply_edit` with the exact text to replace (`search`), your improved replacement (`replace`), and a short label for the pattern being fixed (`reason`). You may batch several `apply_edit` calls in one turn.
+1. Call `apply_edit` with the exact text to replace (`search`), your replacement (`replace`), and a short label for the pattern being fixed (`reason`). To delete the span entirely, pass an empty string ("") as `replace`; this is the right move for a filler sentence, a contrastive "X, not Y" opener, or any sentence that can be lifted out without losing a fact. You may batch several `apply_edit` calls in one turn.
 2. After each turn you will see which edits applied. Move on from any that failed — the original text is preserved.
 3. When you have no more edits to make, call `finish`.
 
 Constraints (must not be broken):
 - Preserve every fact, number, URL, and Markdown heading verbatim.
-- Do not rewrite entire paragraphs; target only the specific phrase or sentence containing the AI pattern.
+- Do not rewrite a whole paragraph in one edit; target a specific phrase or sentence. You may delete an entire filler sentence (empty `replace`) when its removal loses no facts.
 - Do not alter the title line (first `#` heading).
 - The `search` string must match the current draft verbatim (or very close to it).
 

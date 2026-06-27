@@ -155,6 +155,12 @@ def cron_brief():
                 brief_plan=brief_plan,
             )
 
+            # 5b. Tone and style pass (humanizer) to strip AI writing patterns
+            if Config.SIGNAL_HUMANIZER_ENABLED:
+                content = signal_pipeline.style_edit_brief(
+                    content, Prompts.HUMANIZER_PROMPT_TEMPLATE
+                )
+
             # 6. Save final brief
             with db_session() as conn:
                 brief = signal_pipeline.save_brief(conn, user_id, content, selected_items)
