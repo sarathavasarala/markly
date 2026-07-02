@@ -472,8 +472,8 @@ class Config(metaclass=ConfigMeta):
 
     # HN_SYNTHESIS_MAX_ITEMS: Max stories to synthesize per pipeline run.
     # Possible values: Positive integer.
-    # Default: 8
-    HN_SYNTHESIS_MAX_ITEMS = int(os.getenv("HN_SYNTHESIS_MAX_ITEMS", "8"))
+    # Default: 3
+    HN_SYNTHESIS_MAX_ITEMS = int(os.getenv("HN_SYNTHESIS_MAX_ITEMS", "3"))
 
     # HN_FETCH_DELAY_SECONDS: Polite delay before each story's external fetches
     # (Algolia comment tree + article extraction). Keeps us a good citizen.
