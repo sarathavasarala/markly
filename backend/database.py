@@ -213,6 +213,22 @@ def initialize_database():
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS brief_jobs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                run_date TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'succeeded', 'skipped', 'failed')),
+                attempts INTEGER NOT NULL DEFAULT 0,
+                available_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                error_message TEXT,
+                brief_id TEXT REFERENCES signal_briefs(id) ON DELETE SET NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, run_date)
+            );
+
             CREATE TABLE IF NOT EXISTS signal_clusters (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -292,6 +308,7 @@ def initialize_database():
             CREATE INDEX IF NOT EXISTS idx_feed_items_inbox ON feed_items(user_id, status, published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_feed_items_feed ON feed_items(feed_id, published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_signal_briefs_user_created ON signal_briefs(user_id, created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_brief_jobs_status_available ON brief_jobs(status, available_at, created_at);
             CREATE INDEX IF NOT EXISTS idx_telemetry_logs_user_created ON telemetry_logs(user_id, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_signal_clusters_user_status ON signal_clusters(user_id, status, last_seen_at DESC);
             CREATE INDEX IF NOT EXISTS idx_signal_cluster_items_feed_item ON signal_cluster_items(feed_item_id);

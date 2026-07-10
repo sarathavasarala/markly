@@ -126,6 +126,21 @@ erDiagram
         text created_at
     }
 
+    brief_jobs {
+        text id PK
+        text user_id FK "REFERENCES users(id) ON DELETE CASCADE"
+        text run_date
+        text status
+        integer attempts
+        text available_at
+        text started_at
+        text completed_at
+        text error_message
+        text brief_id FK "REFERENCES signal_briefs(id) ON DELETE SET NULL"
+        text created_at
+        text updated_at
+    }
+
     hn_syntheses {
         text id PK
         integer hn_id UNIQUE
@@ -152,6 +167,7 @@ erDiagram
     users ||--o{ feeds : "subscribes"
     users ||--o{ feed_items : "receives"
     users ||--o{ signal_briefs : "generates"
+    users ||--o{ brief_jobs : "queues"
     folders ||--o{ bookmarks : "groups"
     feeds ||--o{ feed_items : "delivers"
     bookmarks ||--o| feed_items : "originates"

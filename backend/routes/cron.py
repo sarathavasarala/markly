@@ -6,8 +6,8 @@ from flask import Blueprint, jsonify, request
 
 from database import db_session
 from services.feeds import refresh_feeds, embed_pending_feed_items_async
-from services import signal_pipeline, hn_synthesis
-from config import Config, Prompts
+from services import brief_jobs, hn_synthesis
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -68,116 +68,18 @@ def cron_refresh():
 
 @cron_bp.route("/brief", methods=["POST"])
 def cron_brief():
-    """Trigger daily brief synthesis for all users."""
+    """Queue daily brief generation and return before the work begins."""
     if not _authenticate_cron():
         return jsonify({"error": "Unauthorized"}), 401
 
     try:
-        with db_session() as conn:
-            users = conn.execute("SELECT id, email FROM users").fetchall()
+        summary = brief_jobs.enqueue_daily_brief_jobs()
+        brief_jobs.start_worker()
     except Exception as exc:
-        logger.exception("Failed to query users from database during cron brief generation.")
-        return jsonify({"error": f"Database error: {str(exc)}"}), 500
+        logger.exception("Failed to queue scheduled brief jobs.")
+        return jsonify({"error": f"Failed to queue brief jobs: {str(exc)}"}), 500
 
-    results = {}
-    for user in users:
-        user_id = user["id"]
-        email = user["email"]
-        try:
-            # 1. Load user settings
-            with db_session() as conn:
-                settings = signal_pipeline.load_user_settings(
-                    conn,
-                    user_id,
-                    default_filter_template=Prompts.FILTER_PROMPT_TEMPLATE,
-                    default_planning_template=Prompts.PLANNING_PROMPT_TEMPLATE,
-                    default_synthesis_template=Prompts.SYNTHESIS_PROMPT_TEMPLATE,
-                )
-                taste_profile = settings["taste_profile"]
-                candidate_limit = settings["candidate_limit"]
-                filter_template = settings["filter_template"]
-                planning_template = settings["planning_template"]
-                planning_enabled = settings["planning_enabled"]
-                synthesis_template = settings["synthesis_template"]
-                web_search_enabled = settings["web_search_enabled"]
-
-                # 2. Select candidates
-                items = signal_pipeline.select_candidates(
-                    conn, user_id, candidate_limit, taste_profile=taste_profile
-                )
-
-            if not items:
-                results[email] = {
-                    "status": "skipped",
-                    "reason": "no_candidates",
-                    "message": "No recent feed items found."
-                }
-                continue
-
-            # 3. LLM Filter
-            selected_items = signal_pipeline.llm_filter(
-                items, taste_profile, filter_template, synthesis_limit=settings.get("synthesis_limit")
-            )
-            if not selected_items:
-                results[email] = {
-                    "status": "skipped",
-                    "reason": "no_high_signal_content",
-                    "message": "No items matched the taste profile."
-                }
-                continue
-
-            # 4. Extract full content in parallel
-            updates = signal_pipeline.run_extract_contents(selected_items)
-            with db_session() as conn:
-                signal_pipeline.persist_content_updates(conn, updates)
-
-            # 5. Plan, research, and synthesize report (model calls)
-            brief_plan = ""
-            if planning_enabled:
-                brief_plan = signal_pipeline.plan_brief(
-                    selected_items,
-                    taste_profile,
-                    planning_template,
-                    recent_briefs=settings.get("recent_briefs", ""),
-                )
-            research_brief, _ = signal_pipeline.research(
-                selected_items,
-                web_search_enabled=web_search_enabled,
-                brief_plan=brief_plan,
-                taste_profile=taste_profile,
-            )
-            content = signal_pipeline.synthesize(
-                selected_items,
-                taste_profile,
-                synthesis_template,
-                research_brief=research_brief,
-                recent_briefs=settings.get("recent_briefs", ""),
-                brief_plan=brief_plan,
-            )
-
-            # 5b. Tone and style pass (humanizer) to strip AI writing patterns
-            if Config.SIGNAL_HUMANIZER_ENABLED:
-                content = signal_pipeline.style_edit_brief(
-                    content, Prompts.HUMANIZER_PROMPT_TEMPLATE
-                )
-
-            # 6. Save final brief
-            with db_session() as conn:
-                brief = signal_pipeline.save_brief(conn, user_id, content, selected_items)
-
-            results[email] = {
-                "status": "success",
-                "brief_id": brief["id"],
-                "articles_count": len(selected_items)
-            }
-        except Exception as exc:
-            logger.exception("Failed to generate brief for user %s (%s)", user_id, email)
-            results[email] = {
-                "status": "failed",
-                "error": str(exc)
-            }
-
-    return jsonify({"success": True, "results": results})
+    return jsonify({"success": True, "status": "queued", **summary}), 202
 
 
 @cron_bp.route("/hn-synthesis", methods=["POST"])

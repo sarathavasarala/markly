@@ -29,7 +29,7 @@ It brings your blogs and newsletters together, turns new writing into a daily br
 
 markly is built around a few core reading workflows:
 
-**Daily brief.** markly looks at recent posts from your followed feeds, filters for the items that match your briefing preferences, extracts the useful article text, and writes a concise briefing with source links. You can adjust your briefing preferences and, if you want deeper control, customize the prompts and article limits used by the brief pipeline.
+**Daily brief.** markly looks at recent posts from your followed feeds, filters for the items that match your briefing preferences, extracts the useful article text, and writes a concise briefing with source links. Scheduled runs are saved as durable jobs, so the scheduler can return immediately while Markly generates each brief in the background. You can adjust your briefing preferences and, if you want deeper control, customize the prompts and article limits used by the brief pipeline.
 
 When enabled, Daily Brief tracing records the major generation stages to an external trace sink. markly owns the trace interface and Langfuse is only the first adapter, so traces can later be sent elsewhere without rewriting the brief pipeline.
 

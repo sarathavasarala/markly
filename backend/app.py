@@ -50,6 +50,9 @@ def create_app():
     except ValueError as e:
         app.logger.warning(f"Configuration warning: {e}")
     initialize_database()
+    if Config.APP_ENV.lower() != "test":
+        from services.brief_jobs import start_worker
+        start_worker()
     app.teardown_appcontext(close_db)
 
     # Warn about insecure defaults in production
