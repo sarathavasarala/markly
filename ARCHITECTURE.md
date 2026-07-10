@@ -284,9 +284,14 @@ sequenceDiagram
     participant DB as SQLite DB
 
     Scheduler->>BE: POST /api/cron/hn-synthesis (Bearer CRON_SECRET)
-    BE->>DB: Load already-synthesized hn_ids (within 72h retention window)
+    BE->>DB: Load all already-synthesized hn_ids
     BE->>HNRSS: Fetch front page RSS (comments=50)
-    HNRSS-->>BE: RSS feed (titles, points, comment counts, article URLs)
+    alt HNRSS is unavailable or has no valid stories
+        BE->>Algolia: Fetch front_page stories
+        Algolia-->>BE: JSON stories (titles, points, comments, article URLs)
+    else HNRSS responds with stories
+        HNRSS-->>BE: RSS feed (titles, points, comment counts, article URLs)
+    end
     BE->>AI: Classify items (JSON mode — news / launch / factoid; drop noise)
     AI-->>BE: Selected items with classification labels (max 8)
     loop For each selected story

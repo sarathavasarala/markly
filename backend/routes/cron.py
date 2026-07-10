@@ -92,6 +92,9 @@ def cron_hn_synthesis():
         with db_session() as conn:
             summary = hn_synthesis.run_hn_synthesis(conn)
         return jsonify({"success": True, "summary": summary})
+    except hn_synthesis.HNFrontpageUnavailable as exc:
+        logger.error("HN synthesis has no available front-page source: %s", exc)
+        return jsonify({"error": str(exc)}), 503
     except Exception as exc:
         logger.exception("HN synthesis cron failed")
         return jsonify({"error": str(exc)}), 500

@@ -466,6 +466,12 @@ class Config(metaclass=ConfigMeta):
     # Default: "https://hnrss.org/frontpage?comments=50"
     HN_FRONTPAGE_URL = os.getenv("HN_FRONTPAGE_URL", "https://hnrss.org/frontpage?comments=50")
 
+    # HN_ALGOLIA_FRONTPAGE_URL: Fallback query for current HN front-page stories.
+    HN_ALGOLIA_FRONTPAGE_URL = os.getenv(
+        "HN_ALGOLIA_FRONTPAGE_URL",
+        "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30",
+    )
+
     # HN_ALGOLIA_ITEM_URL: Algolia HN API template for fetching a full item + comment tree.
     # Possible values: URL template with {id} placeholder.
     HN_ALGOLIA_ITEM_URL = "https://hn.algolia.com/api/v1/items/{id}"
@@ -496,11 +502,6 @@ class Config(metaclass=ConfigMeta):
     # Possible values: Positive integer.
     # Default: 40000
     HN_COMMENTS_MAX_CHARS = int(os.getenv("HN_COMMENTS_MAX_CHARS", "40000"))
-
-    # HN_SYNTHESIS_RETENTION_HOURS: Window within which an hn_id is considered already synthesized.
-    # Possible values: Positive integer.
-    # Default: 72
-    HN_SYNTHESIS_RETENTION_HOURS = int(os.getenv("HN_SYNTHESIS_RETENTION_HOURS", "72"))
 
     @classmethod
     def validate(cls):

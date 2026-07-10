@@ -20,7 +20,7 @@ import logging
 import re
 import time
 import traceback as tb
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from html import unescape
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -44,6 +44,10 @@ _HEADERS = {
     "User-Agent": "markly-hn-synthesis/1.0 (+https://markly.azurewebsites.net)",
     "Accept": "application/json, application/rss+xml, */*;q=0.8",
 }
+
+
+class HNFrontpageUnavailable(Exception):
+    """Raised when neither configured HN front-page source can provide stories."""
 
 
 # ---------------------------------------------------------------------------
@@ -84,11 +88,25 @@ def _extract_points_and_comments(description_html: str) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 
 def fetch_frontpage() -> list[dict]:
-    """Fetch hnrss.org frontpage and return a list of candidate story dicts.
+    """Fetch HNRSS, falling back to Algolia when it is unavailable or empty.
 
     Each dict has keys: hn_id, title, article_url, comments_url,
     points, num_comments, brief, story_published_at.
     """
+    items = _fetch_hnrss_frontpage()
+    if items:
+        return items
+
+    logger.warning("HNRSS returned no HN front-page stories; trying Algolia fallback.")
+    items = _fetch_algolia_frontpage()
+    if items:
+        return items
+
+    raise HNFrontpageUnavailable("HNRSS and Algolia returned no HN front-page stories.")
+
+
+def _fetch_hnrss_frontpage() -> list[dict]:
+    """Fetch and parse the preferred HNRSS front-page feed."""
     url = Config.HN_FRONTPAGE_URL
     try:
         response = requests.get(
@@ -102,7 +120,7 @@ def fetch_frontpage() -> list[dict]:
                 Config.FEED_MAX_RESPONSE_BYTES,
             )
             content = content[: Config.FEED_MAX_RESPONSE_BYTES]
-    except Exception as exc:
+    except requests.RequestException as exc:
         logger.error("Failed to fetch HN frontpage from %s: %s", url, exc)
         return []
 
@@ -160,6 +178,54 @@ def fetch_frontpage() -> list[dict]:
             }
         )
 
+    return items
+
+
+def _fetch_algolia_frontpage() -> list[dict]:
+    """Fetch current HN front-page stories from Algolia as a resilient fallback."""
+    url = Config.HN_ALGOLIA_FRONTPAGE_URL
+    try:
+        response = requests.get(
+            url, headers=_HEADERS, timeout=Config.HN_HTTP_TIMEOUT_SECONDS, allow_redirects=True
+        )
+        response.raise_for_status()
+        content = response.content
+        if len(content) > Config.FEED_MAX_RESPONSE_BYTES:
+            logger.warning(
+                "Algolia front-page response exceeded size limit (%d bytes); ignoring it",
+                Config.FEED_MAX_RESPONSE_BYTES,
+            )
+            return []
+        hits = json.loads(content).get("hits", [])
+    except (requests.RequestException, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        logger.error("Failed to fetch HN front page from Algolia at %s: %s", url, exc)
+        return []
+
+    items: list[dict] = []
+    for hit in hits:
+        try:
+            hn_id = int(hit["objectID"])
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        title = str(hit.get("title") or hit.get("story_title") or "").strip()
+        if not title:
+            continue
+        comments_url = f"https://news.ycombinator.com/item?id={hn_id}"
+        article_url = str(hit.get("url") or hit.get("story_url") or comments_url)
+        brief = _plain_text(hit.get("story_text") or hit.get("comment_text") or "")[:500]
+        items.append(
+            {
+                "hn_id": hn_id,
+                "title": title,
+                "article_url": article_url,
+                "comments_url": comments_url,
+                "points": int(hit.get("points") or 0),
+                "num_comments": int(hit.get("num_comments") or 0),
+                "brief": brief,
+                "story_published_at": hit.get("created_at"),
+            }
+        )
     return items
 
 
@@ -554,14 +620,8 @@ def _fan_out_to_user(conn, user_id: str, item: dict, synthesis_md: str, feed_id:
 # ---------------------------------------------------------------------------
 
 def _already_synthesized_ids(conn) -> set[int]:
-    """Return hn_ids synthesized within the retention window."""
-    cutoff = (
-        datetime.now(timezone.utc)
-        - timedelta(hours=Config.HN_SYNTHESIS_RETENTION_HOURS)
-    ).isoformat()
-    rows = conn.execute(
-        "SELECT hn_id FROM hn_syntheses WHERE created_at > ?", (cutoff,)
-    ).fetchall()
+    """Return every HN story ID that already has a persisted synthesis."""
+    rows = conn.execute("SELECT hn_id FROM hn_syntheses").fetchall()
     return {row["hn_id"] for row in rows}
 
 
@@ -570,7 +630,7 @@ def run_hn_synthesis(conn) -> dict[str, Any]:
 
     Steps:
     1. Fetch HN frontpage stories
-    2. Skip hn_ids already synthesized within the retention window
+    2. Skip hn_ids already synthesized
     3. Classify remaining stories via LLM (keeps <= HN_SYNTHESIS_MAX_ITEMS)
     4. For each classified story:
        a. Polite throttle (HN_FETCH_DELAY_SECONDS)

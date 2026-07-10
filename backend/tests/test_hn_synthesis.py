@@ -5,6 +5,9 @@ import json
 import os
 from unittest.mock import MagicMock
 
+import pytest
+import requests
+
 from database import db_session, upsert_user
 
 
@@ -102,6 +105,20 @@ SAMPLE_ALGOLIA = {
     ],
 }
 
+SAMPLE_ALGOLIA_FRONTPAGE = {
+    "hits": [
+        {
+            "objectID": "48689028",
+            "title": "Previewing GPT-5.6 Sol",
+            "url": "https://openai.com/gpt56",
+            "points": 946,
+            "num_comments": 581,
+            "story_text": "<p>A new model release.</p>",
+            "created_at": "2026-06-26T17:06:55.000Z",
+        }
+    ]
+}
+
 
 class FakeHTTPResponse:
     """Minimal requests.Response stand-in."""
@@ -157,12 +174,49 @@ class TestFetchFrontpage:
         assert no_points["points"] == 0
         assert no_points["num_comments"] == 0
 
-    def test_returns_empty_on_request_error(self, app, mocker):
-        mocker.patch("requests.get", side_effect=Exception("network error"))
+    def test_falls_back_to_algolia_on_hnrss_request_error(self, app, mocker):
+        mocker.patch(
+            "requests.get",
+            side_effect=[
+                requests.ConnectionError("HNRSS network error"),
+                FakeHTTPResponse(json.dumps(SAMPLE_ALGOLIA_FRONTPAGE).encode()),
+            ],
+        )
         from services.hn_synthesis import fetch_frontpage
 
         items = fetch_frontpage()
-        assert items == []
+        assert items == [
+            {
+                "hn_id": 48689028,
+                "title": "Previewing GPT-5.6 Sol",
+                "article_url": "https://openai.com/gpt56",
+                "comments_url": "https://news.ycombinator.com/item?id=48689028",
+                "points": 946,
+                "num_comments": 581,
+                "brief": "A new model release.",
+                "story_published_at": "2026-06-26T17:06:55.000Z",
+            }
+        ]
+
+    def test_falls_back_to_algolia_when_hnrss_has_no_entries(self, app, mocker):
+        empty_rss = b"<?xml version='1.0'?><rss version='2.0'><channel /></rss>"
+        mocker.patch(
+            "requests.get",
+            side_effect=[
+                FakeHTTPResponse(empty_rss),
+                FakeHTTPResponse(json.dumps(SAMPLE_ALGOLIA_FRONTPAGE).encode()),
+            ],
+        )
+        from services.hn_synthesis import fetch_frontpage
+
+        assert fetch_frontpage()[0]["hn_id"] == 48689028
+
+    def test_raises_when_both_frontpage_sources_fail(self, app, mocker):
+        mocker.patch("requests.get", side_effect=requests.ConnectionError("network error"))
+        from services.hn_synthesis import HNFrontpageUnavailable, fetch_frontpage
+
+        with pytest.raises(HNFrontpageUnavailable):
+            fetch_frontpage()
 
 
 # ---------------------------------------------------------------------------
@@ -556,7 +610,13 @@ class TestRunHnSynthesis:
         with db_session() as conn:
             stats1 = run_hn_synthesis(conn)
 
-        # Second run — same item, should be skipped by retention check
+        # Even a much older synthesis must be skipped permanently.
+        with db_session() as conn:
+            conn.execute(
+                "UPDATE hn_syntheses SET created_at = ? WHERE hn_id = ?",
+                ("2000-01-01T00:00:00+00:00", 48689028),
+            )
+
         with db_session() as conn:
             stats2 = run_hn_synthesis(conn)
 
@@ -647,3 +707,16 @@ class TestCronHnSynthesisRoute:
         data = resp.get_json()
         assert data["success"] is True
         assert data["summary"]["synthesized"] == 3
+
+    def test_reports_service_unavailable_when_no_frontpage_source(self, client, mocker):
+        from services.hn_synthesis import HNFrontpageUnavailable
+
+        mocker.patch(
+            "routes.cron.hn_synthesis.run_hn_synthesis",
+            side_effect=HNFrontpageUnavailable("No HN sources available"),
+        )
+
+        resp = client.post("/api/cron/hn-synthesis", headers=AUTH_HEADERS)
+
+        assert resp.status_code == 503
+        assert resp.get_json() == {"error": "No HN sources available"}

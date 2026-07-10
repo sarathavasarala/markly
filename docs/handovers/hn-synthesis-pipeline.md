@@ -14,7 +14,7 @@ Implementation code is the source of truth; follow existing patterns over docs.
 
 Build a pipeline that, every 12 hours:
 
-1. Fetches the HN front page RSS: `https://hnrss.org/frontpage?comments=50`.
+1. Fetches the HN front page RSS: `https://hnrss.org/frontpage?comments=50`, with Algolia's `front_page` query as a fallback when HNRSS is unavailable.
 2. Looks at each item's title + brief description and **classifies** which ones qualify as
    *interesting news*, *product launch announcements*, or *factoids* (drop the rest).
 3. For the selected items, fetches the **entire comment thread** for the HN item
@@ -189,7 +189,7 @@ def synthesize(title, article_url, article_text, comments_text, points, num_comm
 
 def run_hn_synthesis(conn) -> dict:
     """Orchestrate: fetch frontpage -> skip hn_ids already in hn_syntheses (within
-    retention window) -> classify -> for each kept story: fetch article + comments,
+    existing IDs) -> classify -> for each kept story: fetch article + comments,
     synthesize, INSERT into hn_syntheses -> fan out into every user's HN Synthesis feed as
     feed_items. Return a summary dict {stories_seen, classified, synthesized, fanned_out}."""
 ```
@@ -273,7 +273,6 @@ HN_ALGOLIA_ITEM_URL = "https://hn.algolia.com/api/v1/items/{id}"
 HN_SYNTHESIS_MAX_ITEMS = int(os.getenv("HN_SYNTHESIS_MAX_ITEMS", "8"))
 HN_FETCH_DELAY_SECONDS = float(os.getenv("HN_FETCH_DELAY_SECONDS", "1.0"))
 HN_COMMENTS_MAX_CHARS = int(os.getenv("HN_COMMENTS_MAX_CHARS", "40000"))
-HN_SYNTHESIS_RETENTION_HOURS = int(os.getenv("HN_SYNTHESIS_RETENTION_HOURS", "72"))
 ```
 
 Add a classifier prompt constant `Prompts.HN_CLASSIFIER_PROMPT` (JSON-mode: given a numbered
@@ -422,6 +421,6 @@ Run: `npm run test:backend`. Ensure no writes to the real `markly.db`.
 - [ ] Comments fetched via a single Algolia request per story, with polite throttling; HN
       HTML is never scraped.
 - [ ] Items are readable in the inbox/reader and appear as daily-brief candidates.
-- [ ] Re-running within the retention window does not duplicate work or items.
+- [ ] Re-running a previously synthesized story does not duplicate work or items.
 - [ ] The internal feed is never HTTP-fetched by `refresh_feeds`.
 - [ ] All new tests pass under `npm run test:backend` with no real network/LLM/DB writes.
