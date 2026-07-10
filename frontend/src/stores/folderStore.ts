@@ -5,7 +5,7 @@ interface FolderState {
     folders: Folder[]
     isLoading: boolean
     error: string | null
-    selectedFolderId: string | null; // null = Everything, UUID = Folder
+    selectedFolderId: string | null; // null = Library, UUID = Folder
     fetchFolders: () => Promise<void>
     setSelectedFolderId: (id: string | null) => void
     createFolder: (name: string, icon?: string, color?: string) => Promise<Folder>

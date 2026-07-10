@@ -55,7 +55,7 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
         const parts = []
         if (created > 0) parts.push(`${created} new ${created === 1 ? 'cluster' : 'clusters'}`)
         if (updated > 0) parts.push(`${updated} updated`)
-        setInfoMessage(`Sources updated: ${parts.join(' and ')}.`)
+        setInfoMessage(`Your following is up to date: ${parts.join(' and ')}.`)
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to refresh clusters')
@@ -238,7 +238,7 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
               No clusters yet
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Refresh sources or generate clusters from recent articles. Clusters group related RSS items together by theme and topic.
+              Check your following or generate clusters from recent articles. Clusters group related reading together by theme and topic.
             </p>
             <div className="pt-4 flex justify-center">
               <button
@@ -373,7 +373,7 @@ export default function ClusterSection({ onSavedSuccess }: { onSavedSuccess?: ()
                   {/* Single Clear Action Button */}
                   <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-850/80 flex items-center justify-between">
                     <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                      {cluster.article_count} articles &middot; {cluster.source_count} sources
+                      {cluster.article_count} articles &middot; {cluster.source_count} publications
                     </div>
 
                     <div className="flex items-center gap-2">

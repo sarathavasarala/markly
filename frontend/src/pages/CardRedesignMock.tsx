@@ -102,12 +102,12 @@ export default function CardRedesignMock() {
             <div className="relative mx-auto w-full max-w-xl">
               <SearchIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                placeholder="Search your bookmarks..."
+                placeholder="Search your library..."
                 className="w-full rounded-full border border-slate-200 bg-white px-12 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500"
               />
             </div>
             <button className="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white">
-              <Plus className="h-4 w-4" /> Add
+              <Plus className="h-4 w-4" /> Save link
             </button>
             <button
               onClick={() => setDark(d => !d)}
@@ -127,7 +127,7 @@ export default function CardRedesignMock() {
                 onClick={() => setSelectedFolder(null)}
                 className={`${sidebarItem} ${selectedFolder === null ? sidebarActive : sidebarIdle}`}
               >
-                <LayoutGrid className="h-4 w-4" /> Everything
+                <LayoutGrid className="h-4 w-4" /> Library
               </button>
             </div>
             <div>

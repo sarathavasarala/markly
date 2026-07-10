@@ -1,8 +1,8 @@
 # markly
 
-**Your daily brief from the blogs and newsletters you follow.**
+**Your daily brief from the people and publications you follow.**
 
-markly follows the blogs and newsletters you care about and turns them into one synthesized brief, instead of another endless feed. Read what's worth your time, save what you want to keep, and let your saved reading become a list other people can follow.
+markly follows the blogs and newsletters you care about and turns them into one concise brief, instead of another endless feed. Read what's worth your time, save what you want to keep, and let your saved reading become a list other people can follow.
 
 **Live app:** [markly.azurewebsites.net](https://markly.azurewebsites.net/)
 
@@ -10,16 +10,16 @@ markly follows the blogs and newsletters you care about and turns them into one 
 
 ## Why markly exists
 
-The internet is full of thoughtful writing, but keeping up with it often turns into inbox clutter, unread tabs, and feeds that never end. markly gives you a quieter way to follow the sources you trust.
+The internet is full of thoughtful writing, but keeping up with it often turns into inbox clutter, unread tabs, and feeds that never end. markly gives you a quieter way to follow the people and publications you trust.
 
-It brings your blogs and newsletters together, turns new posts into a daily brief, helps you save the pieces worth keeping, and gives you a public reading list you can share.
+It brings your blogs and newsletters together, turns new writing into a daily brief, helps you save the pieces worth keeping in your library, and gives you a public reading list you can share.
 
 ## What you can do with markly
 
-- Start the day with a synthesized brief from the sources you follow.
+- Start the day with a concise brief from the people and publications you follow.
 - Follow blogs, newsletters, and publications in one place.
-- Browse new posts before deciding what deserves your attention.
-- Save articles into a personal reading library.
+- Review new writing in your reading inbox before deciding what deserves your attention.
+- Save articles to your library.
 - Let markly summarize, tag, archive, and suggest folders for saved links.
 - Search your library by keyword, folder, topic, domain, and content type.
 - Turn selected bookmarks into a public `/@username` reading list.
@@ -33,9 +33,9 @@ markly is built around a few core reading workflows:
 
 When enabled, Daily Brief tracing records the major generation stages to an external trace sink. markly owns the trace interface and Langfuse is only the first adapter, so traces can later be sent elsewhere without rewriting the brief pipeline.
 
-**Sources.** Add RSS feeds for the blogs, newsletters, and publications you care about. Sources keeps an inbox of new posts, lets you read clean article content inline, and gives you quick actions to save or dismiss each item.
+**Reading inbox and following.** Follow RSS feeds from the blogs, newsletters, and publications you care about. Your reading inbox keeps new posts together, lets you read clean article content inline, and gives you quick actions to save or dismiss each item.
 
-**Topic clusters.** markly can group related feed items into active clusters and generate focused reports from multiple sources, so a developing topic is easier to understand than a pile of isolated links.
+**Topic clusters.** markly can group related feed items into active clusters and generate focused reports from multiple publications, so a developing topic is easier to understand than a pile of isolated links.
 
 **Saved reading library.** When you save a link, markly extracts the page, stores an archive copy when possible, enriches it with AI-generated metadata, and keeps it searchable. Saved bookmarks can include summaries, key quotes, tags, content type, intent, technical level, thumbnails, favicons, and suggested folders.
 

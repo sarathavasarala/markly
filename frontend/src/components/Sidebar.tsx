@@ -65,14 +65,14 @@ export default function Sidebar() {
                             className={`${itemBase} ${selectedFolderId === null && location.pathname === '/bookmarks' ? itemActive : itemIdle}`}
                         >
                             <LayoutGrid className="h-4 w-4" />
-                            Everything
+                            Library
                         </Link>
                         <Link
                             to="/sources"
                             className={`${itemBase} ${location.pathname === '/sources' ? itemActive : itemIdle}`}
                         >
                             <Radio className="h-4 w-4" />
-                            Sources
+                            Reading inbox
                         </Link>
                     </div>
 

@@ -104,7 +104,7 @@ export default function Layout({
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search bookmarks..."
+                        placeholder="Search your library..."
                         autoFocus
                         className="flex-1 border-none bg-transparent text-slate-900 placeholder-slate-400 focus:ring-0 dark:text-white"
                       />
@@ -134,7 +134,7 @@ export default function Layout({
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search your bookmarks..."
+                      placeholder="Search your library..."
                       className="w-full rounded-full border border-slate-200 bg-white px-12 py-2 text-sm text-slate-900 placeholder-slate-400 transition focus:border-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500 dark:focus:border-slate-500 dark:focus:ring-slate-700/40"
                     />
                   </div>
@@ -146,7 +146,7 @@ export default function Layout({
                     className="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 active:scale-95 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white"
                   >
                     <Plus className="h-4 w-4" />
-                    <span className="hidden sm:inline">Add</span>
+                    <span className="hidden sm:inline">Save link</span>
                   </button>
 
                   <div className="relative group">

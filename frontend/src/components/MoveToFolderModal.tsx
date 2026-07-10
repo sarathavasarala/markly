@@ -83,7 +83,7 @@ export default function MoveToFolderModal({ isOpen, onClose, currentFolderId, on
                                 }`}>
                                 <BookMarked className="w-4 h-4" />
                             </div>
-                            <span className="text-sm font-medium">Everything</span>
+                            <span className="text-sm font-medium">Library</span>
                         </div>
                         {currentFolderId === null && <Check className="w-4 h-4" />}
                     </button>

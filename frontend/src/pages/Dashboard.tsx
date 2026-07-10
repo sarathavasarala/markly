@@ -127,12 +127,12 @@ export default function Dashboard() {
     const isInsideFolder = currentFolder && viewMode !== 'folders'
 
     let titleContent: React.ReactNode = (
-      <span className="flex items-center gap-1">Your bookmarks ({isLoading ? <span className="inline-block w-6 h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded animate-pulse align-middle" /> : totalCount})</span>
+      <span className="flex items-center gap-1">Your library ({isLoading ? <span className="inline-block w-6 h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded animate-pulse align-middle" /> : totalCount})</span>
     )
 
     if (viewMode === 'folders') {
       titleContent = (
-        <span className="flex items-center gap-1">Your bookmarks ({isLoading ? <span className="inline-block w-6 h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded animate-pulse align-middle" /> : totalCount})</span>
+        <span className="flex items-center gap-1">Your library ({isLoading ? <span className="inline-block w-6 h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded animate-pulse align-middle" /> : totalCount})</span>
       )
     } else if (selectedTags.length > 0) {
       titleContent = (
@@ -154,7 +154,7 @@ export default function Dashboard() {
             }}
             className="text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
           >
-            Your bookmarks
+            Your library
           </button>
           <span className="text-slate-400 dark:text-slate-500">›</span>
           <span>{currentFolder.name}</span>
@@ -373,7 +373,7 @@ export default function Dashboard() {
                     }}
                     className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700"
                   >
-                    Go back to Everything
+                    Go back to your library
                   </button>
                 </div>
               </div>
@@ -431,4 +431,3 @@ export default function Dashboard() {
     </div>
   )
 }
-

@@ -20,7 +20,7 @@ interface PipelineStep {
 
 const getInitialSteps = (webSearchEnabled: boolean, planningEnabled: boolean, humanizerEnabled: boolean): PipelineStep[] => {
   const steps: PipelineStep[] = [
-    { id: 'scanning', label: 'Scanning sources', status: 'pending' },
+    { id: 'scanning', label: 'Reviewing what you follow', status: 'pending' },
     { id: 'filtering', label: 'Applying briefing preferences', status: 'pending' },
     { id: 'extracting', label: 'Extracting full text', status: 'pending' },
   ]
@@ -416,7 +416,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
             </div>
             <div className="space-y-2">
               <h2 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">
-                Create your first Daily Brief
+                Create today's brief
               </h2>
               <p className="mx-auto max-w-lg text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                 Instead of reading individual feed items, markly filters recent posts using your briefing preferences and synthesizes them into a unified chief-of-staff memo.
@@ -424,7 +424,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
             </div>
             <div className="grid gap-3 text-left sm:grid-cols-3">
               {[
-                'Scans your followed sources',
+                'Reviews the writing you follow',
                 'Filters with your briefing preferences',
                 'Writes one focused memo',
               ].map((label) => (
@@ -619,7 +619,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
             <div className="max-w-3xl">
               <div className="flex flex-col gap-3 border-b border-slate-200/60 pb-3 dark:border-slate-800/60 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Today's Brief
+                  Today's brief
                 </h2>
                 
                 <div className="flex flex-wrap items-center gap-2">
@@ -862,7 +862,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                             </div>
                             {synthesisOutputWords !== null && (
                               <div className="flex items-center justify-between pl-3 text-slate-500 dark:text-slate-400">
-                                <span className="font-medium text-slate-600 dark:text-slate-400">Output (Generated Daily Brief Content)</span>
+                                <span className="font-medium text-slate-600 dark:text-slate-400">Generated brief</span>
                                 <span className="font-medium">~{synthesisOutputWords.toLocaleString()} words (est. tokens ~{Math.round(synthesisOutputWords * 1.35).toLocaleString()})</span>
                               </div>
                             )}
@@ -899,7 +899,7 @@ export default function SignalSection({ onGenerateSuccess }: SignalSectionProps)
                   {/* Header info */}
                   <div className="border-b border-slate-100 pb-4 mb-6 dark:border-slate-900">
                     <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                      {selectedBrief.title ? formatDate(selectedBrief.created_at) : 'Daily Briefing Memo'}
+                      {selectedBrief.title ? formatDate(selectedBrief.created_at) : 'Brief'}
                     </div>
                     <h2 className="font-display text-2xl font-normal text-slate-900 dark:text-slate-50">
                       {selectedBrief.title || formatDate(selectedBrief.created_at)}

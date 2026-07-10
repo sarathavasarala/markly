@@ -160,34 +160,34 @@ describe('Sources page tab normalisation (Radar.tsx behaviour)', () => {
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
 
 describe('Sidebar navigation', () => {
-  it('renders the Sources link pointing to /sources', () => {
+  it('renders the Reading inbox link pointing to /sources', () => {
     render(
       <MemoryRouter initialEntries={['/sources']}>
         <Sidebar />
       </MemoryRouter>,
     )
-    const link = screen.getByText('Sources').closest('a')
+    const link = screen.getByText('Reading inbox').closest('a')
     expect(link).toHaveAttribute('href', '/sources')
   })
 
-  it('marks the Sources link as active when the current path is /sources', () => {
+  it('marks the Reading inbox link as active when the current path is /sources', () => {
     render(
       <MemoryRouter initialEntries={['/sources']}>
         <Sidebar />
       </MemoryRouter>,
     )
-    const link = screen.getByText('Sources').closest('a')
+    const link = screen.getByText('Reading inbox').closest('a')
     // Active items receive the standalone bg-white class (not hover:bg-white/60)
     expect(link?.className.split(' ')).toContain('bg-white')
   })
 
-  it('does not mark Sources as active when on a different path', () => {
+  it('does not mark Reading inbox as active when on a different path', () => {
     render(
       <MemoryRouter initialEntries={['/bookmarks']}>
         <Sidebar />
       </MemoryRouter>,
     )
-    const link = screen.getByText('Sources').closest('a')
+    const link = screen.getByText('Reading inbox').closest('a')
     expect(link?.className.split(' ')).not.toContain('bg-white')
   })
 })

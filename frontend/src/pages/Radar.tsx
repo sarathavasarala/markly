@@ -67,7 +67,7 @@ export default function Radar() {
   const [isReaderLoading, setIsReaderLoading] = useState(false)
   const [readerError, setReaderError] = useState<string | null>(null)
   const [isExtractingClean, setIsExtractingClean] = useState(false)
-  const [isSourcesExpanded, setIsSourcesExpanded] = useState(false)
+  const [isFollowingExpanded, setIsFollowingExpanded] = useState(false)
   const [copiedFeedId, setCopiedFeedId] = useState<string | null>(null)
   const [confirmDeleteFeedId, setConfirmDeleteFeedId] = useState<string | null>(null)
   const [isDeletingFeed, setIsDeletingFeed] = useState(false)
@@ -121,7 +121,7 @@ export default function Radar() {
       setTotal(inboxRes.data.total)
       setHasMore(inboxRes.data.items.length < inboxRes.data.total)
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load sources')
+      setError(err.response?.data?.error || 'Failed to load your reading inbox')
     } finally {
       setIsLoading(false)
     }
@@ -263,16 +263,16 @@ export default function Radar() {
       const response = await feedsApi.refresh({ force, stale_after_minutes: 30 })
       const { items_added, feeds_checked, feeds_failed, feeds_skipped } = response.data
       setLastRefreshSummary(
-        `${items_added} new ${items_added === 1 ? 'item' : 'items'} from ${feeds_checked} checked ${feeds_checked === 1 ? 'source' : 'sources'}`
+        `${items_added} new ${items_added === 1 ? 'item' : 'items'} from ${feeds_checked} checked ${feeds_checked === 1 ? 'publication' : 'publications'}`
       )
       if (feeds_failed > 0) {
         setLastRefreshSummary((summary) => `${summary}. ${feeds_failed} failed.`)
       } else if (feeds_skipped > 0 && feeds_checked === 0) {
-        setLastRefreshSummary('Sources were checked recently.')
+        setLastRefreshSummary('Your following was checked recently.')
       }
       await loadRadar()
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to refresh feeds')
+      setError(err.response?.data?.error || 'Failed to check your following')
     } finally {
       setIsRefreshing(false)
     }
@@ -294,7 +294,7 @@ export default function Radar() {
       setConfirmDeleteFeedId(null)
       await loadRadar()
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to remove source')
+      setError(err.response?.data?.error || 'Failed to remove publication')
     } finally {
       setIsDeletingFeed(false)
     }
@@ -329,12 +329,12 @@ export default function Radar() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-normal text-slate-950 dark:text-slate-50">
-            Sources
+            Reading inbox
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
             {activeTab === 'queue'
-              ? 'New posts from your sources. Save only the ones that deserve a place in your library.'
-              : 'A high-signal daily intelligence brief synthesized from your followed RSS feeds.'}
+              ? 'New writing from the people and publications you follow. Save what you want to keep.'
+              : 'A concise daily brief from the writing you follow.'}
           </p>
         </div>
 
@@ -360,7 +360,7 @@ export default function Radar() {
               : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400'
           }`}
         >
-          Queue ({isLoading ? '...' : allCount})
+          New ({isLoading ? '...' : allCount})
         </button>
         {/* Clusters feature temporarily hidden — pending more testing before re-enabling.
         <button
@@ -382,7 +382,7 @@ export default function Radar() {
               : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400'
           }`}
         >
-          Daily Brief
+          Today's brief
         </button>
       </div>
 
@@ -393,14 +393,14 @@ export default function Radar() {
             className="rounded-card border border-slate-200/70 bg-white/70 p-4 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/50"
           >
             <label className="mb-2 block text-xs font-medium text-slate-500 dark:text-slate-400">
-          Add a source
+          Follow a publication
         </label>
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
             type="text"
             value={newFeedUrl}
             onChange={(event) => setNewFeedUrl(event.target.value)}
-            placeholder="Paste a blog or RSS URL"
+            placeholder="Paste a blog, newsletter, or RSS URL"
             className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-900/40"
           />
           <button
@@ -409,7 +409,7 @@ export default function Radar() {
             className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700 dark:hover:bg-slate-700"
           >
             {isAddingFeed ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Add source
+            Follow
           </button>
         </div>
       </form>
@@ -428,23 +428,23 @@ export default function Radar() {
         <aside className="xl:sticky xl:top-20 xl:self-start w-full min-w-0">
           <button
             type="button"
-            onClick={() => setIsSourcesExpanded(!isSourcesExpanded)}
+            onClick={() => setIsFollowingExpanded(!isFollowingExpanded)}
             className="flex w-full items-center justify-between rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-left text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800/80 dark:bg-slate-900/50 dark:text-slate-300 xl:hidden mb-3"
           >
             <div className="flex items-center gap-2">
-              <span className="text-slate-500 dark:text-slate-400 font-semibold">Sources</span>
+              <span className="text-slate-500 dark:text-slate-400 font-semibold">Following</span>
               <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-400 font-medium">
-                {selectedFeed ? selectedFeed.title || selectedFeed.feed_url : 'All sources'}
+                {selectedFeed ? selectedFeed.title || selectedFeed.feed_url : 'All following'}
               </span>
             </div>
             <span className="text-xs text-slate-400 font-semibold">
-              {isSourcesExpanded ? 'Hide ▲' : 'Show ▼'}
+              {isFollowingExpanded ? 'Hide ▲' : 'Show ▼'}
             </span>
           </button>
 
           <div className="hidden xl:block mb-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">Sources</h2>
+              <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">Following</h2>
               {!isLoading && feeds.length > 0 && (
                 <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
                   {lastSyncedAt && (
@@ -463,23 +463,23 @@ export default function Radar() {
             </div>
           </div>
 
-          <div className={`${isSourcesExpanded ? 'block animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden'} xl:block space-y-1 w-full min-w-0`}>
+          <div className={`${isFollowingExpanded ? 'block animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden'} xl:block space-y-1 w-full min-w-0`}>
             <button
               onClick={() => {
                 setSelectedFeedId(null)
-                setIsSourcesExpanded(false)
+                setIsFollowingExpanded(false)
               }}
               className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm transition ${selectedFeedId === null
                 ? 'bg-white text-slate-950 ring-1 ring-slate-200 shadow-sm dark:bg-slate-800 dark:text-slate-50 dark:ring-slate-700'
                 : 'text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100'
                 }`}
             >
-              <span>All sources</span>
+              <span>All following</span>
               <span className="text-xs tabular-nums text-slate-400 dark:text-slate-500">{allCount}</span>
             </button>
             {feeds.length === 0 ? (
               <div className="rounded-2xl border border-slate-200/70 bg-white/50 p-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400">
-                Your followed sources will appear here.
+                The people and publications you follow will appear here.
               </div>
             ) : (
               feeds.map((feed) => (
@@ -487,7 +487,7 @@ export default function Radar() {
                   <button
                     onClick={() => {
                       setSelectedFeedId(feed.id)
-                      setIsSourcesExpanded(false)
+                      setIsFollowingExpanded(false)
                     }}
                     className={`min-w-0 flex-1 rounded-2xl px-3 py-2 text-left transition ${selectedFeedId === feed.id
                       ? 'bg-white text-slate-950 ring-1 ring-slate-200 shadow-sm dark:bg-slate-800 dark:text-slate-50 dark:ring-slate-700'
@@ -556,8 +556,8 @@ export default function Radar() {
                           e.stopPropagation()
                           setConfirmDeleteFeedId(feed.id)
                         }}
-                        className="rounded-lg p-1.5 text-slate-355 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-900/20 dark:hover:text-rose-350"
-                        title="Remove source"
+                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-900/20 dark:hover:text-rose-200"
+                        title="Unfollow publication"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -572,7 +572,7 @@ export default function Radar() {
         <section className="space-y-3 w-full min-w-0">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              {selectedFeed ? selectedFeed.title || 'Selected source' : 'New from your sources'} ({isLoading ? '...' : total})
+              {selectedFeed ? selectedFeed.title || 'Selected publication' : 'New from your following'} ({isLoading ? '...' : total})
             </h2>
           </div>
 
@@ -588,15 +588,15 @@ export default function Radar() {
                 <Radio className="w-8 h-8" />
               </div>
               <div className="space-y-2">
-                <h2 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">Add your first sources</h2>
+                <h2 className="font-display text-2xl font-normal text-slate-950 dark:text-slate-50">Follow your first publication</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-                  markly follows blogs, newsletters, and RSS feeds for you. New posts appear in your inbox, and you can generate a daily brief from everything you follow.
+                  Follow blogs, newsletters, and publications in one place. New writing appears here, and you can turn it into today's brief.
                 </p>
               </div>
 
               <div className="border-t border-slate-200/50 dark:border-slate-800/80 pt-6">
                 <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4 text-left">
-                  Suggested tech feeds (from your profile)
+                  Suggested publications
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2 text-left">
                   {SAMPLE_FEEDS.map((feed) => {
@@ -624,14 +624,14 @@ export default function Radar() {
                             {adding ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin" />
-                                Adding...
+                                Following...
                               </>
                             ) : added ? (
-                              'Added'
+                              'Following'
                             ) : (
                               <>
                                 <Plus className="w-3 h-3" />
-                                Add
+                                Follow
                               </>
                             )}
                           </button>
@@ -650,7 +650,7 @@ export default function Radar() {
               <div className="space-y-1">
                 <h3 className="font-display text-lg font-medium text-slate-950 dark:text-slate-50">All caught up</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Nothing new in your inbox right now. Check back later or add more sources.
+                  Nothing new in your inbox right now. Check back later or follow more publications.
                 </p>
               </div>
               <button
@@ -659,7 +659,7 @@ export default function Radar() {
                 className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-white disabled:opacity-50"
               >
                 {isRefreshing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                Refresh feeds
+                Check for new posts
               </button>
             </div>
           ) : (
@@ -671,7 +671,7 @@ export default function Radar() {
                 if (!group) {
                   group = {
                     feed_id: feedId,
-                    feed_title: item.feed_title || item.feed_site_url || 'Feed source',
+                    feed_title: item.feed_title || item.feed_site_url || 'Publication',
                     feed_favicon_url: item.feed_favicon_url || null,
                     feed_site_url: item.feed_site_url || null,
                     items: []
@@ -819,7 +819,7 @@ export default function Radar() {
                   <img src={activeReaderItem.feed_favicon_url} alt="" className="h-4 w-4 rounded" />
                 )}
                 <span className="font-semibold truncate max-w-[150px] sm:max-w-[200px]">
-                  {activeReaderItem.feed_title || 'Feed source'}
+                  {activeReaderItem.feed_title || 'Publication'}
                 </span>
                 {formatDate(activeReaderItem.published_at || activeReaderItem.first_seen_at) && (
                   <>

@@ -114,7 +114,7 @@ export default function Login() {
                       Today's brief
                     </h3>
                     <div className="mt-1.5 text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5 flex-wrap font-sans">
-                      <span>8 sources analyzed</span>
+                      <span>8 publications followed</span>
                       <span>•</span>
                       <span>12 min read</span>
                     </div>
@@ -218,4 +218,3 @@ export default function Login() {
     </div>
   )
 }
-
