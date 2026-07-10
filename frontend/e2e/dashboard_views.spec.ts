@@ -204,18 +204,18 @@ test.describe('Dashboard Views', () => {
         await expect(foldersToggleAfter).toHaveClass(/bg-slate-900/);
     });
 
-    test('header keeps bookmarks title in folders view', async ({ page }) => {
+    test('header keeps library title in folders view', async ({ page }) => {
         await page.goto('/bookmarks');
 
-        // Initially should show "Your bookmarks"
-        await expect(page.getByRole('heading', { level: 1 })).toContainText('Your bookmarks');
+        // Initially should show "Your library"
+        await expect(page.getByRole('heading', { level: 1 })).toContainText('Your library');
 
         // Click the folders toggle
         const foldersToggle = page.getByTitle('Folders view');
         await foldersToggle.click();
 
-        // Folders are a view of the bookmark library, so the heading remains stable.
-        await expect(page.getByRole('heading', { level: 1 })).toContainText('Your bookmarks');
+        // Folders are a view of the library, so the heading remains stable.
+        await expect(page.getByRole('heading', { level: 1 })).toContainText('Your library');
     });
 });
 

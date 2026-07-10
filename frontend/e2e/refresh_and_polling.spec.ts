@@ -132,11 +132,11 @@ test.describe('Refresh and Polling Logic', () => {
         await page.goto('/bookmarks');
 
         // Verify initial count
-        await expect(page.getByText('Your bookmarks (1)')).toBeVisible();
+        await expect(page.getByText('Your library (1)')).toBeVisible();
         await expect(page.getByText('Example Bookmark')).toBeVisible();
 
-        // Click Add button (Layout.tsx line 145)
-        await page.getByRole('button', { name: 'Add' }).click();
+        // Click the primary save action.
+        await page.getByRole('button', { name: 'Save link' }).click();
 
         // Fill AddBookmarkModal
         await page.getByPlaceholder('https://…').fill('https://new.com');
@@ -181,14 +181,14 @@ test.describe('Refresh and Polling Logic', () => {
         await page.getByRole('button', { name: 'Save to library' }).click();
 
         // Modal should close and list should refresh
-        await expect(page.getByText('Your bookmarks (2)')).toBeVisible({ timeout: 10000 });
+        await expect(page.getByText('Your library (2)')).toBeVisible({ timeout: 10000 });
         await expect(page.getByText('New Bookmark')).toBeVisible();
     });
 
     test('deleting a bookmark updates the list and count', async ({ page }) => {
         await page.goto('/bookmarks');
 
-        await expect(page.getByText('Your bookmarks (1)')).toBeVisible();
+        await expect(page.getByText('Your library (1)')).toBeVisible();
 
         // Click Delete on the bookmark card
         // We need to trigger the menu first by dispatching a click on Bookmark actions

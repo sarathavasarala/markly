@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from database import db_session, upsert_user
 
@@ -502,7 +500,7 @@ class TestRunHnSynthesis:
         mocker.patch("services.feeds.embed_pending_feed_items_async")
 
     def test_inserts_into_hn_syntheses(self, app, mocker):
-        user = upsert_user("run-test@example.com")
+        upsert_user("run-test@example.com")
         self._setup_mocks(mocker)
         import config
 
@@ -580,7 +578,7 @@ class TestRunHnSynthesis:
         assert count_items == 1
 
     def test_skips_empty_synthesis(self, app, mocker):
-        user = upsert_user("skip-empty@example.com")
+        upsert_user("skip-empty@example.com")
         self._setup_mocks(mocker, synthesis_text="")
         import config
 
