@@ -60,19 +60,19 @@ export default function Sidebar() {
                 <div className="flex h-full flex-col p-4">
                     <div className="mb-6 flex-shrink-0 space-y-1">
                         <Link
+                            to="/sources"
+                            className={`${itemBase} ${location.pathname === '/sources' ? itemActive : itemIdle}`}
+                        >
+                            <Radio className="h-4 w-4" />
+                            Inbox
+                        </Link>
+                        <Link
                             to="/bookmarks"
                             onClick={() => setSelectedFolderId(null)}
                             className={`${itemBase} ${selectedFolderId === null && location.pathname === '/bookmarks' ? itemActive : itemIdle}`}
                         >
                             <LayoutGrid className="h-4 w-4" />
                             Library
-                        </Link>
-                        <Link
-                            to="/sources"
-                            className={`${itemBase} ${location.pathname === '/sources' ? itemActive : itemIdle}`}
-                        >
-                            <Radio className="h-4 w-4" />
-                            Reading inbox
                         </Link>
                     </div>
 

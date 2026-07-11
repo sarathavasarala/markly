@@ -121,7 +121,7 @@ export default function Radar() {
       setTotal(inboxRes.data.total)
       setHasMore(inboxRes.data.items.length < inboxRes.data.total)
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load your reading inbox')
+      setError(err.response?.data?.error || 'Failed to load your inbox')
     } finally {
       setIsLoading(false)
     }
@@ -329,7 +329,7 @@ export default function Radar() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-normal text-slate-950 dark:text-slate-50">
-            Reading inbox
+            Inbox
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
             {activeTab === 'queue'
@@ -556,7 +556,7 @@ export default function Radar() {
                           e.stopPropagation()
                           setConfirmDeleteFeedId(feed.id)
                         }}
-                        className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-rose-900/20 dark:hover:text-rose-200"
+                        className="rounded-lg p-1.5 text-slate-600 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-300 dark:hover:bg-rose-900/20 dark:hover:text-rose-200"
                         title="Unfollow publication"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
