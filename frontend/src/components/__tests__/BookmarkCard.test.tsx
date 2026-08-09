@@ -87,4 +87,10 @@ describe('BookmarkCard', () => {
 
         expect(screen.getByText('Analyzing content...')).toBeInTheDocument()
     })
+
+    it('renders the actions menu button with ellipsis icon', () => {
+        render(<BookmarkCard bookmark={mockBookmark} />)
+
+        expect(screen.getByTestId('more-icon')).toBeInTheDocument()
+    })
 })

@@ -11,7 +11,8 @@ import {
   Plus,
   Check,
   Folder as FolderIcon,
-  BookOpen
+  BookOpen,
+  MoreVertical
 } from 'lucide-react'
 import { useState, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -151,6 +152,7 @@ const BookmarkCard = memo(function BookmarkCard({
                   className="rounded-full p-2 text-slate-400 opacity-0 transition-all hover:bg-white hover:text-slate-700 group-hover:opacity-100 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                   aria-label="Bookmark actions"
                 >
+                  <MoreVertical className="h-4 w-4" />
                 </button>
 
                 {showMenu && (
@@ -325,7 +327,7 @@ const BookmarkCard = memo(function BookmarkCard({
 
         {/* Summary */}
         {bookmark.ai_summary && (
-          <p className="mb-5 text-sm font-normal leading-6 text-slate-600 dark:text-slate-400">
+          <p className="mb-5 text-sm font-normal leading-6 text-slate-600 dark:text-slate-400 line-clamp-3">
             {bookmark.ai_summary}
           </p>
         )}
