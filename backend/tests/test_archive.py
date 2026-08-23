@@ -342,4 +342,3 @@ def test_api_update_archive_validation_and_isolation(client):
         headers=AUTH_HEADERS,
     )
     assert res.status_code == 404
-
