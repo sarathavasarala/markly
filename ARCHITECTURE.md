@@ -228,6 +228,8 @@ flowchart TD
     M --> N[refresh_bookmark_fts: Index content into Full-Text-Search virtual table]
 ```
 
+Offline copies (`archive_content`) can be read via `GET /api/bookmarks/:id/archive` and manually edited or replaced with clean markdown summaries via `PUT /api/bookmarks/:id/archive`, which automatically recalculates metrics and updates the full-text search index (`bookmarks_fts`).
+
 ---
 
 ## 📊 SSE Daily Brief Synthesis Flow (Signal)

@@ -222,3 +222,124 @@ def test_fts_search_includes_archive_content(app):
         ).fetchall()
         assert len(results) == 1
         assert results[0]["bookmark_id"] == bookmark_id
+
+
+def test_api_update_archive_success(client):
+    """Verify owner can update archive content and format."""
+    from database import upsert_user
+    user = upsert_user("test@example.com")
+    bookmark_id = _insert_test_bookmark(
+        user["id"],
+        url="https://example.com/editable-article",
+        clean_title="Editable Article",
+        archive_status="completed",
+        archive_content="Initial raw text",
+        archive_format="text",
+    )
+
+    new_content = "# Cleaned Article\n\nThis is a properly formatted markdown summary."
+    response = client.put(
+        f"/api/bookmarks/{bookmark_id}/archive",
+        json={"archive_content": new_content, "archive_format": "markdown"},
+        headers=AUTH_HEADERS,
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["bookmark_id"] == bookmark_id
+    assert data["archive_content"] == new_content
+    assert data["archive_format"] == "markdown"
+    assert data["archive_status"] == "completed"
+    assert data["archive_word_count"] == 10
+    assert data["archive_char_count"] == len(new_content)
+    assert data["archive_error"] is None
+
+    # Verify database persistence
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
+        assert row["archive_content"] == new_content
+        assert row["archive_format"] == "markdown"
+        assert row["archive_word_count"] == 10
+        assert row["archive_char_count"] == len(new_content)
+
+
+def test_api_update_archive_from_failed_state(client):
+    """Verify updating a failed/unavailable archive recovers to completed."""
+    from database import upsert_user
+    user = upsert_user("test@example.com")
+    bookmark_id = _insert_test_bookmark(
+        user["id"],
+        url="https://example.com/blocked",
+        archive_status="failed",
+        archive_error="Cloudflare block",
+        archive_content=None,
+    )
+
+    pasted_content = "Manually pasted clean article text."
+    response = client.put(
+        f"/api/bookmarks/{bookmark_id}/archive",
+        json={"archive_content": pasted_content},
+        headers=AUTH_HEADERS,
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["archive_status"] == "completed"
+    assert data["archive_content"] == pasted_content
+    assert data["archive_error"] is None
+
+    with db_session() as conn:
+        row = conn.execute("SELECT * FROM bookmarks WHERE id = ?", (bookmark_id,)).fetchone()
+        assert row["archive_status"] == "completed"
+        assert row["archive_content"] == pasted_content
+        assert row["archive_error"] is None
+
+
+def test_api_update_archive_updates_fts(client):
+    """Verify updating archive content updates the FTS index."""
+    from database import upsert_user
+    user = upsert_user("test@example.com")
+    bookmark_id = _insert_test_bookmark(
+        user["id"],
+        url="https://example.com/fts-update",
+        archive_status="completed",
+        archive_content="OldTextBeforeEdit",
+    )
+
+    client.put(
+        f"/api/bookmarks/{bookmark_id}/archive",
+        json={"archive_content": "NewUniquetokeninmodifiedarchive body"},
+        headers=AUTH_HEADERS,
+    )
+
+    with db_session() as conn:
+        results = conn.execute(
+            "SELECT bookmark_id FROM bookmarks_fts WHERE body MATCH 'NewUniquetokeninmodifiedarchive'"
+        ).fetchall()
+        assert len(results) == 1
+        assert results[0]["bookmark_id"] == bookmark_id
+
+
+def test_api_update_archive_validation_and_isolation(client):
+    """Verify validation errors and isolation on update archive."""
+    from database import upsert_user
+    user = upsert_user("test@example.com")
+    other_user = upsert_user("other@example.com")
+
+    bookmark_id = _insert_test_bookmark(user["id"])
+    other_bookmark_id = _insert_test_bookmark(other_user["id"])
+
+    # Missing archive_content
+    res = client.put(f"/api/bookmarks/{bookmark_id}/archive", json={}, headers=AUTH_HEADERS)
+    assert res.status_code == 400
+
+    # Non-string archive_content
+    res = client.put(f"/api/bookmarks/{bookmark_id}/archive", json={"archive_content": 12345}, headers=AUTH_HEADERS)
+    assert res.status_code == 400
+
+    # Updating other user's bookmark
+    res = client.put(
+        f"/api/bookmarks/{other_bookmark_id}/archive",
+        json={"archive_content": "Hacked content"},
+        headers=AUTH_HEADERS,
+    )
+    assert res.status_code == 404
+

@@ -134,6 +134,8 @@ export const bookmarksApi = {
   retry: (id: string) => api.post(`/bookmarks/${id}/retry`),
   savePublic: (id: string) => api.post<{ bookmark: Bookmark; already_exists?: boolean }>('/bookmarks/save-public', { bookmark_id: id }),
   getArchive: (id: string) => api.get<BookmarkArchive>(`/bookmarks/${id}/archive`),
+  updateArchive: (id: string, data: { archive_content: string; archive_format?: 'markdown' | 'text' }) =>
+    api.put<BookmarkArchive>(`/bookmarks/${id}/archive`, data),
   retryArchive: (id: string) => api.post(`/bookmarks/${id}/archive/retry`),
   deleteAccount: () => api.delete('/public/account'),
 }

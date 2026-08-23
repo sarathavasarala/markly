@@ -476,6 +476,80 @@ def get_bookmark_archive(bookmark_id: str):
         return jsonify(response_data), 409
 
 
+@bookmarks_bp.route("/<bookmark_id>/archive", methods=["PUT"])
+@require_auth
+def update_bookmark_archive(bookmark_id: str):
+    """Update or replace saved archive content (owner-only)."""
+    data = request.get_json()
+    if data is None or "archive_content" not in data:
+        return jsonify({"error": "archive_content is required"}), 400
+
+    content = data.get("archive_content")
+    if not isinstance(content, str):
+        return jsonify({"error": "archive_content must be a string"}), 400
+
+    content_format = data.get("archive_format", "markdown")
+    if content_format not in ("markdown", "text"):
+        content_format = "markdown"
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            f"SELECT {BOOKMARK_COLUMNS}, archive_content FROM bookmarks WHERE id = ? AND user_id = ?",
+            (bookmark_id, g.user.id),
+        ).fetchone()
+        if not row:
+            return jsonify({"error": "Bookmark not found"}), 404
+
+        existing = row_to_dict(row)
+        now_ts = utc_now()
+        archived_at = existing.get("archived_at") or now_ts
+        word_count = len(content.split()) if content else 0
+        char_count = len(content)
+
+        update_values = {
+            "archive_content": content,
+            "archive_format": content_format,
+            "archive_status": "completed",
+            "archive_error": None,
+            "archived_at": archived_at,
+            "archive_word_count": word_count,
+            "archive_char_count": char_count,
+            "updated_at": now_ts,
+        }
+        assignments = ", ".join(f"{k} = ?" for k in update_values.keys())
+        conn.execute(
+            f"UPDATE bookmarks SET {assignments} WHERE id = ? AND user_id = ?",
+            list(update_values.values()) + [bookmark_id, g.user.id],
+        )
+        refresh_bookmark_fts(conn, bookmark_id)
+        conn.commit()
+
+        updated_row = conn.execute(
+            f"SELECT {BOOKMARK_COLUMNS}, archive_content FROM bookmarks WHERE id = ? AND user_id = ?",
+            (bookmark_id, g.user.id),
+        ).fetchone()
+        updated_data = row_to_dict(updated_row)
+
+        return jsonify({
+            "bookmark_id": updated_data["id"],
+            "url": updated_data["url"],
+            "domain": updated_data["domain"],
+            "title": updated_data["clean_title"] or updated_data["original_title"] or updated_data["url"],
+            "archive_content": updated_data.get("archive_content"),
+            "archive_format": updated_data.get("archive_format"),
+            "archive_status": updated_data.get("archive_status"),
+            "archive_error": updated_data.get("archive_error"),
+            "archived_at": updated_data.get("archived_at"),
+            "archive_word_count": updated_data.get("archive_word_count"),
+            "archive_char_count": updated_data.get("archive_char_count"),
+        }), 200
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Failed to update bookmark archive {bookmark_id}: {str(e)}")
+        return jsonify({"error": f"Failed to update archive: {str(e)}"}), 500
+
+
 @bookmarks_bp.route("/<bookmark_id>/archive/retry", methods=["POST"])
 @require_auth
 def retry_bookmark_archive(bookmark_id: str):
