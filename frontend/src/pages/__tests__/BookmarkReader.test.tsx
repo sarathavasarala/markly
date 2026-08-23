@@ -153,4 +153,27 @@ describe('BookmarkReader', () => {
     fireEvent.click(screen.getByText(/paste article \/ summary/i))
     expect(screen.getByPlaceholderText(/paste your formatted article copy/i)).toBeDefined()
   })
+
+  it('navigates back to /bookmarks or previous history when back button is clicked', async () => {
+    vi.mocked(bookmarksApi.getArchive).mockResolvedValueOnce({
+      data: {
+        bookmark_id: 'bookmark-123',
+        url: 'https://example.com/article',
+        domain: 'example.com',
+        title: 'Article Title',
+        archive_content: 'Some text',
+        archive_format: 'text',
+        archive_status: 'completed',
+      },
+    } as any)
+
+    render(<BookmarkReader />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/back to library/i)).toBeDefined()
+    })
+
+    fireEvent.click(screen.getByText(/back to library/i))
+    expect(mockNavigate).toHaveBeenCalledWith('/bookmarks')
+  })
 })

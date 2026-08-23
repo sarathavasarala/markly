@@ -169,6 +169,14 @@ export default function BookmarkReader() {
   const liveWordCount = editContent ? editContent.trim().split(/\s+/).filter(Boolean).length : 0
   const liveCharCount = editContent.length
 
+  const handleBack = () => {
+    if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
+      navigate(-1)
+    } else {
+      navigate('/bookmarks')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-500 dark:text-slate-400">
@@ -201,7 +209,7 @@ export default function BookmarkReader() {
       {/* Header Controls */}
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200/60 dark:border-slate-800/60">
         <button
-          onClick={() => navigate('/')}
+          onClick={handleBack}
           className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
